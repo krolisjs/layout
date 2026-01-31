@@ -7,6 +7,9 @@
       "email": "army8735@qq.com"
     }
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "rimraf ./types && rimraf ./dist && tsc && rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.dev.config.mjs --watch",
@@ -18,6 +21,20 @@
   "dependencies": {
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.8",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.3.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.0.10",
+    "cross-env": "^10.1.0",
+    "expect": "^30.2.0",
+    "mocha": "^10.4.0",
+    "rimraf": "^5.0.10",
+    "rollup": "^4.46.2",
+    "rollup-plugin-dts": "^6.3.0",
+    "ts-node": "^10.9.2",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
     "webstorm-disable-index": "^1.2.0"
