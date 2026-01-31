@@ -2,7 +2,6 @@ import typescript from '@rollup/plugin-typescript';
 import json from '@rollup/plugin-json';
 import commonjs from '@rollup/plugin-commonjs';
 import nodeResolve from '@rollup/plugin-node-resolve';
-import glslify from 'rollup-plugin-glslify';
 import terser from '@rollup/plugin-terser';
 import dts from 'rollup-plugin-dts';
 
@@ -34,7 +33,6 @@ export default [
     plugins: [
       nodeResolve({ preferBuiltins: false }),
       commonjs(),
-      glslify(),
       typescript({
         declaration: false,
         target: "ES2018",
