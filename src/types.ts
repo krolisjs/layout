@@ -4,7 +4,9 @@ export enum Display {
   INLINE = 2,
   INLINE_BLOCK = 3,
   FLEX = 4,
-  FLEX_LINE = 5,
+  INLINE_FLEX = 5,
+  GRID = 6,
+  INLINE_GRID = 7,
 }
 
 export enum Position {
@@ -47,4 +49,12 @@ export type Style = {
   bottom: StyleLength;
   width: StyleLength;
   height: StyleLength;
+  minWidth: StyleLength;
+  maxWidth: StyleLength;
+  minHeight: StyleLength;
+  maxHeight: StyleLength;
+};
+
+export type Hook = {
+  onConfigured: (node: Object, rect: { x: number, y: number, w: number, h: number }) => {};
 };

@@ -1,0 +1,21 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: npm install
+        run: npm install
+      - name: npm build
+        run: npm run build
+      - name: npm test
+        run: npm run test
+        env:
+          NODE_OPTIONS: "--import ts-node/esm --no-warnings"

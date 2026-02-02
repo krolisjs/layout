@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",           // 重点：强制转为 CJS
+    "moduleResolution": "NodeNext",     // 重点：允许自动寻找 index.ts
+    "target": "ESNext",
+    "esModuleInterop": true,
+    "allowJs": true,
+    "noEmit": false,
+    "allowImportingTsExtensions": true,
+    "types": [
+      "mocha",
+    ]
+  },
+  "ts-node": {
+    "esm": true,                // 关键：开启 ESM 模式支持
+    "experimentalSpecifierResolution": "node" // 允许不写 .js 后缀
+  },
+  "include": [
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
