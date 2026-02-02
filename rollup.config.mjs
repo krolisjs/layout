@@ -18,13 +18,13 @@ export default [
         file: 'dist/index.iife.js',
         format: 'iife',
         sourcemap: true,
-        name: '@krolis/layout',
+        name: 'krolisLayout',
       },
       {
         file: 'dist/index.iife.min.js',
         format: 'iife',
         sourcemap: true,
-        name: '@krolis/layout',
+        name: 'krolisLayout',
         plugins: [
           terser(),
         ],

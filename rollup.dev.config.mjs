@@ -17,7 +17,7 @@ export default [
         file: 'dist/index.iife.js',
         format: 'iife',
         sourcemap: true,
-        name: '@krolis/layout',
+        name: 'krolisLayout',
       },
     ],
     plugins: [
