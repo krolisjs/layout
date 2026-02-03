@@ -54,7 +54,3 @@ export type Style = {
   minHeight: StyleLength;
   maxHeight: StyleLength;
 };
-
-export type Hook = {
-  onConfigured: (node: Object, rect: { x: number, y: number, w: number, h: number }) => {};
-};
