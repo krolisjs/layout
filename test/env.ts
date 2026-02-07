@@ -2,13 +2,11 @@ import type { Style } from '../dist/index.js';
 import { AbstractNode, Layout, Node, Text } from '../dist/index.js';
 
 type Item = {
-  id: number;
   style: Partial<Style>;
   children?: Item[];
   label?: string;
   layout?: Layout;
 } | {
-  id: number;
   style: Partial<Style>;
   content: string;
   label?: string;
@@ -23,9 +21,11 @@ export function genNode(item: Item) {
   else {
     node = new Node(item.style, [], item);
     if (item.children) {
-      node.children = item.children.map(item => genNode(item));
+      item.children.forEach(child => {
+        const n = genNode(child);
+        (node as Node).appendChild(n);
+      });
     }
   }
-  node.label = item.id.toString();
   return node;
 }

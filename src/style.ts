@@ -57,6 +57,10 @@ export type Style = {
   left: Length;
   width: Length;
   height: Length;
+  borderTopWidth: Length;
+  borderRightWidth: Length;
+  borderBottomWidth: Length;
+  borderLeftWidth: Length;
   // minWidth: Length;
   // maxWidth: Length;
   // minHeight: Length;
@@ -82,6 +86,10 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
     left: { v: 0, u: Unit.AUTO },
     width: { v: 0, u: Unit.AUTO },
     height: { v: 0, u: Unit.AUTO },
+    borderTopWidth: { v: 0, u: Unit.PX },
+    borderRightWidth: { v: 0, u: Unit.PX },
+    borderBottomWidth: { v: 0, u: Unit.PX },
+    borderLeftWidth: { v: 0, u: Unit.PX },
   };
   if (style) {
     Object.assign(dft, style);

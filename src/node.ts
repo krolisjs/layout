@@ -15,7 +15,7 @@ type Options = {
 export abstract class AbstractNode {
   nodeType: NodeType;
   style: Style;
-  children: AbstractNode[] = [];
+  readonly children: AbstractNode[] = [];
   label: string = '';
   layout: Layout | null = null;
   parent: Node | null = null;
@@ -55,6 +55,7 @@ export abstract class AbstractNode {
         }
         node.next = this;
         this.prev = node;
+        node.layout = this.parent.layout;
         this.parent.children.splice(i, 0, node);
       }
     }
@@ -71,6 +72,7 @@ export abstract class AbstractNode {
         }
         node.next = this.next;
         this.next = node;
+        node.layout = this.parent.layout;
         this.parent.children.splice(i + 1, 0, node);
       }
     }
@@ -84,7 +86,7 @@ export abstract class AbstractNode {
 
   lay(x: number, y: number, w: number, h: number, ctx?: Context<AbstractNode>) {
     if (!this.layout) {
-      throw new Error('Missing layout: ' + this);
+      throw new Error('Missing layout: ' + this.label);
     }
     if (!ctx) {
       ctx = {
@@ -128,16 +130,19 @@ export class Node extends AbstractNode {
 
   appendChild(item: AbstractNode) {
     this.children.push(item);
+    item.layout = this.layout;
   }
 
   prependChild(item: AbstractNode) {
     this.children.unshift(item);
+    item.layout = this.layout;
   }
 
   removeChild(item: AbstractNode) {
     const i = this.children.indexOf(item);
     if (i > -1) {
       this.children.splice(i, 1);
+      item.layout = null;
     }
   }
 }

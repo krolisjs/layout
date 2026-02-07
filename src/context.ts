@@ -11,5 +11,5 @@ export interface Context<T extends object = any> {
 
   readonly onConfigured: (node: T, rect: Rect) => void; // 结果钩子
 
-  label?: string;
+  label?: string; // debug信息
 }

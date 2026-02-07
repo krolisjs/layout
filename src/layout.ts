@@ -14,6 +14,10 @@ export type Rect = {
   paddingRight: number,
   paddingBottom: number,
   paddingLeft: number,
+  borderTopWidth: number,
+  borderRightWidth: number,
+  borderBottomWidth: number,
+  borderLeftWidth: number,
 };
 
 export type MeasureText = (text: string, fontFamily: string, fontSize: number, fontWeight?: number, fontStyle?: string, letterSpacing?: number) => { width: number; height: number };
@@ -66,7 +70,7 @@ export class Layout<T extends object = any> {
   end(ctx: Context<T>) {
     const nodeStack = this.ctxNodeStack.get(ctx);
     if (!nodeStack) {
-      throw new Error('Context Error: Context not found. Ensure \'start(ctx)\' is called before \'end(ctx)\'.' + ctx);
+      throw new Error('Context Error: Context not found. Ensure \'start(ctx)\' is called before \'end(ctx)\'. ' + ctx.label);
     }
     if (!nodeStack.length) {
       throw new Error('Stack Error: Attempted to end a node but the stack is already empty. This indicates an extra \'end()\' call or missing \'begin()\'.');
@@ -78,6 +82,39 @@ export class Layout<T extends object = any> {
   block(ctx: Context<T>, nodeRect: WeakMap<T, Rect>, node: T, style: Style,
          ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {
+    const res = this.preset(style, ox, oy, aw, ah, pbw, pbh);
+    nodeRect.set(node, res);
+  }
+
+  inline(ctx: Context<T>, node: T, style: Style,
+              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
+  ) {}
+
+  inlineBlock(ctx: Context<T>, node: T, style: Style,
+              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
+  ) {}
+
+  flex(ctx: Context<T>, node: T, style: Style,
+              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
+  ) {}
+
+  inlineFlex(ctx: Context<T>, node: T, style: Style,
+             ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
+  ) {}
+
+  grid(ctx: Context<T>, node: T, style: Style,
+             ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
+  ) {}
+
+  inlineGrid(ctx: Context<T>, node: T, style: Style,
+                   ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
+  ) {}
+
+  absolute(ctx: Context<T>, node: T, style: Style,
+                 ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
+  ) {}
+
+  preset(style: Style, ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah) {
     const res: Rect = {
       x: 0,
       y: 0,
@@ -91,6 +128,10 @@ export class Layout<T extends object = any> {
       paddingRight: 0,
       paddingBottom: 0,
       paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
     };
     ([
       'marginTop',
@@ -105,6 +146,20 @@ export class Layout<T extends object = any> {
       const { v, u } = style[k];
       if ([Unit.AUTO, Unit.PX].includes(u)) {
         res[k] = 0;
+      }
+      else if (u === Unit.PERCENT) {
+        res[k] = v * 0.01 * pbw;
+      }
+    });
+    ([
+      'borderTopWidth',
+      'borderRightWidth',
+      'borderBottomWidth',
+      'borderLeftWidth',
+    ] as const).forEach(k => {
+      const { v, u } = style[k];
+      if (u === Unit.PX) {
+        res[k] = v;
       }
       else if (u === Unit.PERCENT) {
         res[k] = v * 0.01 * pbw;
@@ -127,34 +182,6 @@ export class Layout<T extends object = any> {
     else if (style.width.u === Unit.PERCENT) {
       res.h = style.height.v * 0.01 * pbh;
     }
-    nodeRect.set(node, res);
+    return res;
   }
-
-  inline(ctx: Context<T>, node: T, style: Style,
-              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  layoutInlineBlock(ctx: Context<T>, node: T, style: Style,
-              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  layoutFlex(ctx: Context<T>, node: T, style: Style,
-              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  layoutInlineFlex(ctx: Context<T>, node: T, style: Style,
-             ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  layoutGrid(ctx: Context<T>, node: T, style: Style,
-             ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  layoutInlineGrid(ctx: Context<T>, node: T, style: Style,
-                   ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  absolute(ctx: Context<T>, node: T, style: Style,
-                 ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
 }
