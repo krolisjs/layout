@@ -2,22 +2,31 @@ import { Context } from './context';
 import { Display, Position, Style, Unit } from './style';
 
 export type Rect = {
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  marginTop: number,
-  marginRight: number,
-  marginBottom: number,
-  marginLeft: number,
-  paddingTop: number,
-  paddingRight: number,
-  paddingBottom: number,
-  paddingLeft: number,
-  borderTopWidth: number,
-  borderRightWidth: number,
-  borderBottomWidth: number,
-  borderLeftWidth: number,
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  marginTop: number;
+  marginRight: number;
+  marginBottom: number;
+  marginLeft: number;
+  paddingTop: number;
+  paddingRight: number;
+  paddingBottom: number;
+  paddingLeft: number;
+  borderTopWidth: number;
+  borderRightWidth: number;
+  borderBottomWidth: number;
+  borderLeftWidth: number;
+};
+
+export type Constraints = {
+  ox: number;
+  oy: number;
+  aw: number;
+  ah: number;
+  pbw: number;
+  pbh: number;
 };
 
 export type MeasureText = (text: string, fontFamily: string, fontSize: number, fontWeight?: number, fontStyle?: string, letterSpacing?: number) => { width: number; height: number };
@@ -28,6 +37,7 @@ export class Layout<T extends object = any> {
   private ctxNodeStack: WeakMap<Context<T>, T[]> = new WeakMap();
   // 过程中暂存结果，等待结束钩子回调
   private ctxNodeRect: WeakMap<Context<T>, WeakMap<T, Rect>> = new WeakMap();
+  // private ctxNodeRes: WeakMap<Context<T>, T[]> = new WeakMap();
 
   constructor(measureText?: MeasureText) {
     this.measureText = measureText;
@@ -57,13 +67,13 @@ export class Layout<T extends object = any> {
     }
     nodeStack.push(node);
     if (style.position === Position.ABSOLUTE) {
-      this.absolute(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+      return this.absolute(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
     }
     else if (style.display === Display.INLINE) {
-      this.inline(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+      return this.inline(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
     }
     else {
-      this.block(ctx, nodeRect, node, style, ox, oy, aw, ah, pbw, pbh);
+      return this.block(ctx, nodeRect, node, style, ox, oy, aw, ah, pbw, pbh);
     }
   }
 
@@ -82,13 +92,30 @@ export class Layout<T extends object = any> {
   block(ctx: Context<T>, nodeRect: WeakMap<T, Rect>, node: T, style: Style,
          ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {
-    const res = this.preset(style, ox, oy, aw, ah, pbw, pbh);
+    const res = this.preset(ctx, style, ox, oy, aw, ah, pbw, pbh);
     nodeRect.set(node, res);
+    const constraints: Constraints = { ox, oy, aw, ah, pbw, pbh };
+    if (res.width !== aw) {
+      constraints.aw = res.width;
+      if ([Position.ABSOLUTE, Position.RELATIVE].includes(style.position)) {
+        constraints.pbw = res.width;
+      }
+    }
+    if (res.height !== ah) {
+      constraints.ah = res.height;
+      if ([Position.ABSOLUTE, Position.RELATIVE].includes(style.position)) {
+        constraints.pbh = res.height;
+      }
+    }
+    return constraints;
   }
 
   inline(ctx: Context<T>, node: T, style: Style,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
+  ) {
+    const constraints: Constraints = { ox, oy, aw, ah, pbw, pbh };
+    return constraints;
+  }
 
   inlineBlock(ctx: Context<T>, node: T, style: Style,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
@@ -112,14 +139,17 @@ export class Layout<T extends object = any> {
 
   absolute(ctx: Context<T>, node: T, style: Style,
                  ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
+  ) {
+    const constraints: Constraints = { ox, oy, aw, ah, pbw, pbh };
+    return constraints;
+  }
 
-  preset(style: Style, ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah) {
+  preset(ctx: Context<T>, style: Style, ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah) {
     const res: Rect = {
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
+      x: ox,
+      y: oy,
+      width: 0,
+      height: 0,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
@@ -133,6 +163,7 @@ export class Layout<T extends object = any> {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
     };
+    const fontSize = ctx.em || 16;
     ([
       'marginTop',
       'marginRight',
@@ -150,6 +181,9 @@ export class Layout<T extends object = any> {
       else if (u === Unit.PERCENT) {
         res[k] = v * 0.01 * pbw;
       }
+      else if (u === Unit.EM) {
+        res[k] = v * fontSize;
+      }
     });
     ([
       'borderTopWidth',
@@ -161,26 +195,32 @@ export class Layout<T extends object = any> {
       if (u === Unit.PX) {
         res[k] = v;
       }
-      else if (u === Unit.PERCENT) {
-        res[k] = v * 0.01 * pbw;
+      else if (u === Unit.EM) {
+        res[k] = v * fontSize;
       }
     });
 
     if (style.width.u === Unit.AUTO) {
-      res.w = aw;
+      res.width = aw;
     }
     else if (style.width.u === Unit.PX) {
-      res.w = style.width.v;
+      res.width = style.width.v;
     }
     else if (style.width.u === Unit.PERCENT) {
-      res.w = style.width.v * 0.01 * pbw;
+      res.width = style.width.v * 0.01 * pbw;
     }
-    let h = 0;
-    if (style.width.u === Unit.PX) {
-      res.h = style.height.v;
+    else if (style.width.u === Unit.EM) {
+      res.width = style.width.v * fontSize;
     }
-    else if (style.width.u === Unit.PERCENT) {
-      res.h = style.height.v * 0.01 * pbh;
+
+    if (style.height.u === Unit.PX) {
+      res.height = style.height.v;
+    }
+    else if (style.height.u === Unit.PERCENT) {
+      res.height = style.height.v * 0.01 * pbh;
+    }
+    else if (style.height.u === Unit.EM) {
+      res.height = style.height.v * fontSize;
     }
     return res;
   }

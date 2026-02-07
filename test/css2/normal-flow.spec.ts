@@ -10,6 +10,66 @@ describe('normal-flow', () => {
     layout = new Layout();
   });
 
+  it('blocks-011', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: { v: 3, u: Unit.EM },
+        height: { v: 1, u: Unit.EM },
+      },
+      layout,
+      children: [{
+        label: '1',
+        style: {
+          width: { v: 0, u: Unit.AUTO },
+          height: { v: 1, u: Unit.EM },
+          borderRightWidth: { v: 1, u: Unit.EM },
+          borderLeftWidth: { v: 1, u: Unit.EM },
+        },
+      }],
+    });
+    node.lay(null, 0, 0, 300, 100);
+    expect(node.label).toBe('0');
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      width: 48,
+      height: 16,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+    });
+    const child = node.children[0];
+    expect(child.label).toBe('1');
+    expect(child.rect).toEqual({
+      x: 0,
+      y: 0,
+      width: 48,
+      height: 16,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 16,
+      borderBottomWidth: 0,
+      borderLeftWidth: 16,
+    });
+  });
+
   it('blocks-020-ref', () => {
     const node = genNode({
       label: '0',
@@ -19,13 +79,12 @@ describe('normal-flow', () => {
       },
       layout,
     });
-    node.lay(0, 0, 300, 100);
-    expect(node.label).toBe('0');
+    node.lay(null, 0, 0, 300, 100);
     expect(node.rect).toEqual({
       x: 0,
       y: 0,
-      w: 300,
-      h: 100,
+      width: 300,
+      height: 100,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
@@ -61,14 +120,13 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(0, 0, 300, 100);
+    node.lay(null, 0, 0, 300, 100);
     const child = node.children[0];
-    expect(child.label).toBe('1');
     expect(child.rect).toEqual({
       x: 0,
       y: 0,
-      w: 150,
-      h: 100,
+      width: 150,
+      height: 100,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
