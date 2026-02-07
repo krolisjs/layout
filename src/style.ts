@@ -19,12 +19,14 @@ export enum Unit {
   AUTO = 0,
   INHERIT = 1,
   PX = 2,
-  PERCENT = 3,
-  NUMBER = 4,
-  VW = 5,
-  VH = 6,
-  VMAX = 7,
-  VMIN = 8,
+  EM = 3,
+  REM = 4,
+  PERCENT = 5,
+  NUMBER = 6,
+  VW = 7,
+  VH = 8,
+  VMAX = 9,
+  VMIN = 10,
 }
 
 export enum BoxSizing {
@@ -32,7 +34,7 @@ export enum BoxSizing {
   BORDER_BOX = 1,
 }
 
-export type StyleLength = {
+export type Length = {
   v: number;
   u: Unit;
 };
@@ -41,16 +43,16 @@ export type Style = {
   boxSizing: BoxSizing;
   display: Display;
   position: Position;
-  margin: StyleLength;
-  padding: StyleLength;
-  left: StyleLength;
-  top: StyleLength;
-  right: StyleLength;
-  bottom: StyleLength;
-  width: StyleLength;
-  height: StyleLength;
-  minWidth: StyleLength;
-  maxWidth: StyleLength;
-  minHeight: StyleLength;
-  maxHeight: StyleLength;
+  margin: Length;
+  padding: Length;
+  left: Length;
+  top: Length;
+  right: Length;
+  bottom: Length;
+  width: Length;
+  height: Length;
+  minWidth: Length;
+  maxWidth: Length;
+  minHeight: Length;
+  maxHeight: Length;
 };

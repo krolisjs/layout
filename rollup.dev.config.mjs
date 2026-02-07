@@ -25,14 +25,15 @@ export default [
       commonjs(),
       typescript({
         declaration: false,
-        target: "ES2018",
+        target: 'ES2018',
+        incremental: true,
       }),
       json(),
     ],
   },
   // 归并 .d.ts 文件
   {
-    input: 'types/index.d.ts',
+    input: 'src/index.ts',
     output: {
       file: 'dist/index.d.ts',
       format: 'es',
@@ -41,5 +42,9 @@ export default [
       // 将类型文件全部集中到一个文件中
       dts(),
     ],
+    watch: {
+      include: 'src/**',
+      clearScreen: false
+    },
   },
 ];

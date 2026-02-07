@@ -11,7 +11,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf ./types && rimraf ./dist && tsc && rollup -c rollup.config.mjs",
+    "build": "tsc && rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.dev.config.mjs --watch",
     "test": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS='--import ts-node/esm --no-warnings' mocha"
   },
@@ -31,7 +31,6 @@
     "cross-env": "^10.1.0",
     "expect": "^30.2.0",
     "mocha": "^10.4.0",
-    "rimraf": "^5.0.10",
     "rollup": "^4.46.2",
     "rollup-plugin-dts": "^6.3.0",
     "ts-node": "^10.9.2",

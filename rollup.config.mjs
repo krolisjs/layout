@@ -35,14 +35,14 @@ export default [
       commonjs(),
       typescript({
         declaration: false,
-        target: "ES2018",
+        target: 'ES2018',
       }),
       json(),
     ],
   },
   // 归并 .d.ts 文件
   {
-    input: 'types/index.d.ts',
+    input: 'src/index.ts',
     output: {
       file: 'dist/index.d.ts',
       format: 'es',

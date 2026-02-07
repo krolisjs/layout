@@ -1,7 +1,8 @@
 import { Context, LayoutMode } from './context';
-import { Layout } from './Layout';
-import { BoxSizing, Display, Position, Style, StyleLength, Unit } from './types';
+import { Layout } from './layout';
+import { Node } from './node';
+import { BoxSizing, Display, Position, Style, Length, Unit } from './style';
 
-export { BoxSizing, Context, Display, Layout, LayoutMode, Position, Unit };
+export { BoxSizing, Context, Display, Layout, LayoutMode, Node, Position, Unit };
 
-export type { Style, StyleLength };
+export type { Style, Length };

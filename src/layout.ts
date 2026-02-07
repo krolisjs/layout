@@ -1,8 +1,10 @@
 import { Context } from './context';
-import { Display, Position, Style } from './types';
+import { Display, Position, Style } from './style';
 
-export class Layout {
-  private ctxStorage: WeakMap<Context, any>; // 入口发起调用开始一次布局传入同一个ctx引用来识别
+let layout: Layout | undefined;
+
+export class Layout<T extends object = any> {
+  private ctxStorage: WeakMap<Context<T>, any>; // 入口发起调用开始一次布局传入同一个ctx引用来识别
 
   constructor() {
     this.ctxStorage = new WeakMap();
@@ -19,7 +21,7 @@ export class Layout {
    * @param pbw       - 百分比计算基准 (数字)
    * @param pbh
    */
-  layout(ctx: Context, node: object, style: Partial<Style>,
+  layout(ctx: Context<T>, node: T, style: Partial<Style>,
          ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {
     if (style.position === Position.ABSOLUTE) {
@@ -33,35 +35,42 @@ export class Layout {
     }
   }
 
-  layoutBlock(ctx: Context, node: object, style: Partial<Style>,
+  layoutBlock(ctx: Context<T>, node: T, style: Partial<Style>,
          ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutInline(ctx: Context, node: object, style: Partial<Style>,
+  layoutInline(ctx: Context<T>, node: T, style: Partial<Style>,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutInlineBlock(ctx: Context, node: object, style: Partial<Style>,
+  layoutInlineBlock(ctx: Context<T>, node: T, style: Partial<Style>,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutFlex(ctx: Context, node: object, style: Partial<Style>,
+  layoutFlex(ctx: Context<T>, node: T, style: Partial<Style>,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutInlineFlex(ctx: Context, node: object, style: Partial<Style>,
+  layoutInlineFlex(ctx: Context<T>, node: T, style: Partial<Style>,
              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutGrid(ctx: Context, node: object, style: Partial<Style>,
+  layoutGrid(ctx: Context<T>, node: T, style: Partial<Style>,
              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutInlineGrid(ctx: Context, node: object, style: Partial<Style>,
+  layoutInlineGrid(ctx: Context<T>, node: T, style: Partial<Style>,
                    ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutAbsolute(ctx: Context, node: object, style: Partial<Style>,
+  layoutAbsolute(ctx: Context<T>, node: T, style: Partial<Style>,
                  ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
+
+  static getInstance() {
+    if (!layout) {
+      layout = new Layout();
+    }
+    return layout;
+  }
 }
