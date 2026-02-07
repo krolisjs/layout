@@ -43,16 +43,48 @@ export type Style = {
   boxSizing: BoxSizing;
   display: Display;
   position: Position;
-  margin: Length;
-  padding: Length;
-  left: Length;
+  marginTop: Length;
+  marginRight: Length;
+  marginBottom: Length;
+  marginLeft: Length;
+  paddingTop: Length;
+  paddingRight: Length;
+  paddingBottom: Length;
+  paddingLeft: Length;
   top: Length;
   right: Length;
   bottom: Length;
+  left: Length;
   width: Length;
   height: Length;
-  minWidth: Length;
-  maxWidth: Length;
-  minHeight: Length;
-  maxHeight: Length;
+  // minWidth: Length;
+  // maxWidth: Length;
+  // minHeight: Length;
+  // maxHeight: Length;
 };
+
+export const getDefaultStyle = (style?: Partial<Style>) => {
+  const dft: Style = {
+    boxSizing: BoxSizing.BORDER_BOX,
+    display: Display.BLOCK,
+    position: Position.STATIC,
+    marginTop: { v: 0, u: Unit.PX },
+    marginRight: { v: 0, u: Unit.PX },
+    marginBottom: { v: 0, u: Unit.PX },
+    marginLeft: { v: 0, u: Unit.PX },
+    paddingTop: { v: 0, u: Unit.PX },
+    paddingRight: { v: 0, u: Unit.PX },
+    paddingBottom: { v: 0, u: Unit.PX },
+    paddingLeft: { v: 0, u: Unit.PX },
+    top: { v: 0, u: Unit.AUTO },
+    right: { v: 0, u: Unit.AUTO },
+    bottom: { v: 0, u: Unit.AUTO },
+    left: { v: 0, u: Unit.AUTO },
+    width: { v: 0, u: Unit.AUTO },
+    height: { v: 0, u: Unit.AUTO },
+  };
+  if (style) {
+    Object.assign(dft, style);
+  }
+  return dft;
+}

@@ -1,13 +1,32 @@
 import { Context } from './context';
-import { Display, Position, Style } from './style';
+import { Display, Position, Style, Unit } from './style';
 
-let layout: Layout | undefined;
+export type Rect = {
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  marginTop: number,
+  marginRight: number,
+  marginBottom: number,
+  marginLeft: number,
+  paddingTop: number,
+  paddingRight: number,
+  paddingBottom: number,
+  paddingLeft: number,
+};
+
+export type MeasureText = (text: string, fontFamily: string, fontSize: number, fontWeight?: number, fontStyle?: string, letterSpacing?: number) => { width: number; height: number };
 
 export class Layout<T extends object = any> {
-  private ctxStorage: WeakMap<Context<T>, any>; // 入口发起调用开始一次布局传入同一个ctx引用来识别
+  private measureText?: MeasureText;
+  // 指令式无法感知tree结构，只能在入口begin时机存入栈，等待end出栈，过程中的节点就是先序遍历的节点
+  private ctxNodeStack: WeakMap<Context<T>, T[]> = new WeakMap();
+  // 过程中暂存结果，等待结束钩子回调
+  private ctxNodeRect: WeakMap<Context<T>, WeakMap<T, Rect>> = new WeakMap();
 
-  constructor() {
-    this.ctxStorage = new WeakMap();
+  constructor(measureText?: MeasureText) {
+    this.measureText = measureText;
   }
 
   /**
@@ -21,56 +40,121 @@ export class Layout<T extends object = any> {
    * @param pbw       - 百分比计算基准 (数字)
    * @param pbh
    */
-  layout(ctx: Context<T>, node: T, style: Partial<Style>,
+  begin(ctx: Context<T>, node: T, style: Style,
          ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {
-    if (style.position === Position.ABSOLUTE) {
-      return this.layoutAbsolute(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+    // 每次发起调用以ctx是否为新的作为入口判断
+    const isEntry = !this.ctxNodeStack.has(ctx);
+    const nodeStack = isEntry ? [] : this.ctxNodeStack.get(ctx)!;
+    const nodeRect = isEntry ? new WeakMap() : this.ctxNodeRect.get(ctx)!;
+    if (isEntry) {
+      this.ctxNodeStack.set(ctx, nodeStack);
+      this.ctxNodeRect.set(ctx, nodeRect);
     }
-    else if (style.display === Display.BLOCK) {
-      return this.layoutBlock(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+    nodeStack.push(node);
+    if (style.position === Position.ABSOLUTE) {
+      this.absolute(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
     }
     else if (style.display === Display.INLINE) {
-      return this.layoutInline(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+      this.inline(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+    }
+    else {
+      this.block(ctx, nodeRect, node, style, ox, oy, aw, ah, pbw, pbh);
     }
   }
 
-  layoutBlock(ctx: Context<T>, node: T, style: Partial<Style>,
+  end(ctx: Context<T>) {
+    const nodeStack = this.ctxNodeStack.get(ctx);
+    if (!nodeStack) {
+      throw new Error('Context Error: Context not found. Ensure \'start(ctx)\' is called before \'end(ctx)\'.' + ctx);
+    }
+    if (!nodeStack.length) {
+      throw new Error('Stack Error: Attempted to end a node but the stack is already empty. This indicates an extra \'end()\' call or missing \'begin()\'.');
+    }
+    const node = nodeStack.pop()!;
+    ctx.onConfigured(node, this.ctxNodeRect.get(ctx)!.get(node)!);
+  }
+
+  block(ctx: Context<T>, nodeRect: WeakMap<T, Rect>, node: T, style: Style,
          ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
+  ) {
+    const res: Rect = {
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+    };
+    ([
+      'marginTop',
+      'marginRight',
+      'marginBottom',
+      'marginLeft',
+      'paddingTop',
+      'paddingRight',
+      'paddingBottom',
+      'paddingLeft',
+    ] as const).forEach(k => {
+      const { v, u } = style[k];
+      if ([Unit.AUTO, Unit.PX].includes(u)) {
+        res[k] = 0;
+      }
+      else if (u === Unit.PERCENT) {
+        res[k] = v * 0.01 * pbw;
+      }
+    });
 
-  layoutInline(ctx: Context<T>, node: T, style: Partial<Style>,
+    if (style.width.u === Unit.AUTO) {
+      res.w = aw;
+    }
+    else if (style.width.u === Unit.PX) {
+      res.w = style.width.v;
+    }
+    else if (style.width.u === Unit.PERCENT) {
+      res.w = style.width.v * 0.01 * pbw;
+    }
+    let h = 0;
+    if (style.width.u === Unit.PX) {
+      res.h = style.height.v;
+    }
+    else if (style.width.u === Unit.PERCENT) {
+      res.h = style.height.v * 0.01 * pbh;
+    }
+    nodeRect.set(node, res);
+  }
+
+  inline(ctx: Context<T>, node: T, style: Style,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutInlineBlock(ctx: Context<T>, node: T, style: Partial<Style>,
+  layoutInlineBlock(ctx: Context<T>, node: T, style: Style,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutFlex(ctx: Context<T>, node: T, style: Partial<Style>,
+  layoutFlex(ctx: Context<T>, node: T, style: Style,
               ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutInlineFlex(ctx: Context<T>, node: T, style: Partial<Style>,
+  layoutInlineFlex(ctx: Context<T>, node: T, style: Style,
              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutGrid(ctx: Context<T>, node: T, style: Partial<Style>,
+  layoutGrid(ctx: Context<T>, node: T, style: Style,
              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutInlineGrid(ctx: Context<T>, node: T, style: Partial<Style>,
+  layoutInlineGrid(ctx: Context<T>, node: T, style: Style,
                    ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
 
-  layoutAbsolute(ctx: Context<T>, node: T, style: Partial<Style>,
+  absolute(ctx: Context<T>, node: T, style: Style,
                  ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
   ) {}
-
-  static getInstance() {
-    if (!layout) {
-      layout = new Layout();
-    }
-    return layout;
-  }
 }

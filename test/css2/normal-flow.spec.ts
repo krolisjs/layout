@@ -17,13 +17,23 @@ describe('normal-flow', () => {
         width: { v: 300, u: Unit.PX },
         height: { v: 100, u: Unit.PX },
       },
+      layout,
     });
     node.lay(0, 0, 300, 100);
-    console.log(node);
-    expect(node.id).toBe(0);
-    expect(node.rect?.x).toBe(0);
-    expect(node.rect?.y).toBe(0);
-    expect(node.rect?.w).toBe(300);
-    expect(node.rect?.h).toBe(100);
+    expect(node.label).toBe('0');
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 300,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0
+    });
   });
 });
