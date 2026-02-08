@@ -102,6 +102,10 @@ export class Layout<T extends object = any> {
       pbw: res.w,
       pbh: res.h,
     };
+    if (style.width.u === Unit.AUTO) {
+      constraints.pbw = constraints.aw = res.w =
+        Math.max(0, aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
+    }
     return constraints;
   }
 
@@ -195,10 +199,7 @@ export class Layout<T extends object = any> {
       }
     });
 
-    if (style.width.u === Unit.AUTO) {
-      res.w = aw;
-    }
-    else if (style.width.u === Unit.PX) {
+    if (style.width.u === Unit.PX) {
       res.w = style.width.v;
     }
     else if (style.width.u === Unit.PERCENT) {

@@ -21,8 +21,8 @@ describe('normal-flow', () => {
         label: '1',
         style: {
           height: '1em',
-          borderRightWidth: '1em',
-          borderLeftWidth: '1em',
+          borderRightWidth: '2em',
+          borderLeftWidth: '2em',
         },
       }],
     });
@@ -51,7 +51,7 @@ describe('normal-flow', () => {
     expect(child.rect).toEqual({
       x: 0,
       y: 0,
-      w: 48,
+      w: 0,
       h: 16,
       marginTop: 0,
       marginRight: 0,
@@ -62,13 +62,13 @@ describe('normal-flow', () => {
       paddingBottom: 0,
       paddingLeft: 0,
       borderTopWidth: 0,
-      borderRightWidth: 16,
+      borderRightWidth: 32,
       borderBottomWidth: 0,
-      borderLeftWidth: 16,
+      borderLeftWidth: 32,
     });
   });
 
-  it('blocks-012-ref', () => {
+  it('blocks-012', () => {
     const node = genNode({
       label: '0',
       style: {
@@ -89,7 +89,7 @@ describe('normal-flow', () => {
     expect(child.rect).toEqual({
       x: 0,
       y: 0,
-      w: 48,
+      w: 0,
       h: 0,
       marginTop: 0,
       marginRight: 0,
@@ -103,6 +103,45 @@ describe('normal-flow', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+    });
+  });
+
+  it('blocks-014', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: '5em',
+        height: '1em',
+      },
+      layout,
+      children: [{
+        label: '1',
+        style: {
+          height: '1em',
+          borderRightWidth: '2em',
+          borderLeftWidth: '2em',
+        },
+      }],
+    });
+    node.lay(null, 0, 0, 9999, 9999);
+    const child = node.children[0];
+    expect(child.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 16,
+      h: 16,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 32,
+      borderBottomWidth: 0,
+      borderLeftWidth: 32,
     });
   });
 
