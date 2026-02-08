@@ -162,12 +162,27 @@ export class Layout<T extends object = any> {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
     };
-    const fontSize = ctx.em || 16;
+    const em = ctx.em || 16;
+
     ([
       'marginTop',
       'marginRight',
       'marginBottom',
       'marginLeft',
+    ] as const).forEach(k => {
+      const { v, u } = style[k];
+      if ([Unit.AUTO, Unit.PX].includes(u)) {
+        res[k] = 0;
+      }
+      else if (u === Unit.PERCENT) {
+        res[k] = v * 0.01 * pbw;
+      }
+      else if (u === Unit.EM) {
+        res[k] = v * em;
+      }
+    });
+
+    ([
       'paddingTop',
       'paddingRight',
       'paddingBottom',
@@ -178,12 +193,13 @@ export class Layout<T extends object = any> {
         res[k] = 0;
       }
       else if (u === Unit.PERCENT) {
-        res[k] = v * 0.01 * pbw;
+        res[k] = Math.max(0, v * 0.01 * pbw);
       }
       else if (u === Unit.EM) {
-        res[k] = v * fontSize;
+        res[k] = Math.max(0, v * em);
       }
     });
+
     ([
       'borderTopWidth',
       'borderRightWidth',
@@ -192,10 +208,10 @@ export class Layout<T extends object = any> {
     ] as const).forEach(k => {
       const { v, u } = style[k];
       if (u === Unit.PX) {
-        res[k] = v;
+        res[k] = Math.max(0, v);
       }
       else if (u === Unit.EM) {
-        res[k] = v * fontSize;
+        res[k] = Math.max(0, v * em);
       }
     });
 
@@ -206,20 +222,20 @@ export class Layout<T extends object = any> {
       res.w = Math.max(0, style.width.v * 0.01 * pbw);
     }
     else if (style.width.u === Unit.EM) {
-      res.w = style.width.v * fontSize;
+      res.w = Math.max(0, style.width.v * em);
     }
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
     }
 
     if (style.height.u === Unit.PX) {
-      res.h = style.height.v;
+      res.h = Math.max(0, style.height.v);
     }
     else if (style.height.u === Unit.PERCENT) {
-      res.h = style.height.v * 0.01 * pbh;
+      res.h = Math.max(0, style.height.v * 0.01 * pbh);
     }
     else if (style.height.u === Unit.EM) {
-      res.h = style.height.v * fontSize;
+      res.h = Math.max(0, style.height.v * em);
     }
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
