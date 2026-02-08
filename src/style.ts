@@ -95,7 +95,7 @@ export type JStyle = {
 
 export const getDefaultStyle = (style?: Partial<Style>) => {
   const dft: Style = {
-    boxSizing: BoxSizing.BORDER_BOX,
+    boxSizing: BoxSizing.CONTENT_BOX,
     display: Display.BLOCK,
     position: Position.STATIC,
     marginTop: { v: 0, u: Unit.PX },

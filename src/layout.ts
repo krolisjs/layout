@@ -1,5 +1,5 @@
 import { Context } from './context';
-import { Display, Position, Style, Unit } from './style';
+import { BoxSizing, Display, Position, Style, Unit } from './style';
 
 export type Rect = {
   x: number;
@@ -200,13 +200,16 @@ export class Layout<T extends object = any> {
     });
 
     if (style.width.u === Unit.PX) {
-      res.w = style.width.v;
+      res.w = Math.max(0, style.width.v);
     }
     else if (style.width.u === Unit.PERCENT) {
-      res.w = style.width.v * 0.01 * pbw;
+      res.w = Math.max(0, style.width.v * 0.01 * pbw);
     }
     else if (style.width.u === Unit.EM) {
       res.w = style.width.v * fontSize;
+    }
+    if (style.boxSizing === BoxSizing.BORDER_BOX) {
+      res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
     }
 
     if (style.height.u === Unit.PX) {
@@ -217,6 +220,9 @@ export class Layout<T extends object = any> {
     }
     else if (style.height.u === Unit.EM) {
       res.h = style.height.v * fontSize;
+    }
+    if (style.boxSizing === BoxSizing.BORDER_BOX) {
+      res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
     }
     return res;
   }
