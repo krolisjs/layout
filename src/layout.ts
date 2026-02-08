@@ -162,7 +162,8 @@ export class Layout<T extends object = any> {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
     };
-    const em = ctx.em || 16;
+    const em = ctx.em ?? 16;
+    const rem = ctx.rem ?? 16;
 
     ([
       'marginTop',
@@ -179,6 +180,9 @@ export class Layout<T extends object = any> {
       }
       else if (u === Unit.EM) {
         res[k] = v * em;
+      }
+      else if (u === Unit.REM) {
+        res[k] = v * rem;
       }
     });
 
@@ -198,6 +202,9 @@ export class Layout<T extends object = any> {
       else if (u === Unit.EM) {
         res[k] = Math.max(0, v * em);
       }
+      else if (u === Unit.REM) {
+        res[k] = Math.max(0, v * rem);
+      }
     });
 
     ([
@@ -213,6 +220,9 @@ export class Layout<T extends object = any> {
       else if (u === Unit.EM) {
         res[k] = Math.max(0, v * em);
       }
+      else if (u === Unit.REM) {
+        res[k] = Math.max(0, v * rem);
+      }
     });
 
     if (style.width.u === Unit.PX) {
@@ -223,6 +233,9 @@ export class Layout<T extends object = any> {
     }
     else if (style.width.u === Unit.EM) {
       res.w = Math.max(0, style.width.v * em);
+    }
+    else if (style.width.u === Unit.REM) {
+      res.w = Math.max(0, style.width.v * rem);
     }
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
@@ -236,6 +249,9 @@ export class Layout<T extends object = any> {
     }
     else if (style.height.u === Unit.EM) {
       res.h = Math.max(0, style.height.v * em);
+    }
+    else if (style.height.u === Unit.REM) {
+      res.h = Math.max(0, style.height.v * rem);
     }
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));

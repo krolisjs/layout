@@ -324,4 +324,37 @@ describe('normal-flow', () => {
       borderLeftWidth: 32,
     });
   });
+
+  it('blocks-028', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        boxSizing: 'borderBox',
+        width: '3em',
+        height: '1em',
+        paddingRight: '2em',
+        paddingLeft: '2em',
+      },
+      layout,
+    });
+    node.lay(null, 0, 0, 10000, 10000);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 16,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 32,
+      paddingBottom: 0,
+      paddingLeft: 32,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+    });
+  });
 });
