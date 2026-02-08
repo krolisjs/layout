@@ -7,7 +7,7 @@ A high-performance, imperative layout orchestrator(engine) designed for custom U
 [![NPM version](https://img.shields.io/npm/v/@krolis/layout.svg)](https://npmjs.org/package/@krolis/layout)
 ![CI](https://github.com/krolisjs/layout/workflows/CI/badge.svg)
 
-<img src="https://raw.githubusercontent.com/krolisjs/layout/master/logo.svg" width="200" height="200" />
+<img src="https://raw.githubusercontent.com/krolisjs/layout/refs/heads/main/layout.svg" width="200" height="200" />
 
 ## Install
 
