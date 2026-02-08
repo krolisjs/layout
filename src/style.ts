@@ -67,6 +67,32 @@ export type Style = {
   // maxHeight: Length;
 };
 
+export type CssLength = 'auto' | number | `${number}px` | `${number}%` | `${number}em` | `${number}rem`;
+
+export type JStyle = {
+  boxSizing: 'contentBox' | 'borderBox';
+  display: 'none' | 'block' | 'inlineBlock' | 'flex' | 'inlineFlex' | 'grid' | 'inlineGrid';
+  position: 'static' | 'relative' | 'absolute';
+  marginTop: CssLength;
+  marginRight: CssLength;
+  marginBottom: CssLength;
+  marginLeft: CssLength;
+  paddingTop: CssLength;
+  paddingRight: CssLength;
+  paddingBottom: CssLength;
+  paddingLeft: CssLength;
+  top: CssLength;
+  right: CssLength;
+  bottom: CssLength;
+  left: CssLength;
+  width: CssLength;
+  height: CssLength;
+  borderTopWidth: CssLength;
+  borderRightWidth: CssLength;
+  borderBottomWidth: CssLength;
+  borderLeftWidth: CssLength;
+};
+
 export const getDefaultStyle = (style?: Partial<Style>) => {
   const dft: Style = {
     boxSizing: BoxSizing.BORDER_BOX,
@@ -95,4 +121,107 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
     Object.assign(dft, style);
   }
   return dft;
+};
+
+export function calCssLength(v: CssLength): Length {
+  if (v === 'auto') {
+    return {
+      v: 0,
+      u: Unit.AUTO,
+    };
+  }
+  let n = parseFloat(v as string) || 0;
+  if (/%$/.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.PERCENT,
+    };
+  }
+  else if (/em$/.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.EM,
+    };
+  }
+  else if (/rem$/.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.REM,
+    };
+  }
+  else {
+    return {
+      v: n,
+      u: Unit.PX,
+    };
+  }
 }
+
+export const normalizeJStyle = (style: Partial<JStyle>) => {
+  const res: Partial<Style> = {};
+  if (style.boxSizing !== undefined) {
+    if (style.boxSizing === 'borderBox') {
+      res.boxSizing = BoxSizing.BORDER_BOX;
+    }
+    else {
+      res.boxSizing = BoxSizing.CONTENT_BOX;
+    }
+  }
+  if (style.display !== undefined) {
+    if (style.display === 'none') {
+      res.display = Display.NONE;
+    }
+    else if (style.display === 'inlineBlock') {
+      res.display = Display.INLINE_BLOCK;
+    }
+    else if (style.display === 'flex') {
+      res.display = Display.FLEX;
+    }
+    else if (style.display === 'inlineFlex') {
+      res.display = Display.INLINE_FLEX;
+    }
+    else if (style.display === 'grid') {
+      res.display = Display.GRID;
+    }
+    else if (style.display === 'inlineGrid') {
+      res.display = Display.INLINE_GRID;
+    }
+    else {
+      res.display = Display.BLOCK;
+    }
+  }
+  if (style.position !== undefined) {
+    if (style.position === 'relative') {
+      res.position = Position.RELATIVE;
+    }
+    else if (style.position === 'absolute') {
+      res.position = Position.ABSOLUTE;
+    }
+    else {
+      res.position = Position.STATIC;
+    }
+  }
+  ([
+    'marginTop',
+    'marginRight',
+    'marginBottom',
+    'marginLeft',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'width',
+    'height',
+    'borderTopWidth',
+    'borderRightWidth',
+    'borderBottomWidth',
+    'borderLeftWidth',
+  ] as const).forEach(k => {
+    const v = style[k];
+    if (v === undefined) {
+      return;
+    }
+    res[k] = calCssLength(v);
+  });
+  return res;
+};

@@ -1,13 +1,13 @@
-import type { Style } from '../dist/index.js';
+import type { JStyle } from '../dist/index.js';
 import { AbstractNode, Layout, Node, Text } from '../dist/index.js';
 
 type Item = {
-  style: Partial<Style>;
+  style: Partial<JStyle>;
   children?: Item[];
   label?: string;
   layout?: Layout;
 } | {
-  style: Partial<Style>;
+  style: Partial<JStyle>;
   content: string;
   label?: string;
   layout?: Layout;

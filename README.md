@@ -24,9 +24,9 @@ npm run dev
 ```shell
 npm run test
 ```
-Test cases are sourced from the official Web Platform Tests: https://github.com/web-platform-tests/wpt
+Test cases are adapted from the official Web Platform Tests: https://github.com/web-platform-tests/wpt
 
-测试用例来自官方 Web Platform Tests：https://github.com/web-platform-tests/wpt
+测试用例改写自官方 Web Platform Tests：https://github.com/web-platform-tests/wpt
 
 # License
 

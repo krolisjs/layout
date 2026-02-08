@@ -1,4 +1,4 @@
-import { Display, getDefaultStyle, Position, Style } from './style';
+import { Display, JStyle, Position, Style, getDefaultStyle, normalizeJStyle } from './style';
 import { Layout, Rect } from './layout';
 import { Context } from './context';
 
@@ -23,10 +23,10 @@ export abstract class AbstractNode {
   next: AbstractNode | null = null;
   rect: Rect | null = null;
 
-  protected constructor(style: Partial<Style>, options?: Options) {
+  protected constructor(style: Partial<JStyle>, options?: Options) {
     this.nodeType = NodeType.Node;
-    this.style = getDefaultStyle(style);
-    if (style.position === Position.ABSOLUTE) {
+    this.style = getDefaultStyle(normalizeJStyle((style)));
+    if (this.style.position === Position.ABSOLUTE) {
       if (this.style.display === Display.INLINE || this.style.display === Display.INLINE_BLOCK) {
         this.style.display = Display.BLOCK;
       }
@@ -106,7 +106,7 @@ export abstract class AbstractNode {
 export class Node extends AbstractNode {
   children: AbstractNode[];
 
-  constructor(style: Partial<Style>, children: Node[] = [], options?: Options) {
+  constructor(style: Partial<JStyle>, children: Node[] = [], options?: Options) {
     super(style, options);
     this.children = children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -150,7 +150,7 @@ export class Node extends AbstractNode {
 export class Text extends AbstractNode {
   content: string;
 
-  constructor(style: Partial<Style>, content: string, options?: Options) {
+  constructor(style: Partial<JStyle>, content: string, options?: Options) {
     super(style, options);
     if (style.display === undefined) {
       this.style.display = Display.INLINE;

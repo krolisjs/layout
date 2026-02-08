@@ -4,8 +4,8 @@ import { Display, Position, Style, Unit } from './style';
 export type Rect = {
   x: number;
   y: number;
-  width: number;
-  height: number;
+  w: number; // innerWidth
+  h: number;
   marginTop: number;
   marginRight: number;
   marginBottom: number;
@@ -94,19 +94,14 @@ export class Layout<T extends object = any> {
   ) {
     const res = this.preset(ctx, style, ox, oy, aw, ah, pbw, pbh);
     nodeRect.set(node, res);
-    const constraints: Constraints = { ox, oy, aw, ah, pbw, pbh };
-    if (res.width !== aw) {
-      constraints.aw = res.width;
-      if ([Position.ABSOLUTE, Position.RELATIVE].includes(style.position)) {
-        constraints.pbw = res.width;
-      }
-    }
-    if (res.height !== ah) {
-      constraints.ah = res.height;
-      if ([Position.ABSOLUTE, Position.RELATIVE].includes(style.position)) {
-        constraints.pbh = res.height;
-      }
-    }
+    const constraints: Constraints = {
+      ox: ox + res.marginLeft + res.paddingLeft + res.borderLeftWidth,
+      oy: oy + res.marginTop + res.paddingTop + res.borderTopWidth,
+      aw: res.w,
+      ah: res.h,
+      pbw: res.w,
+      pbh: res.h,
+    };
     return constraints;
   }
 
@@ -148,8 +143,8 @@ export class Layout<T extends object = any> {
     const res: Rect = {
       x: ox,
       y: oy,
-      width: 0,
-      height: 0,
+      w: 0,
+      h: 0,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
@@ -201,26 +196,26 @@ export class Layout<T extends object = any> {
     });
 
     if (style.width.u === Unit.AUTO) {
-      res.width = aw;
+      res.w = aw;
     }
     else if (style.width.u === Unit.PX) {
-      res.width = style.width.v;
+      res.w = style.width.v;
     }
     else if (style.width.u === Unit.PERCENT) {
-      res.width = style.width.v * 0.01 * pbw;
+      res.w = style.width.v * 0.01 * pbw;
     }
     else if (style.width.u === Unit.EM) {
-      res.width = style.width.v * fontSize;
+      res.w = style.width.v * fontSize;
     }
 
     if (style.height.u === Unit.PX) {
-      res.height = style.height.v;
+      res.h = style.height.v;
     }
     else if (style.height.u === Unit.PERCENT) {
-      res.height = style.height.v * 0.01 * pbh;
+      res.h = style.height.v * 0.01 * pbh;
     }
     else if (style.height.u === Unit.EM) {
-      res.height = style.height.v * fontSize;
+      res.h = style.height.v * fontSize;
     }
     return res;
   }

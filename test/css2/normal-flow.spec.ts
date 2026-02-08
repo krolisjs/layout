@@ -1,6 +1,5 @@
 import { expect } from 'expect';
 import { genNode } from '../env.ts';
-import { Unit } from '../../dist/index.js';
 import { Layout } from '../../dist/index.js';
 
 describe('normal-flow', () => {
@@ -14,27 +13,26 @@ describe('normal-flow', () => {
     const node = genNode({
       label: '0',
       style: {
-        width: { v: 3, u: Unit.EM },
-        height: { v: 1, u: Unit.EM },
+        width: '3em',
+        height: '1em',
       },
       layout,
       children: [{
         label: '1',
         style: {
-          width: { v: 0, u: Unit.AUTO },
-          height: { v: 1, u: Unit.EM },
-          borderRightWidth: { v: 1, u: Unit.EM },
-          borderLeftWidth: { v: 1, u: Unit.EM },
+          height: '1em',
+          borderRightWidth: '1em',
+          borderLeftWidth: '1em',
         },
       }],
     });
-    node.lay(null, 0, 0, 300, 100);
+    node.lay(null, 0, 0, 9999, 9999);
     expect(node.label).toBe('0');
     expect(node.rect).toEqual({
       x: 0,
       y: 0,
-      width: 48,
-      height: 16,
+      w: 48,
+      h: 16,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
@@ -53,8 +51,8 @@ describe('normal-flow', () => {
     expect(child.rect).toEqual({
       x: 0,
       y: 0,
-      width: 48,
-      height: 16,
+      w: 48,
+      h: 16,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
@@ -70,21 +68,59 @@ describe('normal-flow', () => {
     });
   });
 
+  it('blocks-012-ref', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: '3em',
+        height: '1em',
+      },
+      layout,
+      children: [{
+        label: '1',
+        style: {
+          paddingLeft: '2em',
+          paddingRight: '2em',
+        },
+      }],
+    });
+    node.lay(null, 0, 0, 9999, 9999);
+    const child = node.children[0];
+    expect(child.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 48,
+      h: 0,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 32,
+      paddingBottom: 0,
+      paddingLeft: 32,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+    });
+  });
+
   it('blocks-020-ref', () => {
     const node = genNode({
       label: '0',
       style: {
-        width: { v: 300, u: Unit.PX },
-        height: { v: 100, u: Unit.PX },
+        width: '300px',
+        height: 100,
       },
       layout,
     });
-    node.lay(null, 0, 0, 300, 100);
+    node.lay(null, 0, 0, 9999, 9999);
     expect(node.rect).toEqual({
       x: 0,
       y: 0,
-      width: 300,
-      height: 100,
+      w: 300,
+      h: 100,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
@@ -104,29 +140,29 @@ describe('normal-flow', () => {
     const node = genNode({
       label: '0',
       style: {
-        width: { v: 300, u: Unit.PX },
-        height: { v: 300, u: Unit.PX },
+        width: 300,
+        height: 300,
       },
       layout,
       children: [{
         label: '1',
         style: {
-          width: { v: 50, u: Unit.PERCENT },
-          height: { v: 100, u: Unit.PX },
-          borderTopWidth: { v: 100, u: Unit.PX },
-          borderRightWidth: { v: 100, u: Unit.PX },
-          borderBottomWidth: { v: 100, u: Unit.PX },
-          borderLeftWidth: { v: 100, u: Unit.PX },
+          width: '50%',
+          height: 100,
+          borderTopWidth: 100,
+          borderRightWidth: 100,
+          borderBottomWidth: 100,
+          borderLeftWidth: 100,
         },
       }],
     });
-    node.lay(null, 0, 0, 300, 100);
+    node.lay(null, 0, 0, 9999, 9999);
     const child = node.children[0];
     expect(child.rect).toEqual({
       x: 0,
       y: 0,
-      width: 150,
-      height: 100,
+      w: 150,
+      h: 100,
       marginTop: 0,
       marginRight: 0,
       marginBottom: 0,
