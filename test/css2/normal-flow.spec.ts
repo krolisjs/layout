@@ -586,4 +586,228 @@ describe('normal-flow', () => {
       fontSize: 16,
     });
   });
+
+  it('containing-block-percent-padding-bottom', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: 500,
+      },
+      children: [{
+        label: '1',
+        style: {
+          paddingBottom: '10%',
+          width: 100,
+          height: 50,
+        },
+      }],
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 500,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+    expect(node.children[0].rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 50,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 50,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+  });
+
+  it('containing-block-percent-padding-left', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: 500,
+      },
+      children: [{
+        label: '1',
+        style: {
+          paddingLeft: '10%',
+          width: 50,
+          height: 100,
+        },
+      }],
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 500,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+    expect(node.children[0].rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 50,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 50,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+  });
+
+  it('containing-block-percent-padding-right', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: 500,
+      },
+      children: [{
+        label: '1',
+        style: {
+          paddingRight: '10%',
+          width: 50,
+          height: 100,
+        },
+      }],
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 500,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+    expect(node.children[0].rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 50,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 50,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+  });
+
+  it('containing-block-percent-padding-top', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: 500,
+      },
+      children: [{
+        label: '1',
+        style: {
+          paddingTop: '10%',
+          width: 100,
+          height: 50,
+        },
+      }],
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 500,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+    expect(node.children[0].rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 50,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 50,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+  });
 });

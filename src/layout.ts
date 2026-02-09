@@ -3,7 +3,7 @@ import { BoxSizing, Display, Position, Style, Unit } from './style';
 export type Rect = {
   x: number; // 算上margin后的
   y: number;
-  w: number; // innerWidth
+  w: number; // innerSize
   h: number;
   marginTop: number;
   marginRight: number;
@@ -21,13 +21,13 @@ export type Rect = {
 };
 
 export type Constraints = {
-  ox: number;
+  ox: number; // 相对原点坐标
   oy: number;
-  aw: number;
+  aw: number; // 可用尺寸
   ah: number;
-  pbw: number;
+  pbw: number; // 百分比基于尺寸
   pbh: number;
-  cx: number;
+  cx: number; // 当前坐标，block流用到
   cy: number;
 };
 
