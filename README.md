@@ -1,6 +1,6 @@
 # @krolis/layout
 
-A high-performance, imperative layout orchestrator(engine) designed for custom UI frameworks, canvas rendering, and headless layout testing.
+A high-performance, imperative layout Orchestrator/Engine designed for custom UI frameworks, canvas rendering, and headless layout testing.
 
 一款高性能、指令式布局编排器、引擎，专为自定义 UI 框架、Canvas 渲染和无头布局测试而设计。
 

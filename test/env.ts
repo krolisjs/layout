@@ -5,12 +5,10 @@ type Item = {
   style: Partial<JStyle>;
   children?: Item[];
   label?: string;
-  layout?: Layout;
 } | {
   style: Partial<JStyle>;
   content: string;
   label?: string;
-  layout?: Layout;
 };
 
 export function genNode(item: Item) {

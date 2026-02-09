@@ -61,13 +61,16 @@ export type Style = {
   borderRightWidth: Length;
   borderBottomWidth: Length;
   borderLeftWidth: Length;
+  fontSize: Length;
   // minWidth: Length;
   // maxWidth: Length;
   // minHeight: Length;
   // maxHeight: Length;
 };
 
-export type CssLength = 'auto' | number | `${number}px` | `${number}%` | `${number}em` | `${number}rem`;
+export type CssFontSize = number | `${number}px`| `${number}rem`;
+
+export type CssLength = CssFontSize | 'auto' | `${number}%` | `${number}em`;
 
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
@@ -91,6 +94,7 @@ export type JStyle = {
   borderRightWidth: CssLength;
   borderBottomWidth: CssLength;
   borderLeftWidth: CssLength;
+  fontSize: CssFontSize;
 };
 
 export const getDefaultStyle = (style?: Partial<Style>) => {
@@ -116,6 +120,7 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
     borderRightWidth: { v: 0, u: Unit.PX },
     borderBottomWidth: { v: 0, u: Unit.PX },
     borderLeftWidth: { v: 0, u: Unit.PX },
+    fontSize: { v: 16, u: Unit.PX },
   };
   if (style) {
     Object.assign(dft, style);
@@ -216,6 +221,7 @@ export const normalizeJStyle = (style: Partial<JStyle>) => {
     'borderRightWidth',
     'borderBottomWidth',
     'borderLeftWidth',
+    'fontSize',
   ] as const).forEach(k => {
     const v = style[k];
     if (v === undefined) {

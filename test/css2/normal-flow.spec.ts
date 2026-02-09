@@ -1,12 +1,20 @@
 import { expect } from 'expect';
 import { genNode } from '../env.ts';
-import { Layout } from '../../dist/index.js';
+import { AbstractNode, Context } from '../../dist/index.js';
 
 describe('normal-flow', () => {
-  let layout: Layout;
+  let ctx: Context;
 
   beforeEach(() => {
-    layout = new Layout();
+    ctx = new Context<AbstractNode>({
+      constraints: {
+        aw: 10000,
+        ah: 10000,
+      },
+      onConfigured: (node, rect) => {
+        node.rect = rect;
+      },
+    });
   });
 
   it('blocks-011', () => {
@@ -16,7 +24,6 @@ describe('normal-flow', () => {
         width: '3em',
         height: '1em',
       },
-      layout,
       children: [{
         label: '1',
         style: {
@@ -26,7 +33,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     expect(node.label).toBe('0');
     expect(node.rect).toEqual({
       x: 0,
@@ -45,6 +52,7 @@ describe('normal-flow', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontSize: 16,
     });
     const child = node.children[0];
     expect(child.label).toBe('1');
@@ -65,6 +73,7 @@ describe('normal-flow', () => {
       borderRightWidth: 32,
       borderBottomWidth: 0,
       borderLeftWidth: 32,
+      fontSize: 16,
     });
   });
 
@@ -75,7 +84,6 @@ describe('normal-flow', () => {
         width: '3em',
         height: '1em',
       },
-      layout,
       children: [{
         label: '1',
         style: {
@@ -84,7 +92,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
       x: 0,
@@ -103,6 +111,7 @@ describe('normal-flow', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontSize: 16,
     });
   });
 
@@ -113,7 +122,6 @@ describe('normal-flow', () => {
         width: '5em',
         height: '1em',
       },
-      layout,
       children: [{
         label: '1',
         style: {
@@ -123,7 +131,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
       x: 0,
@@ -142,6 +150,7 @@ describe('normal-flow', () => {
       borderRightWidth: 32,
       borderBottomWidth: 0,
       borderLeftWidth: 32,
+      fontSize: 16,
     });
   });
 
@@ -152,7 +161,6 @@ describe('normal-flow', () => {
         width: '5em',
         height: '1em',
       },
-      layout,
       children: [{
         label: '1',
         style: {
@@ -161,7 +169,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
       x: 0,
@@ -180,6 +188,7 @@ describe('normal-flow', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontSize: 16,
     });
   });
 
@@ -190,7 +199,6 @@ describe('normal-flow', () => {
         width: 300,
         height: 100,
       },
-      layout,
       children: [{
         label: '1',
         style: {
@@ -199,7 +207,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     expect(node.children[0].rect).toEqual({
       x: 0,
       y: 0,
@@ -217,6 +225,7 @@ describe('normal-flow', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontSize: 16,
     });
   });
 
@@ -227,9 +236,8 @@ describe('normal-flow', () => {
         width: '300px',
         height: 100,
       },
-      layout,
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     expect(node.rect).toEqual({
       x: 0,
       y: 0,
@@ -247,6 +255,7 @@ describe('normal-flow', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontSize: 16,
     });
   });
 
@@ -257,7 +266,6 @@ describe('normal-flow', () => {
         width: 300,
         height: 300,
       },
-      layout,
       children: [{
         label: '1',
         style: {
@@ -270,7 +278,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
       x: 0,
@@ -289,6 +297,7 @@ describe('normal-flow', () => {
       borderRightWidth: 100,
       borderBottomWidth: 100,
       borderLeftWidth: 100,
+      fontSize: 16,
     });
   });
 
@@ -302,9 +311,8 @@ describe('normal-flow', () => {
         borderRightWidth: '2em',
         borderLeftWidth: '2em',
       },
-      layout,
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     expect(node.rect).toEqual({
       x: 0,
       y: 0,
@@ -322,6 +330,7 @@ describe('normal-flow', () => {
       borderRightWidth: 32,
       borderBottomWidth: 0,
       borderLeftWidth: 32,
+      fontSize: 16,
     });
   });
 
@@ -335,9 +344,8 @@ describe('normal-flow', () => {
         paddingRight: '2em',
         paddingLeft: '2em',
       },
-      layout,
     });
-    node.lay(null, 0, 0, 10000, 10000);
+    node.lay(ctx);
     expect(node.rect).toEqual({
       x: 0,
       y: 0,
@@ -355,6 +363,62 @@ describe('normal-flow', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontSize: 16,
+    });
+  });
+
+  it('containing-block-percent-margin-bottom', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: 100,
+      },
+      children: [{
+        label: '1',
+        style: {
+          marginBottom: '50%',
+          height: 50,
+        },
+      }],
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 100,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+    expect(node.children[0].rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 50,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 50,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
     });
   });
 });

@@ -1,4 +1,3 @@
-import { Context } from './context';
 import { BoxSizing, Display, Position, Style, Unit } from './style';
 
 export type Rect = {
@@ -18,6 +17,7 @@ export type Rect = {
   borderRightWidth: number;
   borderBottomWidth: number;
   borderLeftWidth: number;
+  fontSize: number;
 };
 
 export type Constraints = {
@@ -27,126 +27,173 @@ export type Constraints = {
   ah: number;
   pbw: number;
   pbh: number;
+  cx: number;
+  cy: number;
 };
+
+export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
+  & Partial<Omit<Constraints, 'aw' | 'ah'>>;
+
+class ConstraintsPool {
+  private pool: Constraints[] = [];
+  private ptr = 0;
+
+  get(ox: number, oy: number, aw: number, ah: number, cx = ox, cy = oy, pbw = aw, pbh = ah) {
+    if (this.ptr < this.pool.length) {
+      const obj = this.pool[this.ptr++];
+      // 重新赋值，复用旧对象
+      obj.ox = ox;
+      obj.oy = oy;
+      obj.aw = aw;
+      obj.ah = ah;
+      obj.cx = cx;
+      obj.cy = cy;
+      obj.pbw = pbw;
+      obj.pbh = pbh;
+      return obj;
+    }
+    const newObj = { ox, oy, aw, ah, cx, cy, pbw, pbh } as Constraints;
+    this.pool.push(newObj);
+    this.ptr++;
+    return newObj;
+  }
+
+  pop() {
+    this.ptr--;
+  }
+
+  reset() {
+    this.ptr = 0;
+    this.pool.splice(0);
+  }
+}
 
 export type MeasureText = (text: string, fontFamily: string, fontSize: number, fontWeight?: number, fontStyle?: string, letterSpacing?: number) => { width: number; height: number };
 
 export class Layout<T extends object = any> {
-  private measureText?: MeasureText;
-  // 指令式无法感知tree结构，只能在入口begin时机存入栈，等待end出栈，过程中的节点就是先序遍历的节点
-  private ctxNodeStack: WeakMap<Context<T>, T[]> = new WeakMap();
-  // 过程中暂存结果，等待结束钩子回调
-  private ctxNodeRect: WeakMap<Context<T>, WeakMap<T, Rect>> = new WeakMap();
-  // private ctxNodeRes: WeakMap<Context<T>, T[]> = new WeakMap();
+  private readonly onConfigured: (node: T, rect: Rect) => void;
+  private readonly measureText?: MeasureText;
+  private readonly rem?: number;
+  // constraints和node是一一对应的，入口节点就是构造器传入的inputConstraints
+  private readonly constraintsStack: Constraints[] = [];
+  private readonly nodeStack: T[] = [];
+  private readonly rectStack: Rect[] = [];
 
-  constructor(measureText?: MeasureText) {
+  // constraintsStack会因递归产生大量小对象，防止gc抖动用对象池
+  private constraintsPool: ConstraintsPool = new ConstraintsPool();
+
+  constructor(inputConstraints: InputConstraints, onConfigured: (node: T, rect: Rect) => void, measureText?: MeasureText, rem?: number) {
+    const c = {
+      ox: inputConstraints.ox || 0,
+      oy: inputConstraints.oy || 0,
+      aw: inputConstraints.aw,
+      ah: inputConstraints.ah,
+      pbw: inputConstraints.pbw ?? inputConstraints.aw,
+      pbh: inputConstraints.pbh ?? inputConstraints.ah,
+      cx: inputConstraints.cx ?? (inputConstraints.ox || 0),
+      cy: inputConstraints.cy ?? (inputConstraints.oy || 0),
+    };
+    this.constraintsStack.push(c);
+    this.onConfigured = onConfigured;
     this.measureText = measureText;
+    this.rem = rem;
   }
 
   /**
-   * @param ctx       - 全局状态钩子 (LayoutMode, AbsQueue...)
    * @param node      - 节点 ID (唯一 Key)
-   * @param style     - 样式对象
-   * @param ox        - 输入起始坐标 (数字)
-   * @param oy
-   * @param aw        - 可用空间约束 (数字)
-   * @param ah
-   * @param pbw       - 百分比计算基准 (数字)
-   * @param pbh
+   * @param style     - 节点样式对象
    */
-  begin(ctx: Context<T>, node: T, style: Style,
-         ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {
-    // 每次发起调用以ctx是否为新的作为入口判断
-    const isEntry = !this.ctxNodeStack.has(ctx);
-    const nodeStack = isEntry ? [] : this.ctxNodeStack.get(ctx)!;
-    const nodeRect = isEntry ? new WeakMap() : this.ctxNodeRect.get(ctx)!;
-    if (isEntry) {
-      this.ctxNodeStack.set(ctx, nodeStack);
-      this.ctxNodeRect.set(ctx, nodeRect);
-    }
-    nodeStack.push(node);
+  begin(node: T, style: Style) {
+    this.nodeStack.push(node);
+    const constraintsStack = this.constraintsStack;
+    const constraints = constraintsStack[constraintsStack.length - 1];
     if (style.position === Position.ABSOLUTE) {
-      return this.absolute(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+      this.absolute(style, constraints);
     }
     else if (style.display === Display.INLINE) {
-      return this.inline(ctx, node, style, ox, oy, aw, ah, pbw, pbh);
+      this.inline(style, constraints);
     }
+    // 默认block
     else {
-      return this.block(ctx, nodeRect, node, style, ox, oy, aw, ah, pbw, pbh);
+      const c = this.block(style, constraints);
+      constraintsStack.push(c);
     }
   }
 
-  end(ctx: Context<T>) {
-    const nodeStack = this.ctxNodeStack.get(ctx);
-    if (!nodeStack) {
-      throw new Error('Context Error: Context not found. Ensure \'start(ctx)\' is called before \'end(ctx)\'. ' + ctx.label);
-    }
-    if (!nodeStack.length) {
+  end(node: T, style: Style) {
+    if (!this.nodeStack.length) {
       throw new Error('Stack Error: Attempted to end a node but the stack is already empty. This indicates an extra \'end()\' call or missing \'begin()\'.');
     }
-    const node = nodeStack.pop()!;
-    ctx.onConfigured(node, this.ctxNodeRect.get(ctx)!.get(node)!);
-  }
-
-  block(ctx: Context<T>, nodeRect: WeakMap<T, Rect>, node: T, style: Style,
-         ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {
-    const res = this.preset(ctx, style, ox, oy, aw, ah, pbw, pbh);
-    nodeRect.set(node, res);
-    const constraints: Constraints = {
-      ox: ox + res.marginLeft + res.paddingLeft + res.borderLeftWidth,
-      oy: oy + res.marginTop + res.paddingTop + res.borderTopWidth,
-      aw: res.w,
-      ah: res.h,
-      pbw: res.w,
-      pbh: res.h,
-    };
-    if (style.width.u === Unit.AUTO) {
-      constraints.pbw = constraints.aw = res.w =
-        Math.max(0, aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
+    const n = this.nodeStack.pop()!;
+    if (node !== n) {
+      throw new Error('Layout mismatch: end() was called for ' + node + ', but the current stack expects ' + node + '. Ensure start() and end() are called in balanced pairs.');
     }
+    const c = this.constraintsStack.pop()!;
+    this.constraintsPool.pop();
+    const rect = this.rectStack.pop()!;
+    if (style.position === Position.ABSOLUTE) {}
+    else if (style.display === Display.INLINE) {}
+    // 默认block
+    else {
+      if (style.height.u === Unit.AUTO) {
+        rect.h = c.cy - c.oy - (rect.marginBottom + rect.paddingTop + rect.paddingBottom + rect.borderTopWidth + rect.borderBottomWidth);
+      }
+    }
+    // 为空说明此轮布局结束
+    if (!this.nodeStack.length) {
+      this.constraintsPool.reset();
+    }
+    this.onConfigured(node, rect);
+  }
+
+  block(style: Style, constraints: Constraints) {
+    const res = this.preset(style, constraints);
+    this.rectStack.push(res);
+    // 修改当前的
+    constraints.cy += res.marginTop + res.paddingTop + res.borderTopWidth + res.h + res.marginBottom + res.paddingBottom + res.borderBottomWidth;
+    // 返回递归的供子节点使用
+    const ox = constraints.ox + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+    const oy = constraints.oy + res.marginTop + res.paddingTop + res.borderTopWidth;
+    const c = this.constraintsPool.get(ox, oy, res.w, res.h);
+    if (style.width.u === Unit.AUTO) {
+      c.pbw = c.aw = res.w =
+        Math.max(0, constraints.aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
+    }
+    return c;
+  }
+
+  inline(style: Style, constraints: Constraints) {
     return constraints;
   }
 
-  inline(ctx: Context<T>, node: T, style: Style,
-              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {
-    const constraints: Constraints = { ox, oy, aw, ah, pbw, pbh };
+  inlineBlock(style: Style, constraints: Constraints) {
     return constraints;
   }
 
-  inlineBlock(ctx: Context<T>, node: T, style: Style,
-              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  flex(ctx: Context<T>, node: T, style: Style,
-              ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  inlineFlex(ctx: Context<T>, node: T, style: Style,
-             ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  grid(ctx: Context<T>, node: T, style: Style,
-             ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  inlineGrid(ctx: Context<T>, node: T, style: Style,
-                   ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {}
-
-  absolute(ctx: Context<T>, node: T, style: Style,
-                 ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah,
-  ) {
-    const constraints: Constraints = { ox, oy, aw, ah, pbw, pbh };
+  flex(style: Style, constraints: Constraints) {
     return constraints;
   }
 
-  preset(ctx: Context<T>, style: Style, ox: number, oy: number, aw: number, ah: number, pbw = aw, pbh = ah) {
+  inlineFlex(style: Style, constraints: Constraints) {
+    return constraints;
+  }
+
+  grid(style: Style, constraints: Constraints) {
+    return constraints;
+  }
+
+  inlineGrid(style: Style, constraints: Constraints) {
+    return constraints;
+  }
+
+  absolute(style: Style, constraints: Constraints) {
+    return constraints;
+  }
+
+  preset(style: Style, constraints: Constraints) {
     const res: Rect = {
-      x: ox,
-      y: oy,
+      x: constraints.ox,
+      y: constraints.oy,
       w: 0,
       h: 0,
       marginTop: 0,
@@ -161,9 +208,17 @@ export class Layout<T extends object = any> {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontSize: 0,
     };
-    const em = ctx.em ?? 16;
-    const rem = ctx.rem ?? 16;
+    const rem = this.rem ?? 16;
+
+    const { v, u } = style.fontSize;
+    if (u === Unit.PX) {
+      res.fontSize = Math.max(0, v);
+    }
+    else if (u === Unit.REM) {
+      res.fontSize = Math.max(0, v * rem);
+    }
 
     ([
       'marginTop',
@@ -176,10 +231,10 @@ export class Layout<T extends object = any> {
         res[k] = 0;
       }
       else if (u === Unit.PERCENT) {
-        res[k] = v * 0.01 * pbw;
+        res[k] = v * 0.01 * constraints.pbw;
       }
       else if (u === Unit.EM) {
-        res[k] = v * em;
+        res[k] = v * res.fontSize;
       }
       else if (u === Unit.REM) {
         res[k] = v * rem;
@@ -197,10 +252,10 @@ export class Layout<T extends object = any> {
         res[k] = 0;
       }
       else if (u === Unit.PERCENT) {
-        res[k] = Math.max(0, v * 0.01 * pbw);
+        res[k] = Math.max(0, v * 0.01 * constraints.pbw);
       }
       else if (u === Unit.EM) {
-        res[k] = Math.max(0, v * em);
+        res[k] = Math.max(0, v * res.fontSize);
       }
       else if (u === Unit.REM) {
         res[k] = Math.max(0, v * rem);
@@ -212,13 +267,14 @@ export class Layout<T extends object = any> {
       'borderRightWidth',
       'borderBottomWidth',
       'borderLeftWidth',
+      'fontSize',
     ] as const).forEach(k => {
       const { v, u } = style[k];
       if (u === Unit.PX) {
         res[k] = Math.max(0, v);
       }
       else if (u === Unit.EM) {
-        res[k] = Math.max(0, v * em);
+        res[k] = Math.max(0, v * res.fontSize);
       }
       else if (u === Unit.REM) {
         res[k] = Math.max(0, v * rem);
@@ -229,10 +285,10 @@ export class Layout<T extends object = any> {
       res.w = Math.max(0, style.width.v);
     }
     else if (style.width.u === Unit.PERCENT) {
-      res.w = Math.max(0, style.width.v * 0.01 * pbw);
+      res.w = Math.max(0, style.width.v * 0.01 * constraints.pbw);
     }
     else if (style.width.u === Unit.EM) {
-      res.w = Math.max(0, style.width.v * em);
+      res.w = Math.max(0, style.width.v * res.fontSize);
     }
     else if (style.width.u === Unit.REM) {
       res.w = Math.max(0, style.width.v * rem);
@@ -245,10 +301,10 @@ export class Layout<T extends object = any> {
       res.h = Math.max(0, style.height.v);
     }
     else if (style.height.u === Unit.PERCENT) {
-      res.h = Math.max(0, style.height.v * 0.01 * pbh);
+      res.h = Math.max(0, style.height.v * 0.01 * constraints.pbh);
     }
     else if (style.height.u === Unit.EM) {
-      res.h = Math.max(0, style.height.v * em);
+      res.h = Math.max(0, style.height.v * res.fontSize);
     }
     else if (style.height.u === Unit.REM) {
       res.h = Math.max(0, style.height.v * rem);
@@ -256,6 +312,7 @@ export class Layout<T extends object = any> {
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
     }
+
     return res;
   }
 }

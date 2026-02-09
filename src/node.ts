@@ -84,22 +84,12 @@ export abstract class AbstractNode {
     }
   }
 
-  lay(ctx: Context<AbstractNode> | null, ox = 0, oy = 0, aw = 0, ah = 0, pbw = aw, pbh = ah) {
-    if (!this.layout) {
-      throw new Error('Missing layout: ' + this.label);
-    }
-    if (!ctx) {
-      ctx = {
-        onConfigured(node: AbstractNode, rect: Rect) {
-          node.rect = rect;
-        },
-      };
-    }
-    const constraints = this.layout.begin(ctx, this, this.style, ox, oy, aw, ah, pbw, pbh);
+  lay(ctx: Context<AbstractNode>) {
+    ctx.begin(this, this.style);
     this.children.forEach(child => {
-      child.lay(ctx, constraints.ox, constraints.oy, constraints.aw, constraints.ah, constraints.pbw, constraints.pbh);
+      child.lay(ctx);
     });
-    this.layout.end(ctx);
+    ctx.end(this, this.style);
   }
 }
 
