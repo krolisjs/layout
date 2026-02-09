@@ -26,7 +26,6 @@ export default [
       typescript({
         declaration: false,
         target: 'ES2018',
-        incremental: true,
       }),
       json(),
     ],

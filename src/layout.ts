@@ -1,7 +1,7 @@
 import { BoxSizing, Display, Position, Style, Unit } from './style';
 
 export type Rect = {
-  x: number;
+  x: number; // 算上margin后的
   y: number;
   w: number; // innerWidth
   h: number;
@@ -240,6 +240,9 @@ export class Layout<T extends object = any> {
         res[k] = v * rem;
       }
     });
+
+    res.x += res.marginLeft;
+    res.y += res.marginTop;
 
     ([
       'paddingTop',
