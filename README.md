@@ -59,12 +59,13 @@ console.log(child.rect); // { x: 0, y: 0, w: 100, h: 50, paddingTop: 50, ... }
 ### Imperative integration 指令式接入
 
 ```ts
-import { Context, Style } from '@krolis/layout';
+import { Context, Rect, Style } from '@krolis/layout';
 
 // You might already have your own render tree and leaf node structures 你可能有自己的渲染树和叶子结点结构
 class Node {
   style: Style;
   children: Node[];
+  rect: Rect | null = null; // Stores layout result 布局结果
 
   constructor(style: Style, children: Node[] = []) {
     this.style = style;
