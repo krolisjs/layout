@@ -33,7 +33,11 @@ npm run test
 
 Test cases are adapted from the official Web Platform Tests: https://github.com/web-platform-tests/wpt
 
+Each subdirectory corresponds to a *.spec.ts file wrapped in a describe block. Within these directories, each individual test page is mapped to a corresponding it block within the expect assertions.
+
 测试用例改写自官方 Web Platform Tests：https://github.com/web-platform-tests/wpt
+
+每个子目录对应一个*.spec.ts文件，该文件被封装在describe块中。在这些目录中，每个单独的测试页面都映射到expect断言中相应的it块。
 
 # License
 
