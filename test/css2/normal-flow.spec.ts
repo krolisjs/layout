@@ -229,7 +229,7 @@ describe('normal-flow', () => {
     });
   });
 
-  it('blocks-020-ref', () => {
+  it('blocks-020', () => {
     const node = genNode({
       label: '0',
       style: {
@@ -259,7 +259,7 @@ describe('normal-flow', () => {
     });
   });
 
-  it('blocks-026-ref', () => {
+  it('blocks-026', () => {
     const node = genNode({
       label: '0',
       style: {
@@ -800,6 +800,64 @@ describe('normal-flow', () => {
       marginBottom: 0,
       marginLeft: 0,
       paddingTop: 50,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+  });
+
+  it('width-001', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        width: 0,
+      },
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+    });
+  });
+
+  it('height-001', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        height: 0,
+      },
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 10000,
+      h: 0,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
       paddingRight: 0,
       paddingBottom: 0,
       paddingLeft: 0,
