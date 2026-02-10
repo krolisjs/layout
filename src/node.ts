@@ -9,7 +9,6 @@ export enum NodeType {
 
 type Options = {
   label?: string;
-  layout?: Layout;
 };
 
 export abstract class AbstractNode {
@@ -37,9 +36,6 @@ export abstract class AbstractNode {
     if (options) {
       if (options.label) {
         this.label = options.label;
-      }
-      if (options.layout) {
-        this.layout = options.layout;
       }
     }
   }

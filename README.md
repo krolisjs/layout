@@ -19,6 +19,43 @@ _断时流火，因文化不同英文名源自克洛诺斯（时间之神）与�
 npm install @krolis/layout
 ```
 
+## Usage
+
+### Simple integration 简单接入
+
+```ts
+import { AbstractNode, Context, Node } from '@krolis/layout';
+
+const ctx = new Context<AbstractNode>({
+  constraints: {
+    aw: 10000,
+    ah: 10000,
+  },
+  onConfigured: (node, rect) => {
+    node.rect = rect;
+  },
+});
+
+const child = new Node({
+  paddingTop: '10%',
+  width: 100,
+  height: 50,
+});
+
+const container = new Node({
+  width: 500,
+}, [
+  child,
+]);
+
+container.lay(ctx);
+
+console.log(container.rect); // { x: 0, y: 0, w: 500, h: 100, ... }
+console.log(child.rect); // { x: 0, y: 0, w: 100, h: 50, ... }
+```
+
+### Non-intrusive imperative integration 无侵入指令式接入
+
 ## Dev
 
 ```shell
