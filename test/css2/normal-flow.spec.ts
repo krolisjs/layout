@@ -1,9 +1,9 @@
 import { expect } from 'expect';
 import { genNode } from '../env.ts';
-import { AbstractNode, Context } from '../../dist/index.js';
+import { AbstractNode, Context, FontStyle } from '../../dist/index.js';
 
 describe('normal-flow', () => {
-  let ctx: Context;
+  let ctx: Context<AbstractNode>;
 
   beforeEach(() => {
     ctx = new Context<AbstractNode>({
@@ -13,6 +13,21 @@ describe('normal-flow', () => {
       },
       onConfigured: (node, rect) => {
         node.rect = rect;
+      },
+      measureText: (
+        content: string,
+        fontFamily: string,
+        fontSize: number,
+        lineHeight: number,
+        fontWeight?: number,
+        fontStyle?: FontStyle,
+        letterSpacing?: number,
+      ) => {
+        return {
+          width: fontSize * content.length,
+          height: lineHeight,
+          baseline: lineHeight - 1,
+        };
       },
     });
   });
@@ -53,6 +68,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     const child = node.children[0];
     expect(child.label).toBe('1');
@@ -74,6 +92,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 32,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -112,6 +133,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -151,6 +175,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 32,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -189,6 +216,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -226,6 +256,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -256,6 +289,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -298,6 +334,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 100,
       borderLeftWidth: 100,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -331,6 +370,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 32,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -364,6 +406,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -400,6 +445,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
@@ -419,6 +467,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -455,6 +506,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 100,
@@ -474,6 +528,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -510,6 +567,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
@@ -529,6 +589,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -565,6 +628,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
@@ -584,6 +650,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -621,6 +690,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
@@ -640,6 +712,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -677,6 +752,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
@@ -696,6 +774,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -733,6 +814,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
@@ -752,6 +836,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -789,6 +876,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
@@ -808,6 +898,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -837,6 +930,9 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
     });
   });
 
@@ -866,6 +962,97 @@ describe('normal-flow', () => {
       borderBottomWidth: 0,
       borderLeftWidth: 0,
       fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
+    });
+  });
+
+  it.only('inlines-002', () => {
+    const node = genNode({
+      label: '0',
+      style: {
+        display: 'inline',
+        paddingTop: '0.5em',
+        paddingBottom: '0.5em',
+      },
+      children: [{
+        label: '1',
+        style: {
+          display: 'inline',
+          borderTopWidth: '0.5em',
+          borderRightWidth: '0.5em',
+          borderBottomWidth: '0.5em',
+          borderLeftWidth: '0.5em',
+        },
+        children: [{
+          label: '2',
+          content: '1234567890',
+        }],
+      }],
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 0,
+      y: 0,
+      w: 10000,
+      h: 0,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 8,
+      paddingRight: 0,
+      paddingBottom: 8,
+      paddingLeft: 0,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [],
+    });
+    expect(node.children[0].children[0].rect).toEqual({
+      x: 0,
+      y: 8,
+      w: 160,
+      h: 24,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 8,
+      borderRightWidth: 8,
+      borderBottomWidth: 8,
+      borderLeftWidth: 8,
+      fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: [
+        {
+          x: 0,
+          y: 8,
+          w: 160,
+          h: 24,
+          baseline: 23,
+          list: [
+            {
+              x: 0,
+              y: 8,
+              w: 160,
+              h: 24,
+              content: '1234567890',
+              baseline: 23,
+            },
+          ],
+        },
+      ],
     });
   });
 });

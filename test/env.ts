@@ -1,20 +1,20 @@
 import type { JStyle } from '../dist/index.js';
-import { AbstractNode, Layout, Node, Text } from '../dist/index.js';
+import { AbstractNode, Node, Text } from '../dist/index.js';
 
 type Item = {
-  style: Partial<JStyle>;
+  style?: Partial<JStyle>;
   children?: Item[];
   label?: string;
 } | {
-  style: Partial<JStyle>;
   content: string;
+  style?: Partial<JStyle>;
   label?: string;
 };
 
 export function genNode(item: Item) {
   let node: AbstractNode;
   if ('content' in item) {
-    node = new Text(item.style, item.content, item);
+    node = new Text(item.content, item.style, item);
   }
   else {
     node = new Node(item.style, [], item);

@@ -1,29 +1,37 @@
-import { Display, JStyle, Position, Style, getDefaultStyle, normalizeJStyle } from './style';
+import { Display, getDefaultStyle, JStyle, normalizeJStyle, Position, Style } from './style';
 import { Layout, Rect } from './layout';
 import { Context } from './context';
+
+type Options = {
+  label?: string;
+};
 
 export enum NodeType {
   Node = 0,
   Text = 1,
 }
 
-type Options = {
-  label?: string;
-};
+export interface INode {
+  readonly nodeType: NodeType;
+}
 
-export abstract class AbstractNode {
-  nodeType: NodeType;
+export interface ITextNode extends INode {
+  readonly nodeType: NodeType.Text;
+  content: string;
+}
+
+export abstract class AbstractNode implements INode {
+  nodeType = NodeType.Node;
   style: Style;
   readonly children: AbstractNode[] = [];
   label: string = '';
-  layout: Layout | null = null;
+  layout: Layout<AbstractNode> | null = null;
   parent: Node | null = null;
   prev: AbstractNode | null = null;
   next: AbstractNode | null = null;
   rect: Rect | null = null;
 
-  protected constructor(style: Partial<JStyle>, options?: Options) {
-    this.nodeType = NodeType.Node;
+  protected constructor(style?: Partial<JStyle>, options?: Options) {
     this.style = getDefaultStyle(normalizeJStyle((style)));
     if (this.style.position === Position.ABSOLUTE) {
       if (this.style.display === Display.INLINE || this.style.display === Display.INLINE_BLOCK) {
@@ -85,15 +93,20 @@ export abstract class AbstractNode {
     this.children.forEach(child => {
       child.lay(ctx);
     });
-    ctx.end(this, this.style);
+    ctx.end(this);
   }
 }
 
 export class Node extends AbstractNode {
+  nodeType = NodeType.Node;
   children: AbstractNode[];
 
-  constructor(style: Partial<JStyle>, children: Node[] = [], options?: Options) {
+  constructor(style?: Partial<JStyle>, children: Node[] = [], options?: Options) {
     super(style, options);
+    // absolute强制block
+    if (this.style.position === Position.ABSOLUTE) {
+      this.style.display = Display.BLOCK;
+    }
     this.children = children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
@@ -133,15 +146,14 @@ export class Node extends AbstractNode {
   }
 }
 
-export class Text extends AbstractNode {
-  content: string;
+export class Text extends AbstractNode implements ITextNode {
+  readonly nodeType = NodeType.Text;
+  content = '';
 
-  constructor(style: Partial<JStyle>, content: string, options?: Options) {
+  constructor(content: string, style?: Partial<JStyle>, options?: Options) {
     super(style, options);
-    if (style.display === undefined) {
-      this.style.display = Display.INLINE;
-    }
-    this.nodeType = NodeType.Text;
     this.content = content;
+    // 强制inline
+    this.style.display = Display.INLINE;
   }
 }

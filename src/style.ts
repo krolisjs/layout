@@ -39,6 +39,12 @@ export type Length = {
   u: Unit;
 };
 
+export enum FontStyle {
+  NORMAL = 0,
+  ITALIC = 1,
+  OBLIQUE = 2,
+}
+
 export type Style = {
   boxSizing: BoxSizing;
   display: Display;
@@ -61,7 +67,12 @@ export type Style = {
   borderRightWidth: Length;
   borderBottomWidth: Length;
   borderLeftWidth: Length;
+  fontFamily: string;
+  fontStyle: FontStyle;
+  fontWeight: number;
   fontSize: Length;
+  lineHeight: Length;
+  letterSpacing: Length;
   // minWidth: Length;
   // maxWidth: Length;
   // minHeight: Length;
@@ -74,7 +85,7 @@ export type CssLength = CssFontSize | 'auto' | `${number}%` | `${number}em`;
 
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
-  display: 'none' | 'block' | 'inlineBlock' | 'flex' | 'inlineFlex' | 'grid' | 'inlineGrid';
+  display: 'none' | 'block' | 'inline' | 'inlineBlock' | 'flex' | 'inlineFlex' | 'grid' | 'inlineGrid';
   position: 'static' | 'relative' | 'absolute';
   marginTop: CssLength;
   marginRight: CssLength;
@@ -94,7 +105,12 @@ export type JStyle = {
   borderRightWidth: CssLength;
   borderBottomWidth: CssLength;
   borderLeftWidth: CssLength;
+  fontFamily: string;
+  fontStyle: 'normal' | 'italic' | 'oblique';
+  fontWeight: number | 'thin' | 'lighter' | 'light' | 'medium' | 'semiBold' | 'bold' | 'extraBold' | 'black' | 'normal';
   fontSize: CssFontSize;
+  lineHeight: CssFontSize;
+  letterSpacing: CssFontSize;
 };
 
 export const getDefaultStyle = (style?: Partial<Style>) => {
@@ -120,7 +136,12 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
     borderRightWidth: { v: 0, u: Unit.PX },
     borderBottomWidth: { v: 0, u: Unit.PX },
     borderLeftWidth: { v: 0, u: Unit.PX },
+    fontFamily: 'sans-serif',
+    fontStyle: FontStyle.NORMAL,
+    fontWeight: 400,
     fontSize: { v: 16, u: Unit.PX },
+    lineHeight: { v: 1.5, u: Unit.NUMBER },
+    letterSpacing: { v: 0, u: Unit.PX },
   };
   if (style) {
     Object.assign(dft, style);
@@ -128,7 +149,7 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
   return dft;
 };
 
-export function calCssLength(v: CssLength): Length {
+export function calCssLength(v: CssLength, number2Px = false): Length {
   if (v === 'auto') {
     return {
       v: 0,
@@ -157,12 +178,12 @@ export function calCssLength(v: CssLength): Length {
   else {
     return {
       v: n,
-      u: Unit.PX,
+      u: number2Px ? Unit.PX : Unit.NUMBER,
     };
   }
 }
 
-export const normalizeJStyle = (style: Partial<JStyle>) => {
+export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
   const res: Partial<Style> = {};
   if (style.boxSizing !== undefined) {
     if (style.boxSizing === 'borderBox') {
@@ -222,12 +243,58 @@ export const normalizeJStyle = (style: Partial<JStyle>) => {
     'borderBottomWidth',
     'borderLeftWidth',
     'fontSize',
+    'lineHeight',
+    'letterSpacing',
   ] as const).forEach(k => {
     const v = style[k];
     if (v === undefined) {
       return;
     }
-    res[k] = calCssLength(v);
+    res[k] = calCssLength(v, k !== 'lineHeight');
   });
+  if (style.fontFamily !== undefined) {
+    res.fontFamily = style.fontFamily;
+  }
+  if (style.fontStyle !== undefined) {
+    res.fontStyle = {
+      normal: FontStyle.NORMAL,
+      italic: FontStyle.ITALIC,
+      oblique: FontStyle.OBLIQUE,
+    }[style.fontStyle] || FontStyle.NORMAL;
+  }
+  if (style.fontWeight !== undefined) {
+    if (typeof style.fontWeight === 'number') {
+      res.fontWeight = Math.min(900, Math.max(100, style.fontWeight));
+    }
+    else {
+      if (/thin/i.test(style.fontWeight)) {
+        res.fontWeight = 100;
+      }
+      else if (/lighter/i.test(style.fontWeight)) {
+        res.fontWeight = 200;
+      }
+      else if (/light/i.test(style.fontWeight)) {
+        res.fontWeight = 300;
+      }
+      else if (/medium/i.test(style.fontWeight)) {
+        res.fontWeight = 500;
+      }
+      else if (/semiBold/i.test(style.fontWeight)) {
+        res.fontWeight = 600;
+      }
+      else if (/bold/i.test(style.fontWeight)) {
+        res.fontWeight = 700;
+      }
+      else if (/extraBold/i.test(style.fontWeight)) {
+        res.fontWeight = 800;
+      }
+      else if (/black/i.test(style.fontWeight)) {
+        res.fontWeight = 900;
+      }
+      else {
+        res.fontWeight = 400;
+      }
+    }
+  }
   return res;
 };
