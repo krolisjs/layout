@@ -197,6 +197,9 @@ export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
     if (style.display === 'none') {
       res.display = Display.NONE;
     }
+    else if (style.display === 'inline') {
+      res.display = Display.INLINE;
+    }
     else if (style.display === 'inlineBlock') {
       res.display = Display.INLINE_BLOCK;
     }

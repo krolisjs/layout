@@ -27,18 +27,18 @@ export type Box = {
   rects: null,
 } & Rect & ComputedStyle;
 
-export type Fragments = {
-  type: 'fragments',
+export type Inline = {
+  type: 'inline',
   rects: Rect[],
 } & Rect & ComputedStyle;
 
-export type TextFragments = {
-  type: 'textFragments',
+export type Text = {
+  type: 'text',
   // 包含所有折行后的矩形，按行序排列
   rects: LineBox[];
 } & Rect & ComputedStyle;
 
-export type LayoutResult = Box | Fragments | TextFragments;
+export type LayoutResult = Box | Inline | Text;
 
 export type Constraints = {
   ox: number; // 相对原点坐标
@@ -142,6 +142,7 @@ export class Layout<T extends (INode | ITextNode)> {
     this.styleStack.push(style);
     const constraintsStack = this.constraintsStack;
     const constraints = constraintsStack[constraintsStack.length - 1];
+    // text一定是叶子节点无需继续递归
     if (node.nodeType === NodeType.Text) {
       this.text(style, constraints, (node as ITextNode).content);
     }
@@ -149,7 +150,8 @@ export class Layout<T extends (INode | ITextNode)> {
       this.absolute(style, constraints);
     }
     else if (style.display === Display.INLINE) {
-      this.inline(style, constraints);
+      const c = this.inline(style, constraints);
+      constraintsStack.push(c);
     }
     // 默认block
     else {
@@ -170,21 +172,49 @@ export class Layout<T extends (INode | ITextNode)> {
     const style = styleStack.pop()!;
     const c = constraintsStack.pop()!;
     constraintsPool.pop();
-    const rect = resultStack.pop()!; console.log(1, node.nodeType, rect);
-    if (node.nodeType === NodeType.Text || style.display === Display.INLINE) {
-      // 需要更新parent当它是inline的时候
-      if (nodeStack.length) {
-        const parentStyle = styleStack[styleStack.length - 1];
-        if (parentStyle.display === Display.INLINE) {
-          const parentConstraints = constraintsStack[constraintsStack.length - 1];
-          parentConstraints.cx = c.ox + rect.w;
-          parentConstraints.cy = c.oy + rect.h;
-          const parentRect = resultStack[resultStack.length - 1];
-          parentRect.w = Math.max(parentRect.w, )
+    const rect = resultStack.pop()!;
+    // 真正的inline内容叶子节点递归向上处理所有inline父节点
+    if (node.nodeType === NodeType.Text) {
+      if (styleStack.length) {
+        let index = styleStack.length - 1;
+        while (index >= 0) {
+          const parentStyle = styleStack[index];
+          if (parentStyle.display === Display.INLINE) {
+            const parentRect = resultStack[index] as Inline;
+            const current = resultStack[index + 1] || rect; // 向上递归current指向之前的孩子
+            let mpb = 0;
+            (rect as Text).rects.forEach(lineBox => {
+              // inline的开头要考虑mpb
+              if (!parentRect.rects.length) {
+                mpb = current.marginLeft + current.paddingLeft + current.borderLeftWidth;
+                parentRect.rects.push({
+                  x: lineBox.x - mpb,
+                  y: lineBox.y,
+                  w: lineBox.w + mpb,
+                  h: lineBox.h,
+                });
+              }
+              else {
+                parentRect.rects.push({
+                  x: lineBox.x,
+                  y: lineBox.y,
+                  w: lineBox.w,
+                  h: lineBox.h,
+                });
+              }
+              parentRect.w = Math.max(parentRect.w, current.x + current.w - parentRect.x + mpb);
+              parentRect.h = Math.max(parentRect.h, current.y + current.h - parentRect.y);
+            });
+          }
+          else {
+            break;
+          }
+          index--;
         }
       }
     }
     else if (style.position === Position.ABSOLUTE) {}
+    else if (style.display === Display.INLINE) {}
     // 默认block
     else {
       if (style.height.u === Unit.AUTO) {
@@ -216,30 +246,22 @@ export class Layout<T extends (INode | ITextNode)> {
   }
 
   inline(style: Style, constraints: Constraints) {
-    const res = this.preset(style, constraints, 'fragments') as Fragments;
+    const res = this.preset(style, constraints, 'inline') as Inline;
     // inline的上下margin无效
     res.marginTop = res.marginBottom = 0;
     this.resultStack.push(res);
-    return constraints;
-    // 返回递归的供子节点使用
-    // const ox = constraints.ox + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-    // const oy = constraints.oy + res.marginTop + res.paddingTop + res.borderTopWidth;
-    // // inline递归下去aw会减少mpb，但pbw不变
-    // const aw = constraints.aw - (res.marginLeft + res.paddingLeft + res.borderLeftWidth + res.marginRight + res.paddingRight + res.borderRightWidth);
-    // return this.constraintsPool.get(
-    //   constraints.ox,
-    //   constraints.oy,
-    //   aw,
-    //   constraints.ah,
-    //   ox,
-    //   oy,
-    //   constraints.pbw,
-    //   constraints.pbh,
-    // );
+    // 修改当前的
+    constraints.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+    return this.constraintsPool.get(
+      constraints.ox, constraints.oy,
+      constraints.aw, constraints.ah,
+      constraints.cx, constraints.cy,
+      constraints.pbw, constraints.pbh,
+    );
   }
 
   text(style: Style, constraints: Constraints, content: string) {
-    const res = this.preset(style, constraints, 'textFragments') as TextFragments;
+    const res = this.preset(style, constraints, 'text') as Text;
     this.resultStack.push(res);
     if (!this.measureText) {
       throw new Error('Text must be passed to the measureText method.');
@@ -249,6 +271,7 @@ export class Layout<T extends (INode | ITextNode)> {
     let cx = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
     let cy = constraints.cy;
     let aw = constraints.aw;
+    let maxW = 0;
     let lineBox: LineBox = {
       x: cx,
       y: cy,
@@ -264,7 +287,7 @@ export class Layout<T extends (INode | ITextNode)> {
     while (i < length) {
       if (isEnter(content[i]) && !this.ignoreEnter) {
         i++;
-        cx = constraints.cx;
+        cx = constraints.ox;
         cy += res.lineHeight;
       }
       const {
@@ -296,6 +319,7 @@ export class Layout<T extends (INode | ITextNode)> {
       i += num;
       lineBox.w = textBox.x + width - lineBox.x;
       lineBox.list.push(textBox);
+      maxW = Math.max(maxW, lineBox.w);
       // 每行按baseline对齐
       if (newLine || i === length) {
         let baseline = 0;
@@ -310,7 +334,7 @@ export class Layout<T extends (INode | ITextNode)> {
         });
       }
       if (newLine) {
-        cx = constraints.cx;
+        cx = constraints.ox;
         cy += res.lineHeight;
         // 新开一行
         if (i < length) {
@@ -329,11 +353,10 @@ export class Layout<T extends (INode | ITextNode)> {
         cx = textBox.x + textBox.w;
       }
     }
+    res.w = maxW;
     const last = lineBox;
     res.h = last.y + last.h - constraints.cy;
     res.rects = lineBoxes;
-    return constraints;
-    // return this.constraintsPool.get(cx, cy, res.w, res.h);
   }
 
   inlineBlock(style: Style, constraints: Constraints) {
@@ -505,6 +528,6 @@ export class Layout<T extends (INode | ITextNode)> {
       return res as Box;
     }
 
-    return type === 'fragments' ? (res as Fragments) : (res as TextFragments);
+    return type === 'inline' ? (res as Inline) : (res as Text);
   }
 }
