@@ -1023,7 +1023,7 @@ describe('normal-flow', () => {
     expect(node.rect).toEqual({
       x: 0,
       y: 0,
-      w: 168,
+      w: 176,
       h: 24,
       marginTop: 0,
       marginRight: 0,
@@ -1044,7 +1044,7 @@ describe('normal-flow', () => {
         {
           x: 0,
           y: 0,
-          w: 168,
+          w: 176,
           h: 24,
         },
       ],

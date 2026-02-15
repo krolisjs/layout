@@ -109,6 +109,9 @@ export class Layout<T extends (INode | ITextNode)> {
   // constraintsStack会因递归产生大量小对象，防止gc抖动用对象池
   private constraintsPool: ConstraintsPool = new ConstraintsPool();
 
+  // inline在end()结束时需看最后一个子节点的mpb-right，递归过程记录最后一个处理的节点就是子节点
+  private lastIT: Inline | Text | null = null;
+
   constructor(
     inputConstraints: InputConstraints,
     onConfigured: (node: T, res: LayoutResult) => void,
@@ -212,14 +215,31 @@ export class Layout<T extends (INode | ITextNode)> {
           index--;
         }
       }
+      this.lastIT = rect as Text;
     }
-    else if (style.position === Position.ABSOLUTE) {}
-    else if (style.display === Display.INLINE) {}
+    else if (style.position === Position.ABSOLUTE) {
+      this.lastIT = null;
+    }
+    // 每个inline结束时，检查最后一个子节点的mpb-right，需考虑
+    else if (style.display === Display.INLINE) {
+      const r= (rect as Inline);
+      // 有可能没有，比如inline没有子节点
+      if (r.rects.length && this.lastIT && this.lastIT.rects.length) {
+        const mpb = this.lastIT.marginRight + this.lastIT.paddingRight + this.lastIT.borderRightWidth;
+        if (mpb) {
+          const last = r.rects[r.rects.length - 1];
+          last.w += mpb;
+          r.w = Math.max(r.w, last.x + last.w - r.x);
+        }
+      }
+      this.lastIT = rect as Inline;
+    }
     // 默认block
     else {
       if (style.height.u === Unit.AUTO) {
         rect.h = c.cy - c.oy - (rect.marginBottom + rect.paddingTop + rect.paddingBottom + rect.borderTopWidth + rect.borderBottomWidth);
       }
+      this.lastIT = null;
     }
     // 为空说明此轮布局结束
     if (!nodeStack.length) {
