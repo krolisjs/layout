@@ -60,40 +60,6 @@ export enum LayoutMode {
   OOF_MEASURE = 2, // absolute
 }
 
-class ConstraintsPool {
-  private pool: Constraints[] = [];
-  private ptr = 0;
-
-  get(ox: number, oy: number, aw: number, ah: number, cx = ox, cy = oy, pbw = aw, pbh = ah) {
-    if (this.ptr < this.pool.length) {
-      const obj = this.pool[this.ptr++];
-      // 重新赋值，复用旧对象
-      obj.ox = ox;
-      obj.oy = oy;
-      obj.aw = aw;
-      obj.ah = ah;
-      obj.cx = cx;
-      obj.cy = cy;
-      obj.pbw = pbw;
-      obj.pbh = pbh;
-      return obj;
-    }
-    const newObj = { ox, oy, aw, ah, cx, cy, pbw, pbh } as Constraints;
-    this.pool.push(newObj);
-    this.ptr++;
-    return newObj;
-  }
-
-  pop() {
-    this.ptr--;
-  }
-
-  reset() {
-    this.ptr = 0;
-    this.pool.splice(0);
-  }
-}
-
 export class Layout<T extends (INode | ITextNode)> {
   private readonly onConfigured: (node: T, res: LayoutResult) => void;
   private readonly measureText?: MeasureText;
@@ -106,11 +72,8 @@ export class Layout<T extends (INode | ITextNode)> {
   private readonly styleStack: Style[] = [];
   private readonly resultStack: LayoutResult[] = [];
 
-  // constraintsStack会因递归产生大量小对象，防止gc抖动用对象池
-  private constraintsPool: ConstraintsPool = new ConstraintsPool();
-
   // inline在end()结束时需看最后一个子节点的mpb-right，递归过程记录最后一个处理的节点就是子节点
-  private lastIT: Inline | Text | null = null;
+  private lastChild: Inline | Text | null = null;
 
   constructor(
     inputConstraints: InputConstraints,
@@ -147,7 +110,8 @@ export class Layout<T extends (INode | ITextNode)> {
     const constraints = constraintsStack[constraintsStack.length - 1];
     // text一定是叶子节点无需继续递归
     if (node.nodeType === NodeType.Text) {
-      this.text(style, constraints, (node as ITextNode).content);
+      const c = this.text(style, constraints, (node as ITextNode).content);
+      constraintsStack.push(c);
     }
     else if (style.position === Position.ABSOLUTE) {
       this.absolute(style, constraints);
@@ -164,7 +128,7 @@ export class Layout<T extends (INode | ITextNode)> {
   }
 
   end(node: T) {
-    const { constraintsPool, constraintsStack, nodeStack, resultStack, styleStack } = this;
+    const { constraintsStack, nodeStack, resultStack, styleStack } = this;
     if (!nodeStack.length) {
       throw new Error('Stack Error: Attempted to end a node but the stack is already empty. This indicates an extra \'end()\' call or missing \'begin()\'.');
     }
@@ -173,9 +137,9 @@ export class Layout<T extends (INode | ITextNode)> {
       throw new Error('Layout mismatch: end() was called for ' + node + ', but the current stack expects ' + node + '. Ensure start() and end() are called in balanced pairs.');
     }
     const style = styleStack.pop()!;
+    const res = resultStack.pop()!;
     const c = constraintsStack.pop()!;
-    constraintsPool.pop();
-    const rect = resultStack.pop()!;
+    const cp = constraintsStack[constraintsStack.length - 1];
     // 真正的inline内容叶子节点递归向上处理所有inline父节点
     if (node.nodeType === NodeType.Text) {
       if (styleStack.length) {
@@ -184,16 +148,16 @@ export class Layout<T extends (INode | ITextNode)> {
           const parentStyle = styleStack[index];
           if (parentStyle.display === Display.INLINE) {
             const parentRect = resultStack[index] as Inline;
-            const current = resultStack[index + 1] || rect; // 向上递归current指向之前的孩子
-            let mpb = 0;
-            (rect as Text).rects.forEach(lineBox => {
+            const current = resultStack[index + 1] || res; // 向上递归current指向之前的孩子
+            let mbp = 0;
+            (res as Text).rects.forEach(lineBox => {
               // inline的开头要考虑mpb
               if (!parentRect.rects.length) {
-                mpb = current.marginLeft + current.paddingLeft + current.borderLeftWidth;
+                mbp = current.marginLeft + current.borderLeftWidth + current.paddingLeft;
                 parentRect.rects.push({
-                  x: lineBox.x - mpb,
+                  x: lineBox.x - mbp,
                   y: lineBox.y,
-                  w: lineBox.w + mpb,
+                  w: lineBox.w + mbp,
                   h: lineBox.h,
                 });
               }
@@ -205,7 +169,7 @@ export class Layout<T extends (INode | ITextNode)> {
                   h: lineBox.h,
                 });
               }
-              parentRect.w = Math.max(parentRect.w, current.x + current.w - parentRect.x + mpb);
+              parentRect.w = Math.max(parentRect.w, current.x + current.w - parentRect.x);
               parentRect.h = Math.max(parentRect.h, current.y + current.h - parentRect.y);
             });
           }
@@ -215,69 +179,85 @@ export class Layout<T extends (INode | ITextNode)> {
           index--;
         }
       }
-      this.lastIT = rect as Text;
+      this.lastChild = res as Text;
     }
     else if (style.position === Position.ABSOLUTE) {
-      this.lastIT = null;
+      this.lastChild = null;
     }
-    // 每个inline结束时，检查最后一个子节点的mpb-right，需考虑
+    // 每个inline结束时，检查最后一个子节点的mpb，需考虑
     else if (style.display === Display.INLINE) {
-      const r= (rect as Inline);
+      const r = (res as Inline);
       // 有可能没有，比如inline没有子节点
-      if (r.rects.length && this.lastIT && this.lastIT.rects.length) {
-        const mpb = this.lastIT.marginRight + this.lastIT.paddingRight + this.lastIT.borderRightWidth;
-        if (mpb) {
+      if (r.rects.length && this.lastChild && this.lastChild.rects.length) {
+        const mbp = this.lastChild.marginRight + this.lastChild.borderRightWidth + this.lastChild.paddingRight;
+        if (mbp) {
           const last = r.rects[r.rects.length - 1];
-          last.w += mpb;
+          last.w += mbp;
           r.w = Math.max(r.w, last.x + last.w - r.x);
         }
       }
-      this.lastIT = rect as Inline;
+      this.lastChild = res as Inline;
     }
     // 默认block
     else {
+      const mbp = res.marginBottom + res.paddingBottom + res.borderBottomWidth;
       if (style.height.u === Unit.AUTO) {
-        rect.h = c.cy - c.oy - (rect.marginBottom + rect.paddingTop + rect.paddingBottom + rect.borderTopWidth + rect.borderBottomWidth);
+        res.h = c.cy - c.oy;
       }
-      this.lastIT = null;
+      if (cp) {
+        cp.cy = res.y + res.h + mbp;
+      }
+      this.lastChild = null;
     }
-    // 为空说明此轮布局结束
-    if (!nodeStack.length) {
-      constraintsPool.reset();
-    }
-    this.onConfigured(node, rect);
+    this.onConfigured(node, res);
   }
 
   block(style: Style, constraints: Constraints) {
     const res = this.preset(style, constraints, 'box') as Box;
     res.type = 'box';
     this.resultStack.push(res);
-    // 修改当前的
-    constraints.cy += res.marginTop + res.paddingTop + res.borderTopWidth + res.h + res.marginBottom + res.paddingBottom + res.borderBottomWidth;
     // 返回递归的供子节点使用
-    const ox = constraints.ox + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-    const oy = constraints.oy + res.marginTop + res.paddingTop + res.borderTopWidth;
-    const c = this.constraintsPool.get(ox, oy, res.w, res.h);
+    const ox = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+    const oy = constraints.cy + res.marginTop + res.paddingTop + res.borderTopWidth;
+    const c: Constraints = {
+      ox,
+      oy,
+      aw: res.w,
+      ah: res.h,
+      cx: oy,
+      cy: oy,
+      pbw: res.w,
+      pbh: res.h,
+    };
     if (style.width.u === Unit.AUTO) {
       c.pbw = c.aw = res.w =
         Math.max(0, constraints.aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
+    }
+    if (style.height.u === Unit.AUTO) {
+      c.ah = Infinity;
+      c.pbh = NaN;
     }
     return c;
   }
 
   inline(style: Style, constraints: Constraints) {
     const res = this.preset(style, constraints, 'inline') as Inline;
-    // inline的上下margin无效
+    // inline的上下margin无效，border/padding对绘制有效但布局无效
     res.marginTop = res.marginBottom = 0;
     this.resultStack.push(res);
     // 修改当前的
     constraints.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-    return this.constraintsPool.get(
-      constraints.ox, constraints.oy,
-      constraints.aw, constraints.ah,
-      constraints.cx, constraints.cy,
-      constraints.pbw, constraints.pbh,
-    );
+    return constraints;
+    // return {
+    //   ox: constraints.ox,
+    //   oy: constraints.oy,
+    //   aw: constraints.aw,
+    //   ah: constraints.ah,
+    //   cx: constraints.cx,
+    //   cy: constraints.cy,
+    //   pbw: constraints.pbw,
+    //   pbh: constraints.pbh,
+    // };
   }
 
   text(style: Style, constraints: Constraints, content: string) {
@@ -377,6 +357,9 @@ export class Layout<T extends (INode | ITextNode)> {
     const last = lineBox;
     res.h = last.y + last.h - constraints.cy;
     res.rects = lineBoxes;
+    // 没有子节点不需要产生新的递归约束
+    constraints.cy += res.h;
+    return constraints;
   }
 
   inlineBlock(style: Style, constraints: Constraints) {
@@ -407,8 +390,8 @@ export class Layout<T extends (INode | ITextNode)> {
     const res: any = {
       type,
       rects: type === 'box' ? null : [],
-      x: constraints.ox,
-      y: constraints.oy,
+      x: constraints.cx,
+      y: constraints.cy,
       w: 0,
       h: 0,
       marginTop: 0,
@@ -457,9 +440,6 @@ export class Layout<T extends (INode | ITextNode)> {
         res[k] = v * rem;
       }
     });
-
-    res.x += res.marginLeft;
-    res.y += res.marginTop;
 
     ([
       'paddingTop',
@@ -544,10 +524,12 @@ export class Layout<T extends (INode | ITextNode)> {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
     }
 
+    // 排除mbp后的contentBox的坐标，注意inline不考虑y方向
+    res.x += res.marginLeft + res.borderLeftWidth + res.paddingLeft;
     if (type === 'box') {
+      res.y += res.marginTop + res.borderTopWidth + res.paddingTop;
       return res as Box;
     }
-
     return type === 'inline' ? (res as Inline) : (res as Text);
   }
 }

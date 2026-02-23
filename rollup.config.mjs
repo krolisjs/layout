@@ -2,7 +2,6 @@ import typescript from '@rollup/plugin-typescript';
 import json from '@rollup/plugin-json';
 import commonjs from '@rollup/plugin-commonjs';
 import nodeResolve from '@rollup/plugin-node-resolve';
-import terser from '@rollup/plugin-terser';
 import dts from 'rollup-plugin-dts';
 
 export default [
@@ -19,15 +18,6 @@ export default [
         format: 'iife',
         sourcemap: true,
         name: 'krolisLayout',
-      },
-      {
-        file: 'dist/index.iife.min.js',
-        format: 'iife',
-        sourcemap: true,
-        name: 'krolisLayout',
-        plugins: [
-          terser(),
-        ],
       },
     ],
     plugins: [

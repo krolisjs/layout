@@ -11,3 +11,4 @@ coverage/
 dist/
 types/
 .rollup.cache/
+demo/

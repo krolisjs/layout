@@ -32,6 +32,48 @@ describe('normal-flow', () => {
     });
   });
 
+  it('block-formatting-contexts-001', () => {
+    const node = genNode({
+      style: {
+        borderTopWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderLeftWidth: 1,
+      },
+      children: [{
+        children: [{ content: 'Fill Text' }],
+      }, {
+        children: [{ content: 'Fill Text' }],
+      }, {
+        children: [{ content: 'Fill Text' }],
+      }],
+    });
+    node.lay(ctx);
+    expect(node.rect).toEqual({
+      x: 1,
+      y: 1,
+      w: 9998,
+      h: 72,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      borderTopWidth: 1,
+      borderRightWidth: 1,
+      borderBottomWidth: 1,
+      borderLeftWidth: 1,
+      fontSize: 16,
+      lineHeight: 24,
+      letterSpacing: 0,
+      rects: null,
+      type: 'box',
+    });
+  });
+
   it('blocks-011', () => {
     const node = genNode({
       label: '0',
@@ -76,7 +118,7 @@ describe('normal-flow', () => {
     const child = node.children[0];
     expect(child.label).toBe('1');
     expect(child.rect).toEqual({
-      x: 0,
+      x: 32,
       y: 0,
       w: 0,
       h: 16,
@@ -118,7 +160,7 @@ describe('normal-flow', () => {
     node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
-      x: 0,
+      x: 32,
       y: 0,
       w: 0,
       h: 0,
@@ -161,7 +203,7 @@ describe('normal-flow', () => {
     node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
-      x: 0,
+      x: 32,
       y: 0,
       w: 16,
       h: 16,
@@ -203,7 +245,7 @@ describe('normal-flow', () => {
     node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
-      x: 0,
+      x: 32,
       y: 0,
       w: 16,
       h: 0,
@@ -324,8 +366,8 @@ describe('normal-flow', () => {
     node.lay(ctx);
     const child = node.children[0];
     expect(child.rect).toEqual({
-      x: 0,
-      y: 0,
+      x: 100,
+      y: 100,
       w: 150,
       h: 100,
       marginTop: 0,
@@ -361,7 +403,7 @@ describe('normal-flow', () => {
     });
     node.lay(ctx);
     expect(node.rect).toEqual({
-      x: 0,
+      x: 32,
       y: 0,
       w: 0,
       h: 16,
@@ -398,7 +440,7 @@ describe('normal-flow', () => {
     });
     node.lay(ctx);
     expect(node.rect).toEqual({
-      x: 0,
+      x: 32,
       y: 0,
       w: 0,
       h: 16,
@@ -778,7 +820,7 @@ describe('normal-flow', () => {
       type: 'box',
     });
     expect(node.children[0].rect).toEqual({
-      x: 0,
+      x: 50,
       y: 0,
       w: 50,
       h: 100,
@@ -907,7 +949,7 @@ describe('normal-flow', () => {
     });
     expect(node.children[0].rect).toEqual({
       x: 0,
-      y: 0,
+      y: 50,
       w: 100,
       h: 50,
       marginTop: 0,
@@ -1051,7 +1093,7 @@ describe('normal-flow', () => {
       type: 'inline',
     });
     expect(node.children[0].rect).toEqual({
-      x: 0,
+      x: 8,
       y: 0,
       w: 160,
       h: 24,
@@ -1081,7 +1123,7 @@ describe('normal-flow', () => {
       type: 'inline',
     });
     expect(node.children[0].children[0].rect).toEqual({
-      x: 0,
+      x: 8,
       y: 0,
       w: 160,
       h: 24,
