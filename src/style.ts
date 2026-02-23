@@ -19,14 +19,15 @@ export enum Unit {
   AUTO = 0,
   INHERIT = 1,
   PX = 2,
-  EM = 3,
-  REM = 4,
-  PERCENT = 5,
-  NUMBER = 6,
-  VW = 7,
-  VH = 8,
-  VMAX = 9,
-  VMIN = 10,
+  IN = 3,
+  EM = 4,
+  REM = 5,
+  PERCENT = 6,
+  NUMBER = 7,
+  VW = 8,
+  VH = 9,
+  VMAX = 10,
+  VMIN = 11,
 }
 
 export enum BoxSizing {
@@ -79,7 +80,7 @@ export type Style = {
   // maxHeight: Length;
 };
 
-export type CssFontSize = number | `${number}px`| `${number}rem`;
+export type CssFontSize = number | `${number}px` | `${number}in` | `${number}rem`;
 
 export type CssLength = CssFontSize | 'auto' | `${number}%` | `${number}em`;
 
@@ -163,13 +164,19 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
       u: Unit.PERCENT,
     };
   }
-  else if (/em$/.test(v as string)) {
+  else if (/in$/i.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.IN,
+    };
+  }
+  else if (/em$/i.test(v as string)) {
     return {
       v: n,
       u: Unit.EM,
     };
   }
-  else if (/rem$/.test(v as string)) {
+  else if (/rem$/i.test(v as string)) {
     return {
       v: n,
       u: Unit.REM,

@@ -1,35 +1,12 @@
 import { expect } from 'expect';
-import { genNode } from '../env.ts';
-import { AbstractNode, Context, FontStyle } from '../../dist/index.js';
+import { createTestContext, genNode } from '../env.ts';
+import { AbstractNode, Context } from '../../dist/index.js';
 
 describe('normal-flow', () => {
   let ctx: Context<AbstractNode>;
 
   beforeEach(() => {
-    ctx = new Context<AbstractNode>({
-      constraints: {
-        aw: 10000,
-        ah: 10000,
-      },
-      onConfigured: (node, rect) => {
-        node.rect = rect;
-      },
-      measureText: (
-        content: string,
-        fontFamily: string,
-        fontSize: number,
-        lineHeight: number,
-        fontWeight?: number,
-        fontStyle?: FontStyle,
-        letterSpacing?: number,
-      ) => {
-        return {
-          width: fontSize * content.length,
-          height: lineHeight,
-          baseline: lineHeight - 1,
-        };
-      },
-    });
+    ctx = createTestContext();
   });
 
   it('block-formatting-contexts-001', () => {

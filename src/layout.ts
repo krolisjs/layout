@@ -207,6 +207,23 @@ export class Layout<T extends (INode | ITextNode)> {
       if (cp) {
         cp.cy = res.y + res.h + mbp;
       }
+      // inline可能包含block，兼容也需要向上处理，类似子inline一样的逻辑
+      if (styleStack.length) {
+        let index = styleStack.length - 1;
+        while (index >= 0) {
+          const parentStyle = styleStack[index];
+          if (parentStyle.display === Display.INLINE) {
+            const parentRect = resultStack[index] as Inline;
+            const current = resultStack[index + 1] || res; // 向上递归current指向之前的孩子
+            parentRect.w = Math.max(parentRect.w, current.x + current.w - parentRect.x);
+            parentRect.h = Math.max(parentRect.h, current.y + current.h - parentRect.y);
+          }
+          else {
+            break;
+          }
+          index--;
+        }
+      }
       this.lastChild = null;
     }
     this.onConfigured(node, res);
@@ -248,16 +265,6 @@ export class Layout<T extends (INode | ITextNode)> {
     // 修改当前的
     constraints.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
     return constraints;
-    // return {
-    //   ox: constraints.ox,
-    //   oy: constraints.oy,
-    //   aw: constraints.aw,
-    //   ah: constraints.ah,
-    //   cx: constraints.cx,
-    //   cy: constraints.cy,
-    //   pbw: constraints.pbw,
-    //   pbh: constraints.pbh,
-    // };
   }
 
   text(style: Style, constraints: Constraints, content: string) {
@@ -416,6 +423,9 @@ export class Layout<T extends (INode | ITextNode)> {
     if (u === Unit.PX) {
       res.fontSize = Math.max(0, v);
     }
+    else if (u === Unit.IN) {
+      res.fontSize = Math.max(0, v * 96);
+    }
     else if (u === Unit.REM) {
       res.fontSize = Math.max(0, v * rem);
     }
@@ -432,6 +442,9 @@ export class Layout<T extends (INode | ITextNode)> {
       }
       else if (u === Unit.PERCENT) {
         res[k] = v * 0.01 * constraints.pbw;
+      }
+      else if (u === Unit.IN) {
+        res[k] = v * 96;
       }
       else if (u === Unit.EM) {
         res[k] = v * res.fontSize;
@@ -454,6 +467,9 @@ export class Layout<T extends (INode | ITextNode)> {
       else if (u === Unit.PERCENT) {
         res[k] = Math.max(0, v * 0.01 * constraints.pbw);
       }
+      else if (u === Unit.IN) {
+        res[k] = Math.max(0, v * 96);
+      }
       else if (u === Unit.EM) {
         res[k] = Math.max(0, v * res.fontSize);
       }
@@ -474,6 +490,9 @@ export class Layout<T extends (INode | ITextNode)> {
       const { v, u } = style[k];
       if (u === Unit.PX) {
         res[k] = Math.max(0, v);
+      }
+      else if (u === Unit.IN) {
+        res[k] = Math.max(0, v * 96);
       }
       else if (u === Unit.EM) {
         res[k] = Math.max(0, v * res.fontSize);
@@ -498,6 +517,9 @@ export class Layout<T extends (INode | ITextNode)> {
     else if (style.width.u === Unit.PERCENT) {
       res.w = Math.max(0, style.width.v * 0.01 * constraints.pbw);
     }
+    else if (style.width.u === Unit.IN) {
+      res.w = Math.max(0, style.width.v * 96);
+    }
     else if (style.width.u === Unit.EM) {
       res.w = Math.max(0, style.width.v * res.fontSize);
     }
@@ -513,6 +535,9 @@ export class Layout<T extends (INode | ITextNode)> {
     }
     else if (style.height.u === Unit.PERCENT) {
       res.h = Math.max(0, style.height.v * 0.01 * constraints.pbh);
+    }
+    else if (style.width.u === Unit.IN) {
+      res.h = Math.max(0, style.height.v * 96);
     }
     else if (style.height.u === Unit.EM) {
       res.h = Math.max(0, style.height.v * res.fontSize);
