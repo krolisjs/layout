@@ -238,6 +238,10 @@ export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
     }
   }
   ([
+    'top',
+    'right',
+    'bottom',
+    'left',
     'marginTop',
     'marginRight',
     'marginBottom',

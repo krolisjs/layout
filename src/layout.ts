@@ -1,4 +1,4 @@
-import { BoxSizing, Display, Position, Style, Unit } from './style';
+import { BoxSizing, Display, Length, Position, Style, Unit } from './style';
 import { isEnter, LineBox, MeasureText, smartMeasure, TextBox } from './text';
 import { INode, ITextNode, NodeType } from './node';
 
@@ -72,6 +72,11 @@ export class Layout<T extends (INode | ITextNode)> {
   private readonly styleStack: Style[] = [];
   private readonly resultStack: LayoutResult[] = [];
 
+  // relative情况当前递归过程中的偏移和累计的偏移量
+  private readonly offsetStack: { x: number, y: number }[] = [];
+  private offsetX = 0;
+  private offsetY = 0;
+
   // inline在end()结束时需看最后一个子节点的mpb-right，递归过程记录最后一个处理的节点就是子节点
   private lastChild: Inline | Text | null = null;
 
@@ -110,20 +115,39 @@ export class Layout<T extends (INode | ITextNode)> {
     const constraints = constraintsStack[constraintsStack.length - 1];
     // text一定是叶子节点无需继续递归
     if (node.nodeType === NodeType.Text) {
-      const c = this.text(style, constraints, (node as ITextNode).content);
-      constraintsStack.push(c);
+      this.text(style, constraints, (node as ITextNode).content);
     }
     else if (style.position === Position.ABSOLUTE) {
       this.absolute(style, constraints);
     }
     else if (style.display === Display.INLINE) {
-      const c = this.inline(style, constraints);
-      constraintsStack.push(c);
+      this.inline(style, constraints);
     }
     // 默认block
     else {
-      const c = this.block(style, constraints);
-      constraintsStack.push(c);
+      this.block(style, constraints);
+    }
+    // relative的offset递归向下传递
+    if (node.nodeType === NodeType.Node && style.position === Position.RELATIVE) {
+      let x = 0, y = 0;
+      const { left, top, right, bottom } = style;
+      const res = this.resultStack[this.resultStack.length - 1];
+      if (left.u !== Unit.AUTO) {
+        x = this.calLength(left, constraints.pbw, res.fontSize, this.rem ?? 16);
+      }
+      else if (right.u !== Unit.AUTO) {
+        x = -this.calLength(right, constraints.pbw, res.fontSize, this.rem ?? 16);
+      }
+      // y方向不支持%
+      if (top.u !== Unit.AUTO && top.u !== Unit.PERCENT) {
+        y = this.calLength(top, constraints.pbh, res.fontSize, this.rem ?? 16);
+      }
+      else if (bottom.u !== Unit.AUTO && bottom.u !== Unit.PERCENT) {
+        y = -this.calLength(top, constraints.pbh, res.fontSize, this.rem ?? 16);
+      }
+      this.offsetStack.push({ x, y });
+      this.offsetX += x;
+      this.offsetY += y;
     }
   }
 
@@ -138,8 +162,6 @@ export class Layout<T extends (INode | ITextNode)> {
     }
     const style = styleStack.pop()!;
     const res = resultStack.pop()!;
-    const c = constraintsStack.pop()!;
-    const cp = constraintsStack[constraintsStack.length - 1];
     // 真正的inline内容叶子节点递归向上处理所有inline父节点
     if (node.nodeType === NodeType.Text) {
       if (styleStack.length) {
@@ -181,52 +203,81 @@ export class Layout<T extends (INode | ITextNode)> {
       }
       this.lastChild = res as Text;
     }
-    else if (style.position === Position.ABSOLUTE) {
-      this.lastChild = null;
-    }
-    // 每个inline结束时，检查最后一个子节点的mpb，需考虑
-    else if (style.display === Display.INLINE) {
-      const r = (res as Inline);
-      // 有可能没有，比如inline没有子节点
-      if (r.rects.length && this.lastChild && this.lastChild.rects.length) {
-        const mbp = this.lastChild.marginRight + this.lastChild.borderRightWidth + this.lastChild.paddingRight;
-        if (mbp) {
-          const last = r.rects[r.rects.length - 1];
-          last.w += mbp;
-          r.w = Math.max(r.w, last.x + last.w - r.x);
-        }
-      }
-      this.lastChild = res as Inline;
-    }
-    // 默认block
     else {
-      const mbp = res.marginBottom + res.paddingBottom + res.borderBottomWidth;
-      if (style.height.u === Unit.AUTO) {
-        res.h = c.cy - c.oy;
+      const c = constraintsStack.pop()!;
+      const cp = constraintsStack[constraintsStack.length - 1];
+      if (style.position === Position.ABSOLUTE) {
+        this.lastChild = null;
       }
-      if (cp) {
-        cp.cy = res.y + res.h + mbp;
+      // 每个inline结束时，检查最后一个子节点的mpb，需考虑
+      else if (style.display === Display.INLINE) {
+        const r = (res as Inline);
+        // 有可能没有，比如inline没有子节点
+        if (r.rects.length && this.lastChild && this.lastChild.rects.length) {
+          const mbp = this.lastChild.marginRight + this.lastChild.borderRightWidth + this.lastChild.paddingRight;
+          if (mbp) {
+            const last = r.rects[r.rects.length - 1];
+            last.w += mbp;
+            r.w = Math.max(r.w, last.x + last.w - r.x);
+          }
+        }
+        this.lastChild = res as Inline;
       }
-      // inline可能包含block，兼容也需要向上处理，类似子inline一样的逻辑
-      if (styleStack.length) {
-        let index = styleStack.length - 1;
-        while (index >= 0) {
-          const parentStyle = styleStack[index];
-          if (parentStyle.display === Display.INLINE) {
-            const parentRect = resultStack[index] as Inline;
-            const current = resultStack[index + 1] || res; // 向上递归current指向之前的孩子
-            parentRect.w = Math.max(parentRect.w, current.x + current.w - parentRect.x);
-            parentRect.h = Math.max(parentRect.h, current.y + current.h - parentRect.y);
+      // 默认block
+      else {
+        const mbp = res.marginBottom + res.paddingBottom + res.borderBottomWidth;
+        if (style.height.u === Unit.AUTO) {
+          res.h = c.cy - c.oy;
+        }
+        if (cp) {
+          cp.cy = res.y + res.h + mbp;
+        }
+        // inline可能包含block，兼容也需要向上处理，类似子inline一样的逻辑
+        if (styleStack.length) {
+          let index = styleStack.length - 1;
+          while (index >= 0) {
+            const parentStyle = styleStack[index];
+            if (parentStyle.display === Display.INLINE) {
+              const parentRect = resultStack[index] as Inline;
+              const current = resultStack[index + 1] || res; // 向上递归current指向之前的孩子
+              parentRect.w = Math.max(parentRect.w, current.x + current.w - parentRect.x);
+              parentRect.h = Math.max(parentRect.h, current.y + current.h - parentRect.y);
+            }
+            else {
+              break;
+            }
+            index--;
           }
-          else {
-            break;
-          }
-          index--;
+        }
+        this.lastChild = null;
+      }
+    }
+    // 可能有relative造成的偏移
+    if (this.offsetX || this.offsetY) {
+      res.x += this.offsetX;
+      res.y += this.offsetY;
+      if (res.rects) {
+        res.rects.forEach(item => {
+          item.x += this.offsetX;
+          item.y += this.offsetY;
+        });
+        if (res.type === 'text') {
+          res.rects.forEach(item => {
+            item.list.forEach(v => {
+              v.x += this.offsetX;
+              v.y += this.offsetY;
+            });
+          });
         }
       }
-      this.lastChild = null;
     }
     this.onConfigured(node, res);
+    // 出栈
+    if (node.nodeType !== NodeType.Text && style.position === Position.RELATIVE) {
+      const o = this.offsetStack.pop()!;
+      this.offsetX -= o.x;
+      this.offsetY -= o.y;
+    }
   }
 
   block(style: Style, constraints: Constraints) {
@@ -254,7 +305,7 @@ export class Layout<T extends (INode | ITextNode)> {
       c.ah = Infinity;
       c.pbh = NaN;
     }
-    return c;
+    this.constraintsStack.push(c);
   }
 
   inline(style: Style, constraints: Constraints) {
@@ -262,9 +313,9 @@ export class Layout<T extends (INode | ITextNode)> {
     // inline的上下margin无效，border/padding对绘制有效但布局无效
     res.marginTop = res.marginBottom = 0;
     this.resultStack.push(res);
-    // 修改当前的
+    // 修改当前的，inline复用
     constraints.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-    return constraints;
+    this.constraintsStack.push(constraints);
   }
 
   text(style: Style, constraints: Constraints, content: string) {
@@ -366,31 +417,24 @@ export class Layout<T extends (INode | ITextNode)> {
     res.rects = lineBoxes;
     // 没有子节点不需要产生新的递归约束
     constraints.cy += res.h;
-    return constraints;
   }
 
   inlineBlock(style: Style, constraints: Constraints) {
-    return constraints;
   }
 
   flex(style: Style, constraints: Constraints) {
-    return constraints;
   }
 
   inlineFlex(style: Style, constraints: Constraints) {
-    return constraints;
   }
 
   grid(style: Style, constraints: Constraints) {
-    return constraints;
   }
 
   inlineGrid(style: Style, constraints: Constraints) {
-    return constraints;
   }
 
   absolute(style: Style, constraints: Constraints) {
-    return constraints;
   }
 
   preset(style: Style, constraints: Constraints, type: LayoutResult['type']) {
@@ -419,16 +463,7 @@ export class Layout<T extends (INode | ITextNode)> {
     };
     const rem = this.rem ?? 16;
 
-    const { v, u } = style.fontSize;
-    if (u === Unit.PX) {
-      res.fontSize = Math.max(0, v);
-    }
-    else if (u === Unit.IN) {
-      res.fontSize = Math.max(0, v * 96);
-    }
-    else if (u === Unit.REM) {
-      res.fontSize = Math.max(0, v * rem);
-    }
+    res.fontSize = Math.max(0, this.calLength(style.fontSize, 0, 0, rem));
 
     ([
       'marginTop',
@@ -436,22 +471,7 @@ export class Layout<T extends (INode | ITextNode)> {
       'marginBottom',
       'marginLeft',
     ] as const).forEach(k => {
-      const { v, u } = style[k];
-      if ([Unit.AUTO, Unit.PX].includes(u)) {
-        res[k] = 0;
-      }
-      else if (u === Unit.PERCENT) {
-        res[k] = v * 0.01 * constraints.pbw;
-      }
-      else if (u === Unit.IN) {
-        res[k] = v * 96;
-      }
-      else if (u === Unit.EM) {
-        res[k] = v * res.fontSize;
-      }
-      else if (u === Unit.REM) {
-        res[k] = v * rem;
-      }
+      res[k] = this.calLength(style[k], constraints.pbw, res.fontSize, rem);
     });
 
     ([
@@ -460,22 +480,7 @@ export class Layout<T extends (INode | ITextNode)> {
       'paddingBottom',
       'paddingLeft',
     ] as const).forEach(k => {
-      const { v, u } = style[k];
-      if ([Unit.AUTO, Unit.PX].includes(u)) {
-        res[k] = 0;
-      }
-      else if (u === Unit.PERCENT) {
-        res[k] = Math.max(0, v * 0.01 * constraints.pbw);
-      }
-      else if (u === Unit.IN) {
-        res[k] = Math.max(0, v * 96);
-      }
-      else if (u === Unit.EM) {
-        res[k] = Math.max(0, v * res.fontSize);
-      }
-      else if (u === Unit.REM) {
-        res[k] = Math.max(0, v * rem);
-      }
+      res[k] = Math.max(0, this.calLength(style[k], constraints.pbw, res.fontSize, rem));
     });
 
     ([
@@ -483,68 +488,24 @@ export class Layout<T extends (INode | ITextNode)> {
       'borderRightWidth',
       'borderBottomWidth',
       'borderLeftWidth',
-      'fontSize',
       'lineHeight',
       'letterSpacing',
     ] as const).forEach(k => {
       const { v, u } = style[k];
-      if (u === Unit.PX) {
-        res[k] = Math.max(0, v);
-      }
-      else if (u === Unit.IN) {
-        res[k] = Math.max(0, v * 96);
-      }
-      else if (u === Unit.EM) {
+      if (k === 'lineHeight' && u === Unit.NUMBER) {
         res[k] = Math.max(0, v * res.fontSize);
       }
-      else if (u === Unit.REM) {
-        res[k] = Math.max(0, v * rem);
-      }
-      // 只有lineHeight可能
-      else if (u === Unit.NUMBER) {
-        if (k === 'lineHeight') {
-          res[k] = Math.max(0, v * res.fontSize);
-        }
-        else {
-          res[k] = Math.max(0, v);
-        }
+      else {
+        res[k] = Math.max(0, this.calLength(style[k], constraints.pbw, res.fontSize, rem));
       }
     });
 
-    if (style.width.u === Unit.PX) {
-      res.w = Math.max(0, style.width.v);
-    }
-    else if (style.width.u === Unit.PERCENT) {
-      res.w = Math.max(0, style.width.v * 0.01 * constraints.pbw);
-    }
-    else if (style.width.u === Unit.IN) {
-      res.w = Math.max(0, style.width.v * 96);
-    }
-    else if (style.width.u === Unit.EM) {
-      res.w = Math.max(0, style.width.v * res.fontSize);
-    }
-    else if (style.width.u === Unit.REM) {
-      res.w = Math.max(0, style.width.v * rem);
-    }
+    res.w = Math.max(0, this.calLength(style.width, constraints.pbw, res.fontSize, rem));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
     }
 
-    if (style.height.u === Unit.PX) {
-      res.h = Math.max(0, style.height.v);
-    }
-    else if (style.height.u === Unit.PERCENT) {
-      res.h = Math.max(0, style.height.v * 0.01 * constraints.pbh);
-    }
-    else if (style.width.u === Unit.IN) {
-      res.h = Math.max(0, style.height.v * 96);
-    }
-    else if (style.height.u === Unit.EM) {
-      res.h = Math.max(0, style.height.v * res.fontSize);
-    }
-    else if (style.height.u === Unit.REM) {
-      res.h = Math.max(0, style.height.v * rem);
-    }
+    res.h = Math.max(0, this.calLength(style.height, constraints.pbh, res.fontSize, rem));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
     }
@@ -556,5 +517,24 @@ export class Layout<T extends (INode | ITextNode)> {
       return res as Box;
     }
     return type === 'inline' ? (res as Inline) : (res as Text);
+  }
+
+  calLength(target: Length, pb: number, em: number, rem: number) {
+    if (target.u === Unit.PX || target.u === Unit.NUMBER) {
+      return target.v;
+    }
+    else if (target.u === Unit.PERCENT) {
+      return target.v * 0.01 * pb;
+    }
+    else if (target.u === Unit.IN) {
+      return target.v * 96;
+    }
+    else if (target.u === Unit.EM) {
+      return target.v * em;
+    }
+    else if (target.u === Unit.REM) {
+      return target.v * rem;
+    }
+    return 0;
   }
 }
