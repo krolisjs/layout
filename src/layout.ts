@@ -1,4 +1,4 @@
-import { BoxSizing, Display, Length, Position, Style, Unit } from './style';
+import { BoxSizing, Display, FontStyle, Length, Position, Style, Unit } from './style';
 import { isEnter, LineBox, MeasureText, smartMeasure, TextBox } from './text';
 import { INode, ITextNode, NodeType } from './node';
 
@@ -47,7 +47,7 @@ export type Constraints = {
   ah: number;
   pbw: number; // 百分比基于尺寸
   pbh: number;
-  cx: number; // 当前坐标，block流用到
+  cx: number; // 当前坐标，flow流用到，absolute时自动位置也会用
   cy: number;
 };
 
@@ -55,9 +55,18 @@ export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
   & Partial<Omit<Constraints, 'aw' | 'ah'>>;
 
 export enum LayoutMode {
-  NORMAL = 0,
-  MIN_MAX = 1, // flex
-  OOF_MEASURE = 2, // absolute
+  NORMAL       = 0b000,
+  MIN_MAX      = 0b001, // flex测量阶段
+  OOF_MEASURE  = 0b010, // absolute测量阶段
+  MEASURE_DONE = 0b100,
+}
+
+type Oof<T extends (INode | ITextNode)> = {
+  node: T;
+  style: Style;
+  constraints: Constraints;
+  parent: T;
+  children: Pick<Oof<T>, 'node' | 'style'>[];
 }
 
 export class Layout<T extends (INode | ITextNode)> {
@@ -76,6 +85,11 @@ export class Layout<T extends (INode | ITextNode)> {
   private readonly offsetStack: { x: number, y: number }[] = [];
   private offsetX = 0;
   private offsetY = 0;
+
+  // absolute且自适应尺寸时需要暂停并记录子树结构，在相对父节点end()后获得约束尺寸后重新处理一次
+  private readonly absoluteQueue: Oof<T>[] = [];
+  private absoluteConstraints: Constraints | null = null;
+  private layoutMode: LayoutMode = LayoutMode.NORMAL;
 
   // inline在end()结束时需看最后一个子节点的mpb-right，递归过程记录最后一个处理的节点就是子节点
   private lastChild: Inline | Text | null = null;
@@ -110,27 +124,28 @@ export class Layout<T extends (INode | ITextNode)> {
    */
   begin(node: T, style: Style) {
     this.nodeStack.push(node);
-    this.styleStack.push(style);
+    const clone = this.inherit(style);
+    this.styleStack.push(clone);
     const constraintsStack = this.constraintsStack;
     const constraints = constraintsStack[constraintsStack.length - 1];
     // text一定是叶子节点无需继续递归
     if (node.nodeType === NodeType.Text) {
-      this.text(style, constraints, (node as ITextNode).content);
+      this.text(clone, constraints, (node as ITextNode).content);
     }
-    else if (style.position === Position.ABSOLUTE) {
-      this.absolute(style, constraints);
+    else if (clone.position === Position.ABSOLUTE) {
+      this.absolute(clone, constraints);
     }
-    else if (style.display === Display.INLINE) {
-      this.inline(style, constraints);
+    else if (clone.display === Display.INLINE) {
+      this.inline(clone, constraints);
     }
     // 默认block
     else {
-      this.block(style, constraints);
+      this.block(clone, constraints);
     }
     // relative的offset递归向下传递
-    if (node.nodeType === NodeType.Node && style.position === Position.RELATIVE) {
+    if (node.nodeType === NodeType.Node && clone.position === Position.RELATIVE) {
       let x = 0, y = 0;
-      const { left, top, right, bottom } = style;
+      const { left, top, right, bottom } = clone;
       const res = this.resultStack[this.resultStack.length - 1];
       if (left.u !== Unit.AUTO) {
         x = this.calLength(left, constraints.pbw, res.fontSize, this.rem ?? 16);
@@ -158,7 +173,7 @@ export class Layout<T extends (INode | ITextNode)> {
     }
     const n = nodeStack.pop()!;
     if (node !== n) {
-      throw new Error('Layout mismatch: end() was called for ' + node + ', but the current stack expects ' + node + '. Ensure start() and end() are called in balanced pairs.');
+      throw new Error('Layout mismatch: end() was called for ' + node + ', but the current stack expects ' + node + '. Ensure begin() and end() are called in balanced pairs.');
     }
     const style = styleStack.pop()!;
     const res = resultStack.pop()!;
@@ -435,6 +450,17 @@ export class Layout<T extends (INode | ITextNode)> {
   }
 
   absolute(style: Style, constraints: Constraints) {
+    let parent: T | null = null;
+    for (let i = this.styleStack.length - 1; i >= 0; i--) {
+      const item = this.styleStack[i];
+      if (item.position === Position.ABSOLUTE || item.position === Position.RELATIVE) {
+        parent = this.nodeStack[i];
+        break;
+      }
+    }
+    const { left, right, top, bottom, width, height } = style;
+    if (left.u === Unit.PERCENT) {}
+    else if (right.u === Unit.PERCENT) {}
   }
 
   preset(style: Style, constraints: Constraints, type: LayoutResult['type']) {
@@ -536,5 +562,107 @@ export class Layout<T extends (INode | ITextNode)> {
       return target.v * rem;
     }
     return 0;
+  }
+
+  // 可能有继承的需要处理，这里防止修改原始style
+  inherit(style: Style) {
+    const last = this.styleStack.length ? this.styleStack[this.styleStack.length - 1] : null;
+    let clone = style;
+    if (style.fontSize.u === Unit.INHERIT) {
+      clone = Object.assign({}, style);
+      if (last) {
+        clone.fontSize = last.fontSize;
+      }
+      else {
+        clone.fontSize = { v: 16, u: Unit.PX };
+      }
+    }
+    else if (style.fontSize.u === Unit.PERCENT) {
+      clone = Object.assign({}, style);
+      if (last) {
+        clone.fontSize = { v: last.fontSize.v * 0.01 * style.fontSize.v, u: last.fontSize.u };
+      }
+      else {
+        clone.fontSize = { v: 16, u: Unit.PX };
+      }
+    }
+    if (style.lineHeight.u === Unit.INHERIT) {
+      if (clone === style) {
+        clone = Object.assign({}, style);
+      }
+      if (last) {
+        clone.lineHeight = last.lineHeight;
+      }
+      else {
+        clone.lineHeight = { v: 1.5, u: Unit.NUMBER };
+      }
+    }
+    else if (style.lineHeight.u === Unit.PERCENT) {
+      if (clone === style) {
+        clone = Object.assign({}, style);
+      }
+      if (last) {
+        clone.lineHeight = { v: last.lineHeight.v * 0.01 * style.lineHeight.v, u: last.lineHeight.u };
+      }
+      else {
+        clone.lineHeight = { v: 1.5, u: Unit.NUMBER };
+      }
+    }
+    if (style.letterSpacing.u === Unit.INHERIT) {
+      if (clone === style) {
+        clone = Object.assign({}, style);
+      }
+      if (last) {
+        clone.letterSpacing = last.letterSpacing;
+      }
+      else {
+        clone.letterSpacing = { v: 0, u: Unit.PX };
+      }
+    }
+    else if (style.letterSpacing.u === Unit.PERCENT) {
+      if (clone === style) {
+        clone = Object.assign({}, style);
+      }
+      if (last) {
+        clone.letterSpacing = { v: last.letterSpacing.v * 0.01 * style.letterSpacing.v, u: last.letterSpacing.u };
+      }
+      else {
+        clone.letterSpacing = { v: 0, u: Unit.PX };
+      }
+    }
+    if (style.fontStyle === FontStyle.INHERIT) {
+      if (clone === style) {
+        clone = Object.assign({}, style);
+      }
+      if (last) {
+        clone.fontStyle = last.fontStyle;
+      }
+      else {
+        clone.fontStyle = FontStyle.NORMAL;
+      }
+    }
+    if (style.fontWeight === 0) {
+      if (clone === style) {
+        clone = Object.assign({}, style);
+      }
+      if (last) {
+        clone.fontWeight = last.fontWeight;
+      }
+      else {
+        clone.fontWeight = 400;
+      }
+    }
+    if (style.fontFamily === 'inherit') {
+      if (clone === style) {
+        clone = Object.assign({}, style);
+      }
+      if (last) {
+        clone.fontFamily = last.fontFamily;
+      }
+      else {
+        clone.fontFamily = 'sans-serif';
+      }
+    }
+    return clone;
   }
 }

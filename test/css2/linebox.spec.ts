@@ -11,17 +11,16 @@ describe('linebox', () => {
 
   it('border-padding-bleed-001', () => {
     const node = genNode({
+      style: { fontSize: 40, lineHeight: 1 },
       children: [
-        { style: { fontSize: 40, lineHeight: 1 }, content: 'shuldboverlaPPed\n' },
+        { content: 'shuldboverlaPPed\n' },
         {
           style: {
             display: 'inline',
             borderTopWidth: 15,
             paddingTop: 25,
-            fontSize: 40,
-            lineHeight: 1,
           },
-          children: [ { style: { fontSize: 40, lineHeight: 1 }, content: 'Filler text' } ],
+          children: [ { content: 'Filler text' } ],
         },
       ],
     });
@@ -43,8 +42,8 @@ describe('linebox', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
-      fontSize: 16,
-      lineHeight: 24,
+      fontSize: 40,
+      lineHeight: 40,
       letterSpacing: 0,
       rects: null,
       type: 'box',

@@ -41,9 +41,17 @@ export type Length = {
 };
 
 export enum FontStyle {
-  NORMAL = 0,
-  ITALIC = 1,
-  OBLIQUE = 2,
+  INHERIT = 0,
+  NORMAL = 1,
+  ITALIC = 2,
+  OBLIQUE = 3,
+}
+
+export enum VerticalAlign {
+  BASELINE = 0,
+  TOP = 1,
+  BOTTOM = 2,
+  MIDDLE = 3,
 }
 
 export type Style = {
@@ -74,15 +82,12 @@ export type Style = {
   fontSize: Length;
   lineHeight: Length;
   letterSpacing: Length;
-  // minWidth: Length;
-  // maxWidth: Length;
-  // minHeight: Length;
-  // maxHeight: Length;
+  verticalAlign: VerticalAlign;
 };
 
-export type CssFontSize = number | `${number}px` | `${number}in` | `${number}rem`;
+export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` | `${number}rem` | 'inherit';
 
-export type CssLength = CssFontSize | 'auto' | `${number}%` | `${number}em`;
+export type CssLength = Omit<CssFontSize, 'inherit'> | 'auto' | `${number}em`;
 
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
@@ -107,11 +112,12 @@ export type JStyle = {
   borderBottomWidth: CssLength;
   borderLeftWidth: CssLength;
   fontFamily: string;
-  fontStyle: 'normal' | 'italic' | 'oblique';
-  fontWeight: number | 'thin' | 'lighter' | 'light' | 'medium' | 'semiBold' | 'bold' | 'extraBold' | 'black' | 'normal';
+  fontStyle: 'inherit' | 'normal' | 'italic' | 'oblique';
+  fontWeight: number | 'inherit' | 'thin' | 'lighter' | 'light' | 'medium' | 'semiBold' | 'bold' | 'extraBold' | 'black' | 'normal';
   fontSize: CssFontSize;
   lineHeight: CssFontSize;
   letterSpacing: CssFontSize;
+  verticalAlign: 'baseline' | 'top' | 'bottom' | 'middle';
 };
 
 export const getDefaultStyle = (style?: Partial<Style>) => {
@@ -137,12 +143,13 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
     borderRightWidth: { v: 0, u: Unit.PX },
     borderBottomWidth: { v: 0, u: Unit.PX },
     borderLeftWidth: { v: 0, u: Unit.PX },
-    fontFamily: 'sans-serif',
-    fontStyle: FontStyle.NORMAL,
-    fontWeight: 400,
-    fontSize: { v: 16, u: Unit.PX },
-    lineHeight: { v: 1.5, u: Unit.NUMBER },
-    letterSpacing: { v: 0, u: Unit.PX },
+    fontFamily: 'inherit',
+    fontStyle: FontStyle.INHERIT,
+    fontWeight: 0,
+    fontSize: { v: 0, u: Unit.INHERIT },
+    lineHeight: { v: 0, u: Unit.INHERIT },
+    letterSpacing: { v: 0, u: Unit.INHERIT },
+    verticalAlign: VerticalAlign.BASELINE,
   };
   if (style) {
     Object.assign(dft, style);
@@ -157,6 +164,12 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
       u: Unit.AUTO,
     };
   }
+  if (v === 'inherit') {
+    return {
+      v: 0,
+      u: Unit.INHERIT,
+    };
+  }
   let n = parseFloat(v as string) || 0;
   if (/%$/.test(v as string)) {
     return {
@@ -164,19 +177,19 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
       u: Unit.PERCENT,
     };
   }
-  else if (/in$/i.test(v as string)) {
+  else if (/in$/.test(v as string)) {
     return {
       v: n,
       u: Unit.IN,
     };
   }
-  else if (/em$/i.test(v as string)) {
+  else if (/em$/.test(v as string)) {
     return {
       v: n,
       u: Unit.EM,
     };
   }
-  else if (/rem$/i.test(v as string)) {
+  else if (/rem$/.test(v as string)) {
     return {
       v: n,
       u: Unit.REM,
@@ -271,42 +284,43 @@ export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
   }
   if (style.fontStyle !== undefined) {
     res.fontStyle = {
+      inherit: FontStyle.INHERIT,
       normal: FontStyle.NORMAL,
       italic: FontStyle.ITALIC,
       oblique: FontStyle.OBLIQUE,
-    }[style.fontStyle] || FontStyle.NORMAL;
+    }[style.fontStyle] || FontStyle.INHERIT;
   }
   if (style.fontWeight !== undefined) {
     if (typeof style.fontWeight === 'number') {
       res.fontWeight = Math.min(900, Math.max(100, style.fontWeight));
     }
     else {
-      if (/thin/i.test(style.fontWeight)) {
+      if (/thin/.test(style.fontWeight)) {
         res.fontWeight = 100;
       }
-      else if (/lighter/i.test(style.fontWeight)) {
+      else if (/lighter/.test(style.fontWeight)) {
         res.fontWeight = 200;
       }
-      else if (/light/i.test(style.fontWeight)) {
+      else if (/light/.test(style.fontWeight)) {
         res.fontWeight = 300;
       }
-      else if (/medium/i.test(style.fontWeight)) {
+      else if (/medium/.test(style.fontWeight)) {
         res.fontWeight = 500;
       }
-      else if (/semiBold/i.test(style.fontWeight)) {
+      else if (/semiBold/.test(style.fontWeight)) {
         res.fontWeight = 600;
       }
-      else if (/bold/i.test(style.fontWeight)) {
+      else if (/bold/.test(style.fontWeight)) {
         res.fontWeight = 700;
       }
-      else if (/extraBold/i.test(style.fontWeight)) {
+      else if (/extraBold/.test(style.fontWeight)) {
         res.fontWeight = 800;
       }
-      else if (/black/i.test(style.fontWeight)) {
+      else if (/black/.test(style.fontWeight)) {
         res.fontWeight = 900;
       }
       else {
-        res.fontWeight = 400;
+        res.fontWeight = /inherit/.test(style.fontWeight) ? 0 : 400;
       }
     }
   }
