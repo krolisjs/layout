@@ -29,7 +29,7 @@ export function genNode(item: Item) {
 }
 
 export function createTestContext() {
-  const ctx = new Context<AbstractNode>({
+  return new Context<AbstractNode>({
     constraints: {
       aw: 10000,
       ah: 10000,
@@ -46,6 +46,4 @@ export function createTestContext() {
       };
     },
   });
-
-  return ctx;
 }
