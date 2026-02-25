@@ -1,6 +1,6 @@
 import { expect } from 'expect';
 import { createTestContext, genNode } from '../env.ts';
-import { AbstractNode, Context } from '../../dist/index.js';
+import { AbstractNode, Context, FontStyle } from '../../dist/index.js';
 
 describe('linebox', () => {
   let ctx: Context<AbstractNode>;
@@ -42,7 +42,10 @@ describe('linebox', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontFamily: 'sans-serif',
       fontSize: 40,
+      fontWeight: 400,
+      fontStyle: FontStyle.NORMAL,
       lineHeight: 40,
       letterSpacing: 0,
       rects: null,
@@ -65,7 +68,10 @@ describe('linebox', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontFamily: 'sans-serif',
       fontSize: 40,
+      fontWeight: 400,
+      fontStyle: FontStyle.NORMAL,
       lineHeight: 40,
       letterSpacing: 0,
       rects: [
@@ -113,7 +119,10 @@ describe('linebox', () => {
       borderRightWidth: 2,
       borderBottomWidth: 2,
       borderLeftWidth: 2,
+      fontFamily: 'sans-serif',
       fontSize: 16,
+      fontWeight: 400,
+      fontStyle: FontStyle.NORMAL,
       lineHeight: 24,
       letterSpacing: 0,
       rects: [
@@ -149,7 +158,10 @@ describe('linebox', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontFamily: 'sans-serif',
       fontSize: 16,
+      fontWeight: 400,
+      fontStyle: FontStyle.NORMAL,
       lineHeight: 24,
       letterSpacing: 0,
       rects: null,
@@ -192,7 +204,10 @@ describe('linebox', () => {
       borderRightWidth: 2,
       borderBottomWidth: 2,
       borderLeftWidth: 2,
+      fontFamily: 'sans-serif',
       fontSize: 16,
+      fontWeight: 400,
+      fontStyle: FontStyle.NORMAL,
       lineHeight: 24,
       letterSpacing: 0,
       rects: [
@@ -228,7 +243,10 @@ describe('linebox', () => {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontFamily: 'sans-serif',
       fontSize: 16,
+      fontWeight: 400,
+      fontStyle: FontStyle.NORMAL,
       lineHeight: 24,
       letterSpacing: 0,
       rects: null,

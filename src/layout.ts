@@ -17,7 +17,10 @@ export type ComputedStyle = {
   borderRightWidth: number;
   borderBottomWidth: number;
   borderLeftWidth: number;
+  fontFamily: string;
   fontSize: number;
+  fontWeight: number;
+  fontStyle: FontStyle;
   lineHeight: number;
   letterSpacing: number;
 };
@@ -124,28 +127,27 @@ export class Layout<T extends (INode | ITextNode)> {
    */
   begin(node: T, style: Style) {
     this.nodeStack.push(node);
-    const clone = this.inherit(style);
-    this.styleStack.push(clone);
+    this.styleStack.push(style);
     const constraintsStack = this.constraintsStack;
     const constraints = constraintsStack[constraintsStack.length - 1];
     // text一定是叶子节点无需继续递归
     if (node.nodeType === NodeType.Text) {
-      this.text(clone, constraints, (node as ITextNode).content);
+      this.text(style, constraints, (node as ITextNode).content);
     }
-    else if (clone.position === Position.ABSOLUTE) {
-      this.absolute(clone, constraints);
+    else if (style.position === Position.ABSOLUTE) {
+      this.absolute(style, constraints);
     }
-    else if (clone.display === Display.INLINE) {
-      this.inline(clone, constraints);
+    else if (style.display === Display.INLINE) {
+      this.inline(style, constraints);
     }
     // 默认block
     else {
-      this.block(clone, constraints);
+      this.block(style, constraints);
     }
     // relative的offset递归向下传递
-    if (node.nodeType === NodeType.Node && clone.position === Position.RELATIVE) {
+    if (node.nodeType === NodeType.Node && style.position === Position.RELATIVE) {
       let x = 0, y = 0;
-      const { left, top, right, bottom } = clone;
+      const { left, top, right, bottom } = style;
       const res = this.resultStack[this.resultStack.length - 1];
       if (left.u !== Unit.AUTO) {
         x = this.calLength(left, constraints.pbw, res.fontSize, this.rem ?? 16);
@@ -287,7 +289,7 @@ export class Layout<T extends (INode | ITextNode)> {
       }
     }
     this.onConfigured(node, res);
-    // 出栈
+    // relative出栈
     if (node.nodeType !== NodeType.Text && style.position === Position.RELATIVE) {
       const o = this.offsetStack.pop()!;
       this.offsetX -= o.x;
@@ -483,13 +485,34 @@ export class Layout<T extends (INode | ITextNode)> {
       borderRightWidth: 0,
       borderBottomWidth: 0,
       borderLeftWidth: 0,
+      fontFamily: 'sans-serif',
       fontSize: 16,
+      fontWeight: 400,
+      fontStyle: FontStyle.NORMAL,
       lineHeight: 24,
       letterSpacing: 0,
     };
     const rem = this.rem ?? 16;
 
-    res.fontSize = Math.max(0, this.calLength(style.fontSize, 0, 0, rem));
+    const last = this.resultStack.length ? this.resultStack[this.resultStack.length - 1] : null;
+
+    if (style.fontFamily === 'inherit') {
+      if (last) {
+        res.fontFamily = last.fontFamily;
+      }
+    }
+    else {
+      res.fontFamily = style.fontFamily;
+    }
+
+    if (style.fontSize.u === Unit.INHERIT) {
+      if (last) {
+        res.fontSize = last.fontSize;
+      }
+    }
+    else {
+      res.fontSize = Math.max(0, this.calLength(style.fontSize, last ? last.fontSize * 100 : 1600, 0, rem));
+    }
 
     ([
       'marginTop',
@@ -520,6 +543,14 @@ export class Layout<T extends (INode | ITextNode)> {
       const { v, u } = style[k];
       if (k === 'lineHeight' && u === Unit.NUMBER) {
         res[k] = Math.max(0, v * res.fontSize);
+      }
+      else if (k === 'lineHeight' && u === Unit.INHERIT) {
+        if (last) {
+          res[k] = last.lineHeight;
+        }
+      }
+      else if (k === 'lineHeight') {
+        res[k] = Math.max(0, this.calLength(style[k], last?.lineHeight || 0, res.fontSize, rem));
       }
       else {
         res[k] = Math.max(0, this.calLength(style[k], constraints.pbw, res.fontSize, rem));
@@ -562,107 +593,5 @@ export class Layout<T extends (INode | ITextNode)> {
       return target.v * rem;
     }
     return 0;
-  }
-
-  // 可能有继承的需要处理，这里防止修改原始style
-  inherit(style: Style) {
-    const last = this.styleStack.length ? this.styleStack[this.styleStack.length - 1] : null;
-    let clone = style;
-    if (style.fontSize.u === Unit.INHERIT) {
-      clone = Object.assign({}, style);
-      if (last) {
-        clone.fontSize = last.fontSize;
-      }
-      else {
-        clone.fontSize = { v: 16, u: Unit.PX };
-      }
-    }
-    else if (style.fontSize.u === Unit.PERCENT) {
-      clone = Object.assign({}, style);
-      if (last) {
-        clone.fontSize = { v: last.fontSize.v * 0.01 * style.fontSize.v, u: last.fontSize.u };
-      }
-      else {
-        clone.fontSize = { v: 16, u: Unit.PX };
-      }
-    }
-    if (style.lineHeight.u === Unit.INHERIT) {
-      if (clone === style) {
-        clone = Object.assign({}, style);
-      }
-      if (last) {
-        clone.lineHeight = last.lineHeight;
-      }
-      else {
-        clone.lineHeight = { v: 1.5, u: Unit.NUMBER };
-      }
-    }
-    else if (style.lineHeight.u === Unit.PERCENT) {
-      if (clone === style) {
-        clone = Object.assign({}, style);
-      }
-      if (last) {
-        clone.lineHeight = { v: last.lineHeight.v * 0.01 * style.lineHeight.v, u: last.lineHeight.u };
-      }
-      else {
-        clone.lineHeight = { v: 1.5, u: Unit.NUMBER };
-      }
-    }
-    if (style.letterSpacing.u === Unit.INHERIT) {
-      if (clone === style) {
-        clone = Object.assign({}, style);
-      }
-      if (last) {
-        clone.letterSpacing = last.letterSpacing;
-      }
-      else {
-        clone.letterSpacing = { v: 0, u: Unit.PX };
-      }
-    }
-    else if (style.letterSpacing.u === Unit.PERCENT) {
-      if (clone === style) {
-        clone = Object.assign({}, style);
-      }
-      if (last) {
-        clone.letterSpacing = { v: last.letterSpacing.v * 0.01 * style.letterSpacing.v, u: last.letterSpacing.u };
-      }
-      else {
-        clone.letterSpacing = { v: 0, u: Unit.PX };
-      }
-    }
-    if (style.fontStyle === FontStyle.INHERIT) {
-      if (clone === style) {
-        clone = Object.assign({}, style);
-      }
-      if (last) {
-        clone.fontStyle = last.fontStyle;
-      }
-      else {
-        clone.fontStyle = FontStyle.NORMAL;
-      }
-    }
-    if (style.fontWeight === 0) {
-      if (clone === style) {
-        clone = Object.assign({}, style);
-      }
-      if (last) {
-        clone.fontWeight = last.fontWeight;
-      }
-      else {
-        clone.fontWeight = 400;
-      }
-    }
-    if (style.fontFamily === 'inherit') {
-      if (clone === style) {
-        clone = Object.assign({}, style);
-      }
-      if (last) {
-        clone.fontFamily = last.fontFamily;
-      }
-      else {
-        clone.fontFamily = 'sans-serif';
-      }
-    }
-    return clone;
   }
 }
