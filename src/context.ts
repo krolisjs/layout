@@ -1,20 +1,19 @@
-import { InputConstraints, Layout, LayoutResult } from './layout';
+import { InputConstraints, Layout, Result } from './layout';
 import { MeasureText } from './text';
 import { Style } from './style';
 import { INode, ITextNode } from './node';
 
 export class Context<T extends (INode | ITextNode)> {
-  readonly onConfigured: (node: T, res: LayoutResult) => void; // 结果钩子
+  readonly onConfigured: (node: T, res: Result) => void; // 结果钩子
   readonly layout: Layout<T>;
   label = ''; // debug信息
 
   constructor(props: {
     constraints: InputConstraints;
-    onConfigured: (node: T, res: LayoutResult) => void;
+    onConfigured: (node: T, res: Result) => void;
     measureText?: MeasureText;
     rem?: number;
     label?: string;
-    ignoreEnter?: boolean;
   }) {
     this.onConfigured = props.onConfigured;
     this.layout = new Layout<T>(
@@ -22,7 +21,6 @@ export class Context<T extends (INode | ITextNode)> {
       props.onConfigured,
       props.measureText,
       props.rem,
-      props.ignoreEnter,
     );
     this.label = props.label || this.label;
   }

@@ -41,7 +41,7 @@ export type Text = {
   rects: LineBox[];
 } & Rect & ComputedStyle;
 
-export type LayoutResult = Box | Inline | Text;
+export type Result = Box | Inline | Text;
 
 export type Constraints = {
   ox: number; // 相对原点坐标
@@ -49,7 +49,7 @@ export type Constraints = {
   aw: number; // 可用尺寸
   ah: number;
   pbw: number; // 百分比基于尺寸
-  pbh: number;
+  pbh?: number; // 可能出现undefined表示auto
   cx: number; // 当前坐标，flow流用到，absolute时自动位置也会用
   cy: number;
 };
@@ -67,42 +67,45 @@ export enum LayoutMode {
 type Oof<T extends (INode | ITextNode)> = {
   node: T;
   style: Style;
+  children: Oof<T>[];
+}
+
+type OofRoot<T extends (INode | ITextNode)> = Oof<T> & {
   constraints: Constraints;
   parent: T;
-  children: Pick<Oof<T>, 'node' | 'style'>[];
 }
 
 export class Layout<T extends (INode | ITextNode)> {
-  private readonly onConfigured: (node: T, res: LayoutResult) => void;
+  private readonly onConfigured: (node: T, res: Result) => void;
   private readonly measureText?: MeasureText;
   private readonly rem?: number;
-  private readonly ignoreEnter?: boolean;
 
   // constraints和node是一一对应的，入口节点就是构造器传入的inputConstraints
   private readonly constraintsStack: Constraints[] = [];
   private readonly nodeStack: T[] = [];
   private readonly styleStack: Style[] = [];
-  private readonly resultStack: LayoutResult[] = [];
+  private readonly resultStack: Result[] = []; // 不考虑relative偏移修正的中间结果
+  // 最终relative修正队列，end()时所有数据暂存进这个队列，整体结束遍历一遍修正偏移并触发onConfigured回调
+  private readonly offsetQueue: { node: T, style: Style, constraints?: Constraints, res: Result, level: number }[] = [];
 
-  // relative情况当前递归过程中的偏移和累计的偏移量
-  private readonly offsetStack: { x: number, y: number }[] = [];
-  private offsetX = 0;
-  private offsetY = 0;
-
-  // absolute且自适应尺寸时需要暂停并记录子树结构，在相对父节点end()后获得约束尺寸后重新处理一次
-  private readonly absoluteQueue: Oof<T>[] = [];
-  private absoluteConstraints: Constraints | null = null;
   private layoutMode: LayoutMode = LayoutMode.NORMAL;
+
+  // absolute且自适应尺寸时需要暂停并记录子树结构，在相对父节点end()后获得约束尺寸后重新开始处理
+  private currentOof: Oof<T> | null = null;
+  private readonly oofStack: Oof<T>[] = [];
+  // 有相对父节点的以父节点为key，end()时检查
+  private oofMap: WeakMap<T, Oof<T>> = new WeakMap();
+  // 没有相对父节点的记录下来等全部结束后处理
+  private oofQueue: Oof<T>[] = [];
 
   // inline在end()结束时需看最后一个子节点的mpb-right，递归过程记录最后一个处理的节点就是子节点
   private lastChild: Inline | Text | null = null;
 
   constructor(
     inputConstraints: InputConstraints,
-    onConfigured: (node: T, res: LayoutResult) => void,
+    onConfigured: (node: T, res: Result) => void,
     measureText?: MeasureText,
     rem?: number,
-    ignoreEnter?: boolean,
   ) {
     const c = {
       ox: inputConstraints.ox || 0,
@@ -118,14 +121,25 @@ export class Layout<T extends (INode | ITextNode)> {
     this.onConfigured = onConfigured;
     this.measureText = measureText;
     this.rem = rem;
-    this.ignoreEnter = ignoreEnter;
   }
 
   /**
-   * @param node      - 节点 ID (唯一 Key)
+   * @param node      - 节点
    * @param style     - 节点样式对象
    */
   begin(node: T, style: Style) {
+    // absolute测量模式，只记录树结构，等其相对父节点end()时机重新唤起
+    if (this.layoutMode & LayoutMode.OOF_MEASURE) {
+      const oof: Oof<T> = {
+        node,
+        style,
+        children: [],
+      };
+      this.oofStack.push(oof);
+      this.currentOof!.children.push(oof);
+      this.currentOof = oof;
+      return;
+    }
     this.nodeStack.push(node);
     this.styleStack.push(style);
     const constraintsStack = this.constraintsStack;
@@ -135,7 +149,7 @@ export class Layout<T extends (INode | ITextNode)> {
       this.text(style, constraints, (node as ITextNode).content);
     }
     else if (style.position === Position.ABSOLUTE) {
-      this.absolute(style, constraints);
+      this.absolute(node, style, constraints);
     }
     else if (style.display === Display.INLINE) {
       this.inline(style, constraints);
@@ -144,32 +158,16 @@ export class Layout<T extends (INode | ITextNode)> {
     else {
       this.block(style, constraints);
     }
-    // relative的offset递归向下传递
-    if (node.nodeType === NodeType.Node && style.position === Position.RELATIVE) {
-      let x = 0, y = 0;
-      const { left, top, right, bottom } = style;
-      const res = this.resultStack[this.resultStack.length - 1];
-      if (left.u !== Unit.AUTO) {
-        x = this.calLength(left, constraints.pbw, res.fontSize, this.rem ?? 16);
-      }
-      else if (right.u !== Unit.AUTO) {
-        x = -this.calLength(right, constraints.pbw, res.fontSize, this.rem ?? 16);
-      }
-      // y方向不支持%
-      if (top.u !== Unit.AUTO && top.u !== Unit.PERCENT) {
-        y = this.calLength(top, constraints.pbh, res.fontSize, this.rem ?? 16);
-      }
-      else if (bottom.u !== Unit.AUTO && bottom.u !== Unit.PERCENT) {
-        y = -this.calLength(top, constraints.pbh, res.fontSize, this.rem ?? 16);
-      }
-      this.offsetStack.push({ x, y });
-      this.offsetX += x;
-      this.offsetY += y;
-    }
   }
 
   end(node: T) {
-    const { constraintsStack, nodeStack, resultStack, styleStack } = this;
+    const { constraintsStack, nodeStack, oofStack, resultStack, styleStack } = this;
+    // absolute测量模式，记录树结构，管理当前节点记录出栈
+    if (this.layoutMode & LayoutMode.OOF_MEASURE) {
+      oofStack.pop();
+      this.currentOof = oofStack[oofStack.length - 1] || null;
+      return;
+    }
     if (!nodeStack.length) {
       throw new Error('Stack Error: Attempted to end a node but the stack is already empty. This indicates an extra \'end()\' call or missing \'begin()\'.');
     }
@@ -179,6 +177,7 @@ export class Layout<T extends (INode | ITextNode)> {
     }
     const style = styleStack.pop()!;
     const res = resultStack.pop()!;
+    let c: Constraints | undefined = undefined;
     // 真正的inline内容叶子节点递归向上处理所有inline父节点
     if (node.nodeType === NodeType.Text) {
       if (styleStack.length) {
@@ -212,6 +211,7 @@ export class Layout<T extends (INode | ITextNode)> {
               parentRect.h = Math.max(parentRect.h, current.y + current.h - parentRect.y);
             });
           }
+          // inline可能包含block，中断，在block中还会继续向上递归，因为流顺序最后处理的叶子节点一定是正确的
           else {
             break;
           }
@@ -221,7 +221,7 @@ export class Layout<T extends (INode | ITextNode)> {
       this.lastChild = res as Text;
     }
     else {
-      const c = constraintsStack.pop()!;
+      c = constraintsStack.pop()!;
       const cp = constraintsStack[constraintsStack.length - 1];
       if (style.position === Position.ABSOLUTE) {
         this.lastChild = null;
@@ -243,7 +243,8 @@ export class Layout<T extends (INode | ITextNode)> {
       // 默认block
       else {
         const mbp = res.marginBottom + res.paddingBottom + res.borderBottomWidth;
-        if (style.height.u === Unit.AUTO) {
+        // 自动高度，以及%高度但父级是auto
+        if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
           res.h = c.cy - c.oy;
         }
         if (cp) {
@@ -269,32 +270,97 @@ export class Layout<T extends (INode | ITextNode)> {
         this.lastChild = null;
       }
     }
-    // 可能有relative造成的偏移
-    if (this.offsetX || this.offsetY) {
-      res.x += this.offsetX;
-      res.y += this.offsetY;
-      if (res.rects) {
-        res.rects.forEach(item => {
-          item.x += this.offsetX;
-          item.y += this.offsetY;
-        });
-        if (res.type === 'text') {
-          res.rects.forEach(item => {
-            item.list.forEach(v => {
-              v.x += this.offsetX;
-              v.y += this.offsetY;
-            });
-          });
+    // 这里是后序进入offsetQueue，因为叶子节点先触发
+    this.offsetQueue.push({
+      node,
+      style,
+      constraints: constraintsStack[constraintsStack.length - 1], // 存父节点的，根没有
+      res,
+      level: this.nodeStack.length,
+    });
+    // 根节点end()则全部结束，进行偏移修正并触发回调
+    if (!this.nodeStack.length) {
+      this.finish();
+    }
+  }
+
+  finish() {
+    const offsetQueue = this.offsetQueue;
+    const offsetStack: { x: number, y: number }[] = [];
+    let offsetX = 0, offsetY = 0;
+    let lastLevel = -1;
+    // 倒过来就是先序遍历
+    for (let i = offsetQueue.length - 1; i >= 0; i--) {
+      const { node, style, constraints, res, level } = offsetQueue[i];
+      // 递归向下，或者平级（无children的兄弟节点）
+      if (level >= lastLevel) {
+        // 同级说明上一个无children节点，出栈
+        if (level === lastLevel) {
+          const o = offsetStack.pop()!;
+          offsetX -= o.x;
+          offsetY -= o.y;
+        }
+        if (node.nodeType === NodeType.Node && style.position === Position.RELATIVE) {
+          let x = 0, y = 0;
+          const { left, top, right, bottom } = style;
+          if (left.u !== Unit.AUTO) {
+            x = this.calLength(left, res.w, res.fontSize, this.rem ?? 16);
+          }
+          else if (right.u !== Unit.AUTO) {
+            x = -this.calLength(right, res.w, res.fontSize, this.rem ?? 16);
+          }
+          if (top.u !== Unit.AUTO) {
+            // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
+            if (top.u !== Unit.PERCENT || constraints!.pbh !== undefined) {
+              y = this.calLength(top, res.h, res.fontSize, this.rem ?? 16);
+            }
+          }
+          else if (bottom.u !== Unit.AUTO) {
+            if (bottom.u !== Unit.PERCENT || constraints!.pbh !== undefined) {
+              y = -this.calLength(bottom, res.h, res.fontSize, this.rem ?? 16);
+            }
+          }
+          // 入栈，为后面向下递归或平级做准备
+          offsetStack.push({ x, y });
+          offsetX += x;
+          offsetY += y;
+        }
+        else {
+          offsetStack.push({ x: 0, y: 0 });
         }
       }
+      // 向上可能出现多级
+      else {
+        for (let j = level; j <= lastLevel; j++) {
+          const o = offsetStack.pop()!;
+          offsetX -= o.x;
+          offsetY -= o.y;
+        }
+      }
+      // 有偏移才累加上去
+      if (offsetX || offsetY) {
+        res.x += offsetX;
+        res.y += offsetY;
+        if (res.rects) {
+          res.rects.forEach(item => {
+            item.x += offsetX;
+            item.y += offsetY;
+          });
+          if (res.type === 'text') {
+            res.rects.forEach(item => {
+              item.list.forEach(v => {
+                v.x += offsetX;
+                v.y += offsetY;
+              });
+            });
+          }
+        }
+      }
+      this.onConfigured(node, res);
+      lastLevel = level;
     }
-    this.onConfigured(node, res);
-    // relative出栈
-    if (node.nodeType !== NodeType.Text && style.position === Position.RELATIVE) {
-      const o = this.offsetStack.pop()!;
-      this.offsetX -= o.x;
-      this.offsetY -= o.y;
-    }
+    // 完成清空
+    offsetQueue.splice(0);
   }
 
   block(style: Style, constraints: Constraints) {
@@ -320,7 +386,12 @@ export class Layout<T extends (INode | ITextNode)> {
     }
     if (style.height.u === Unit.AUTO) {
       c.ah = Infinity;
-      c.pbh = NaN;
+      c.pbh = undefined; // auto
+    }
+    // 父级高度auto时，%失效也是auto
+    else if (style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
+      c.ah = Infinity;
+      c.pbh = undefined;
     }
     this.constraintsStack.push(c);
   }
@@ -360,7 +431,7 @@ export class Layout<T extends (INode | ITextNode)> {
     let length = content.length;
     // 使用一种预测字符长度的技术，结合2分查找，减少调用measureText的次数
     while (i < length) {
-      if (isEnter(content[i]) && !this.ignoreEnter) {
+      if (isEnter(content[i])) {
         i++;
         cx = constraints.ox;
         cy += res.lineHeight;
@@ -451,7 +522,12 @@ export class Layout<T extends (INode | ITextNode)> {
   inlineGrid(style: Style, constraints: Constraints) {
   }
 
-  absolute(style: Style, constraints: Constraints) {
+  absolute(node: T, style: Style, constraints: Constraints) {
+    // absolute预测量阶段忽略递归的absolute
+    if (this.layoutMode & LayoutMode.OOF_MEASURE) {
+      return;
+    }
+    // 先寻找到相对父节点，没有则相对于全局或者是root节点；等到父节点end()前知道尺寸后开始处理absolute节点
     let parent: T | null = null;
     for (let i = this.styleStack.length - 1; i >= 0; i--) {
       const item = this.styleStack[i];
@@ -460,12 +536,43 @@ export class Layout<T extends (INode | ITextNode)> {
         break;
       }
     }
-    const { left, right, top, bottom, width, height } = style;
-    if (left.u === Unit.PERCENT) {}
-    else if (right.u === Unit.PERCENT) {}
+    // 统一在相对父节点的end()时处理
+    if (parent) {
+      this.layoutMode |= LayoutMode.OOF_MEASURE;
+      this.currentOof = {
+        node,
+        style,
+        children: [],
+      };
+      this.oofMap.set(parent, this.currentOof);
+    }
+    // 没有相对父节点在全部结束后处理（非根）
+    else if (this.nodeStack.length > 1) {
+      this.layoutMode |= LayoutMode.OOF_MEASURE;
+      this.currentOof = {
+        node,
+        style,
+        children: [],
+      };
+      this.oofQueue.push(this.currentOof);
+    }
+    // 如果自己就是根节点可以直接处理
+    else {
+      if (style.display === Display.INLINE) {
+        this.inline(style, constraints);
+      }
+      else {
+        this.block(style, constraints);
+      }
+    }
+    // 在定宽情况下，是不需要预测量一遍的，即width或left+right；如果是%的情况，暂时认为非定宽等end()知道包含块的尺寸再做
+    // const { left, right, width, height } = style;
+    // let isFixedWidth = false;
+    // if (left.u === Unit.PERCENT) {}
+    // else if (right.u === Unit.PERCENT) {}
   }
 
-  preset(style: Style, constraints: Constraints, type: LayoutResult['type']) {
+  preset(style: Style, constraints: Constraints, type: Result['type']) {
     const res: any = {
       type,
       rects: type === 'box' ? null : [],
@@ -557,14 +664,19 @@ export class Layout<T extends (INode | ITextNode)> {
       }
     });
 
-    res.w = Math.max(0, this.calLength(style.width, constraints.pbw, res.fontSize, rem));
-    if (style.boxSizing === BoxSizing.BORDER_BOX) {
-      res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
+    if (style.width.u !== Unit.AUTO) {
+      res.w = Math.max(0, this.calLength(style.width, constraints.pbw, res.fontSize, rem));
+      if (style.boxSizing === BoxSizing.BORDER_BOX) {
+        res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
+      }
     }
 
-    res.h = Math.max(0, this.calLength(style.height, constraints.pbh, res.fontSize, rem));
-    if (style.boxSizing === BoxSizing.BORDER_BOX) {
-      res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
+    // 父auto子%，不计算默认0
+    if (style.height.u !== Unit.AUTO && (constraints.pbh !== undefined || style.height.u !== Unit.PERCENT)) {
+      res.h = Math.max(0, this.calLength(style.height, constraints.pbh || 0, res.fontSize, rem));
+      if (style.boxSizing === BoxSizing.BORDER_BOX) {
+        res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
+      }
     }
 
     // 排除mbp后的contentBox的坐标，注意inline不考虑y方向
@@ -593,5 +705,13 @@ export class Layout<T extends (INode | ITextNode)> {
       return target.v * rem;
     }
     return 0;
+  }
+
+  getParentHeightWhenRelative() {
+    const styleStack = this.styleStack;
+    let res = 0;
+    // 最后一个是当前relative节点，从-2开始
+    for (let i = styleStack.length - 2; i >= 0; i--) {}
+    return res;
   }
 }
