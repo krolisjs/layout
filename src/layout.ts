@@ -71,8 +71,10 @@ type Oof<T extends (INode | ITextNode)> = {
 }
 
 type OofRoot<T extends (INode | ITextNode)> = Oof<T> & {
-  constraints: Constraints;
-  parent: T;
+  cx: number;
+  cy: number;
+  min: number; // absolute节点预测量阶段，最终需要求得的宽度2个极值，然后最终取max(min, min(aw, max))
+  max: number;
 }
 
 export class Layout<T extends (INode | ITextNode)> {
@@ -85,18 +87,22 @@ export class Layout<T extends (INode | ITextNode)> {
   private readonly nodeStack: T[] = [];
   private readonly styleStack: Style[] = [];
   private readonly resultStack: Result[] = []; // 不考虑relative偏移修正的中间结果
-  // 最终relative修正队列，end()时所有数据暂存进这个队列，整体结束遍历一遍修正偏移并触发onConfigured回调
-  private readonly offsetQueue: { node: T, style: Style, constraints?: Constraints, res: Result, level: number }[] = [];
+  // 最终relative修正队列，end时所有数据暂存进这个队列，整体结束遍历一遍修正偏移并触发onConfigured回调
+  private readonly offsetQueue: { node: T, style: Style, parentConstraints?: Constraints, res: Result, level: number }[] = [];
 
   private layoutMode: LayoutMode = LayoutMode.NORMAL;
 
   // absolute且自适应尺寸时需要暂停并记录子树结构，在相对父节点end()后获得约束尺寸后重新开始处理
-  private currentOof: Oof<T> | null = null;
+  private oof: Oof<T> | null = null;
+  private oofRoot: OofRoot<T> | null = null;
+  // 预测量时伴随begin入栈/end出栈，使得currentOof能够正确指向
   private readonly oofStack: Oof<T>[] = [];
-  // 有相对父节点的以父节点为key，end()时检查
-  private oofMap: WeakMap<T, Oof<T>> = new WeakMap();
+  // absolute节点为key，end时检测结束预测量状态
+  private oofMap: WeakMap<T, OofRoot<T>> = new WeakMap();
+  // 有相对父节点的以父节点为key，end时检查，此时预测量结束状态重置开始处理此节点
+  private oofParentMap: WeakMap<T, OofRoot<T>> = new WeakMap();
   // 没有相对父节点的记录下来等全部结束后处理
-  private oofQueue: Oof<T>[] = [];
+  private oofQueue: OofRoot<T>[] = [];
 
   // inline在end()结束时需看最后一个子节点的mpb-right，递归过程记录最后一个处理的节点就是子节点
   private lastChild: Inline | Text | null = null;
@@ -136,20 +142,23 @@ export class Layout<T extends (INode | ITextNode)> {
         children: [],
       };
       this.oofStack.push(oof);
-      this.currentOof!.children.push(oof);
-      this.currentOof = oof;
-      return;
+      this.oof!.children.push(oof);
+      this.oof = oof;
+      // return;
     }
-    this.nodeStack.push(node);
-    this.styleStack.push(style);
+    // if (style.position !== Position.ABSOLUTE) {
+      this.nodeStack.push(node);
+      this.styleStack.push(style);
+    // }
     const constraintsStack = this.constraintsStack;
     const constraints = constraintsStack[constraintsStack.length - 1];
-    // text一定是叶子节点无需继续递归
-    if (node.nodeType === NodeType.Text) {
-      this.text(style, constraints, (node as ITextNode).content);
-    }
-    else if (style.position === Position.ABSOLUTE) {
+    // absolute进入预测量模式
+    if (style.position === Position.ABSOLUTE) {
       this.absolute(node, style, constraints);
+    }
+    // text一定是叶子节点无需继续递归
+    else if (node.nodeType === NodeType.Text) {
+      this.text(style, constraints, (node as ITextNode).content);
     }
     else if (style.display === Display.INLINE) {
       this.inline(style, constraints);
@@ -161,13 +170,20 @@ export class Layout<T extends (INode | ITextNode)> {
   }
 
   end(node: T) {
-    const { constraintsStack, nodeStack, oofStack, resultStack, styleStack } = this;
+    const { constraintsStack, nodeStack, oofMap, oofParentMap, oofStack, resultStack, styleStack } = this;
     // absolute测量模式，记录树结构，管理当前节点记录出栈
     if (this.layoutMode & LayoutMode.OOF_MEASURE) {
       oofStack.pop();
-      this.currentOof = oofStack[oofStack.length - 1] || null;
+      this.oof = oofStack[oofStack.length - 1] || null;
+      // absolute预测量结束了，回归正常模式
+      if (oofMap.has(node)) {
+        oofMap.delete(node);
+        this.layoutMode &= ~LayoutMode.OOF_MEASURE;
+        this.oofRoot = null;
+      }
       return;
     }
+    // 正常模式的匹配检测
     if (!nodeStack.length) {
       throw new Error('Stack Error: Attempted to end a node but the stack is already empty. This indicates an extra \'end()\' call or missing \'begin()\'.');
     }
@@ -177,7 +193,6 @@ export class Layout<T extends (INode | ITextNode)> {
     }
     const style = styleStack.pop()!;
     const res = resultStack.pop()!;
-    let c: Constraints | undefined = undefined;
     // 真正的inline内容叶子节点递归向上处理所有inline父节点
     if (node.nodeType === NodeType.Text) {
       if (styleStack.length) {
@@ -221,7 +236,7 @@ export class Layout<T extends (INode | ITextNode)> {
       this.lastChild = res as Text;
     }
     else {
-      c = constraintsStack.pop()!;
+      const c = constraintsStack.pop()!;
       const cp = constraintsStack[constraintsStack.length - 1];
       if (style.position === Position.ABSOLUTE) {
         this.lastChild = null;
@@ -274,11 +289,16 @@ export class Layout<T extends (INode | ITextNode)> {
     this.offsetQueue.push({
       node,
       style,
-      constraints: constraintsStack[constraintsStack.length - 1], // 存父节点的，根没有
+      parentConstraints: constraintsStack[constraintsStack.length - 1], // 存父节点的，根没有
       res,
       level: this.nodeStack.length,
     });
-    // 根节点end()则全部结束，进行偏移修正并触发回调
+    // 处理有相对父节点的absolute节点，此时相对父节点已经有了计算尺寸，%可以正常计算
+    if (oofParentMap.has(node)) {
+      const root = oofParentMap.get(node)!;
+      console.log(root);
+    }
+    // 根节点end()则全部结束，处理非根的absolute，然后所有结果进行偏移修正并触发回调
     if (!this.nodeStack.length) {
       this.finish();
     }
@@ -291,7 +311,7 @@ export class Layout<T extends (INode | ITextNode)> {
     let lastLevel = -1;
     // 倒过来就是先序遍历
     for (let i = offsetQueue.length - 1; i >= 0; i--) {
-      const { node, style, constraints, res, level } = offsetQueue[i];
+      const { node, style, parentConstraints, res, level } = offsetQueue[i];
       // 递归向下，或者平级（无children的兄弟节点）
       if (level >= lastLevel) {
         // 同级说明上一个无children节点，出栈
@@ -311,12 +331,12 @@ export class Layout<T extends (INode | ITextNode)> {
           }
           if (top.u !== Unit.AUTO) {
             // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
-            if (top.u !== Unit.PERCENT || constraints!.pbh !== undefined) {
+            if (top.u !== Unit.PERCENT || parentConstraints!.pbh !== undefined) {
               y = this.calLength(top, res.h, res.fontSize, this.rem ?? 16);
             }
           }
           else if (bottom.u !== Unit.AUTO) {
-            if (bottom.u !== Unit.PERCENT || constraints!.pbh !== undefined) {
+            if (bottom.u !== Unit.PERCENT || parentConstraints!.pbh !== undefined) {
               y = -this.calLength(bottom, res.h, res.fontSize, this.rem ?? 16);
             }
           }
@@ -527,7 +547,7 @@ export class Layout<T extends (INode | ITextNode)> {
     if (this.layoutMode & LayoutMode.OOF_MEASURE) {
       return;
     }
-    // 先寻找到相对父节点，没有则相对于全局或者是root节点；等到父节点end()前知道尺寸后开始处理absolute节点
+    // 寻找到相对父节点，没有则相对于全局或者是root节点；等到父节点end()前知道尺寸后开始处理absolute节点
     let parent: T | null = null;
     for (let i = this.styleStack.length - 1; i >= 0; i--) {
       const item = this.styleStack[i];
@@ -536,25 +556,35 @@ export class Layout<T extends (INode | ITextNode)> {
         break;
       }
     }
-    // 统一在相对父节点的end()时处理
-    if (parent) {
-      this.layoutMode |= LayoutMode.OOF_MEASURE;
-      this.currentOof = {
-        node,
-        style,
-        children: [],
-      };
-      this.oofMap.set(parent, this.currentOof);
+    // 如果绝对值定宽，直接处理即可；位置可以等最后处理偏移
+    const { left, right, width } = style;
+    let isFixedWidth = false;
+    if ([Unit.PX, Unit.IN, Unit.EM, Unit.REM, Unit.NUMBER].includes(width.u)) {
+      isFixedWidth = true;
     }
-    // 没有相对父节点在全部结束后处理（非根）
-    else if (this.nodeStack.length > 1) {
+    // absolute强制block
+    if (isFixedWidth) {
+      this.block(style, constraints);
+      return;
+    }
+    // 统一在相对父节点的end()时处理，没有相对父节点在全部结束后处理（非根）
+    if (parent || this.nodeStack.length) {
       this.layoutMode |= LayoutMode.OOF_MEASURE;
-      this.currentOof = {
+      this.oof = {
         node,
         style,
         children: [],
       };
-      this.oofQueue.push(this.currentOof);
+      const root: OofRoot<T>
+        = this.oofRoot
+        = Object.assign({ cx: constraints.cx, cy: constraints.cy, min: 0, max: 0 }, this.oof);
+      this.oofMap.set(node, root);
+      if (parent) {
+        this.oofParentMap.set(parent, root);
+      }
+      else {
+        this.oofQueue.push(root);
+      }
     }
     // 如果自己就是根节点可以直接处理
     else {
@@ -565,11 +595,6 @@ export class Layout<T extends (INode | ITextNode)> {
         this.block(style, constraints);
       }
     }
-    // 在定宽情况下，是不需要预测量一遍的，即width或left+right；如果是%的情况，暂时认为非定宽等end()知道包含块的尺寸再做
-    // const { left, right, width, height } = style;
-    // let isFixedWidth = false;
-    // if (left.u === Unit.PERCENT) {}
-    // else if (right.u === Unit.PERCENT) {}
   }
 
   preset(style: Style, constraints: Constraints, type: Result['type']) {
