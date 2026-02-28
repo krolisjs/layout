@@ -28,6 +28,8 @@ export enum Unit {
   VH = 9,
   VMAX = 10,
   VMIN = 11,
+  MIN_CONTENT = 12,
+  MAX_CONTENT = 13,
 }
 
 export enum BoxSizing {
@@ -83,11 +85,15 @@ export type Style = {
   lineHeight: Length;
   letterSpacing: Length;
   verticalAlign: VerticalAlign;
+  minWidth: Length;
+  maxWidth: Length;
 };
 
 export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` | `${number}rem` | 'inherit';
 
 export type CssLength = Omit<CssFontSize, 'inherit'> | 'auto' | `${number}em`;
+
+export type CssMinMax = CssLength | 'minContent' | 'maxContent';
 
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
@@ -118,6 +124,8 @@ export type JStyle = {
   lineHeight: CssFontSize;
   letterSpacing: CssFontSize;
   verticalAlign: 'baseline' | 'top' | 'bottom' | 'middle';
+  minWidth: CssMinMax;
+  maxWidth: CssMinMax;
 };
 
 export const getDefaultStyle = (style?: Partial<Style>) => {
@@ -150,6 +158,8 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
     lineHeight: { v: 0, u: Unit.INHERIT },
     letterSpacing: { v: 0, u: Unit.INHERIT },
     verticalAlign: VerticalAlign.BASELINE,
+    minWidth: { v: 0, u: Unit.AUTO },
+    maxWidth: { v: 0, u: Unit.AUTO },
   };
   if (style) {
     Object.assign(dft, style);
@@ -168,6 +178,18 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
     return {
       v: 0,
       u: Unit.INHERIT,
+    };
+  }
+  if (v === 'minContent') {
+    return {
+      v: 0,
+      u: Unit.MIN_CONTENT,
+    };
+  }
+  if (v === 'maxContent') {
+    return {
+      v: 0,
+      u: Unit.MAX_CONTENT,
     };
   }
   let n = parseFloat(v as string) || 0;

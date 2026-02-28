@@ -92,16 +92,16 @@ export class Layout<T extends (INode | ITextNode)> {
 
   private layoutMode: LayoutMode = LayoutMode.NORMAL;
 
-  // absolute且自适应尺寸时需要暂停并记录子树结构，在相对父节点end()后获得约束尺寸后重新开始处理
+  // absolute且自适应尺寸时需要暂停并记录子树结构，在包含块节点end()后获得约束尺寸后重新开始处理
   private oof: Oof<T> | null = null;
   private oofRoot: OofRoot<T> | null = null;
   // 预测量时伴随begin入栈/end出栈，使得currentOof能够正确指向
   private readonly oofStack: Oof<T>[] = [];
   // absolute节点为key，end时检测结束预测量状态
   private oofMap: WeakMap<T, OofRoot<T>> = new WeakMap();
-  // 有相对父节点的以父节点为key，end时检查，此时预测量结束状态重置开始处理此节点
+  // 有包含块节点的以父节点为key，end时检查，此时预测量结束状态重置开始处理此节点
   private oofParentMap: WeakMap<T, OofRoot<T>> = new WeakMap();
-  // 没有相对父节点的记录下来等全部结束后处理
+  // 没有包含块节点的记录下来等全部结束后处理
   private oofQueue: OofRoot<T>[] = [];
 
   // inline在end()结束时需看最后一个子节点的mpb-right，递归过程记录最后一个处理的节点就是子节点
@@ -134,7 +134,7 @@ export class Layout<T extends (INode | ITextNode)> {
    * @param style     - 节点样式对象
    */
   begin(node: T, style: Style) {
-    // absolute测量模式，只记录树结构，等其相对父节点end()时机重新唤起
+    // absolute测量模式，只记录树结构，等包含块节点end()时机重新唤起
     if (this.layoutMode & LayoutMode.OOF_MEASURE) {
       const oof: Oof<T> = {
         node,
@@ -189,7 +189,7 @@ export class Layout<T extends (INode | ITextNode)> {
     }
     const n = nodeStack.pop()!;
     if (node !== n) {
-      throw new Error('Layout mismatch: end() was called for ' + node + ', but the current stack expects ' + node + '. Ensure begin() and end() are called in balanced pairs.');
+      throw new Error('Layout mismatch: end() was called for ' + node + ', but the current stack expects ' + n + '. Ensure begin() and end() are called in balanced pairs.');
     }
     const style = styleStack.pop()!;
     const res = resultStack.pop()!;
@@ -238,6 +238,7 @@ export class Layout<T extends (INode | ITextNode)> {
     else {
       const c = constraintsStack.pop()!;
       const cp = constraintsStack[constraintsStack.length - 1];
+      // 定宽且无最小限制的类似block，无向上处理被inline包含逻辑；偏移等包含块end时处理
       if (style.position === Position.ABSOLUTE) {
         this.lastChild = null;
       }
@@ -293,12 +294,12 @@ export class Layout<T extends (INode | ITextNode)> {
       res,
       level: this.nodeStack.length,
     });
-    // 处理有相对父节点的absolute节点，此时相对父节点已经有了计算尺寸，%可以正常计算
+    // 处理有包含块节点的absolute节点，此时包含块节点已经有了计算尺寸，%可以正常计算
     if (oofParentMap.has(node)) {
       const root = oofParentMap.get(node)!;
       console.log(root);
     }
-    // 根节点end()则全部结束，处理非根的absolute，然后所有结果进行偏移修正并触发回调
+    // 根节点end则全部结束，处理非根的absolute，然后所有结果进行偏移修正并触发回调
     if (!this.nodeStack.length) {
       this.finish();
     }
@@ -547,7 +548,7 @@ export class Layout<T extends (INode | ITextNode)> {
     if (this.layoutMode & LayoutMode.OOF_MEASURE) {
       return;
     }
-    // 寻找到相对父节点，没有则相对于全局或者是root节点；等到父节点end()前知道尺寸后开始处理absolute节点
+    // 寻找到包含块节点，没有则相对于全局或者是root节点；等到父节点end()前知道尺寸后开始处理absolute节点
     let parent: T | null = null;
     for (let i = this.styleStack.length - 1; i >= 0; i--) {
       const item = this.styleStack[i];
@@ -556,10 +557,11 @@ export class Layout<T extends (INode | ITextNode)> {
         break;
       }
     }
-    // 如果绝对值定宽，直接处理即可；位置可以等最后处理偏移
-    const { left, right, width } = style;
+    // 如果绝对值定宽，且没有最小限制，直接处理即可；位置可以等最后处理偏移
+    const { left, right, width, minWidth } = style;
     let isFixedWidth = false;
-    if ([Unit.PX, Unit.IN, Unit.EM, Unit.REM, Unit.NUMBER].includes(width.u)) {
+    if ([Unit.PX, Unit.IN, Unit.EM, Unit.REM, Unit.NUMBER].includes(width.u)
+      && minWidth.u === Unit.AUTO) {
       isFixedWidth = true;
     }
     // absolute强制block
@@ -567,7 +569,7 @@ export class Layout<T extends (INode | ITextNode)> {
       this.block(style, constraints);
       return;
     }
-    // 统一在相对父节点的end()时处理，没有相对父节点在全部结束后处理（非根）
+    // 统一在包含块节点的end()时处理，没有包含块节点在全部结束后处理（非根）
     if (parent || this.nodeStack.length) {
       this.layoutMode |= LayoutMode.OOF_MEASURE;
       this.oof = {

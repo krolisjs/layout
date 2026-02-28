@@ -95,6 +95,10 @@ export abstract class AbstractNode implements INode {
     });
     ctx.end(this);
   }
+
+  toString() {
+    return `[label: ${this.label}, nodeType: ${this.nodeType}]`;
+  }
 }
 
 export class Node extends AbstractNode {
