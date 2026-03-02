@@ -56,6 +56,20 @@ export enum VerticalAlign {
   MIDDLE = 3,
 }
 
+// export enum WordBreak {
+//   INHERIT = 0,
+//   NORMAL = 1,
+//   BREAK_ALL = 2,
+//   KEEP_ALL = 3,
+// }
+//
+// export enum OverflowWrap {
+//   INHERIT = 0,
+//   NORMAL = 1,
+//   ANYWHERE = 2,
+//   BREAK_WORD = 3,
+// }
+
 export type Style = {
   boxSizing: BoxSizing;
   display: Display;
@@ -87,6 +101,8 @@ export type Style = {
   verticalAlign: VerticalAlign;
   minWidth: Length;
   maxWidth: Length;
+  // wordBreak: WordBreak;
+  // overflowWrap: OverflowWrap;
 };
 
 export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` | `${number}rem` | 'inherit';
@@ -126,9 +142,11 @@ export type JStyle = {
   verticalAlign: 'baseline' | 'top' | 'bottom' | 'middle';
   minWidth: CssMinMax;
   maxWidth: CssMinMax;
+  // wordBreak: 'normal' | 'breakAll' | 'keepAll';
+  // overflowWrap: 'normal' | 'breakWord';
 };
 
-export const getDefaultStyle = (style?: Partial<Style>) => {
+export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
   const dft: Style = {
     boxSizing: BoxSizing.CONTENT_BOX,
     display: Display.BLOCK,
@@ -160,9 +178,11 @@ export const getDefaultStyle = (style?: Partial<Style>) => {
     verticalAlign: VerticalAlign.BASELINE,
     minWidth: { v: 0, u: Unit.AUTO },
     maxWidth: { v: 0, u: Unit.AUTO },
+    // wordBreak: WordBreak.INHERIT,
+    // overflowWrap: OverflowWrap.INHERIT,
   };
   if (style) {
-    Object.assign(dft, style);
+    Object.assign(dft, normalizeStyle(style));
   }
   return dft;
 };
@@ -225,10 +245,13 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
   }
 }
 
-export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
+export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
   const res: Partial<Style> = {};
   if (style.boxSizing !== undefined) {
-    if (style.boxSizing === 'borderBox') {
+    if (typeof style.boxSizing === 'number') {
+      res.boxSizing = style.boxSizing;
+    }
+    else if (style.boxSizing === 'borderBox') {
       res.boxSizing = BoxSizing.BORDER_BOX;
     }
     else {
@@ -236,7 +259,10 @@ export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
     }
   }
   if (style.display !== undefined) {
-    if (style.display === 'none') {
+    if (typeof style.display === 'number') {
+      res.display = style.display;
+    }
+    else if (style.display === 'none') {
       res.display = Display.NONE;
     }
     else if (style.display === 'inline') {
@@ -262,7 +288,10 @@ export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
     }
   }
   if (style.position !== undefined) {
-    if (style.position === 'relative') {
+    if (typeof style.position === 'number') {
+      res.position = style.position;
+    }
+    else if (style.position === 'relative') {
       res.position = Position.RELATIVE;
     }
     else if (style.position === 'absolute') {
@@ -294,23 +323,35 @@ export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
     'fontSize',
     'lineHeight',
     'letterSpacing',
+    'minWidth',
+    'maxWidth',
   ] as const).forEach(k => {
     const v = style[k];
     if (v === undefined) {
       return;
     }
-    res[k] = calCssLength(v, k !== 'lineHeight');
+    if (typeof v === 'object' && 'u' in v) {
+      res[k] = v;
+    }
+    else {
+      res[k] = calCssLength(v, k !== 'lineHeight');
+    }
   });
   if (style.fontFamily !== undefined) {
     res.fontFamily = style.fontFamily;
   }
   if (style.fontStyle !== undefined) {
-    res.fontStyle = {
-      inherit: FontStyle.INHERIT,
-      normal: FontStyle.NORMAL,
-      italic: FontStyle.ITALIC,
-      oblique: FontStyle.OBLIQUE,
-    }[style.fontStyle] || FontStyle.INHERIT;
+    if (typeof style.fontStyle === 'number') {
+      res.fontStyle = style.fontStyle;
+    }
+    else {
+      res.fontStyle = {
+        inherit: FontStyle.INHERIT,
+        normal: FontStyle.NORMAL,
+        italic: FontStyle.ITALIC,
+        oblique: FontStyle.OBLIQUE,
+      }[style.fontStyle] || FontStyle.INHERIT;
+    }
   }
   if (style.fontWeight !== undefined) {
     if (typeof style.fontWeight === 'number') {
@@ -344,6 +385,19 @@ export const normalizeJStyle = (style: Partial<JStyle> = {}) => {
       else {
         res.fontWeight = /inherit/.test(style.fontWeight) ? 0 : 400;
       }
+    }
+  }
+  if (style.verticalAlign !== undefined) {
+    if (typeof style.verticalAlign === 'number') {
+      res.verticalAlign = style.verticalAlign;
+    }
+    else {
+      res.verticalAlign = {
+        baseline: VerticalAlign.BASELINE,
+        top: VerticalAlign.TOP,
+        bottom: VerticalAlign.BOTTOM,
+        middle: VerticalAlign.MIDDLE,
+      }[style.verticalAlign] || VerticalAlign.BASELINE;
     }
   }
   return res;
