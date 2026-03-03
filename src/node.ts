@@ -1,29 +1,7 @@
-import {
-  calLength,
-  Display,
-  getDefaultStyle,
-  isFixed,
-  Position,
-  Unit,
-} from './style';
 import type { JStyle, Style } from './style';
-import {
-  block, ComputedStyle,
-  inline,
-  LayoutMode,
-  normalizeConstraints,
-  oofText,
-  preset,
-  text,
-} from './layout';
-import type {
-  Box,
-  Constraints,
-  Inline,
-  InputConstraints,
-  Result,
-  Text,
-} from './layout';
+import { calLength, Display, getDefaultStyle, isFixed, Position, Unit, } from './style';
+import type { Box, Constraints, Inline, InputConstraints, Result, Text, } from './layout';
+import { block, ComputedStyle, inline, LayoutMode, normalizeConstraints, oofText, preset, text, } from './layout';
 
 export enum NodeType {
   Node = 0,
@@ -237,7 +215,7 @@ export abstract class AbstractNode implements ITypeNode {
       }
     }
     else {
-      // 定宽且无最小限制的，无向上处理被inline包含逻辑；偏移等到包含块end时处理
+      // 定宽且无最小限制的，无向上处理被inline包含逻辑；trbl偏移等到最后处理
       if (style.position === Position.ABSOLUTE) {
         // 不用做任何事情
       }
@@ -303,35 +281,8 @@ export abstract class AbstractNode implements ITypeNode {
             cx: item.cx,
             cy: item.cy,
           };
-          const style = item.node.style;
           // 获取到测量宽后用作aw，然后走一遍普通布局，inline要视作block
-          const w = item.node.layOof(c);
-          c.aw = c.pbw = w;
-          c.cx = item.cx;
-          c.cy = item.cy;
-          item.node.constraints = c;
-          // 特殊之处，约束要包含border/padding
-          const pr = this.parent ? this.parent.result! : undefined;
-          const rem = this.root ? this.root.result!.fontSize : 16;
-          const r = preset(style, c, 'box', rem, pr) as Box;
-          c.aw += r.marginLeft + r.marginRight
-            + r.borderLeftWidth + r.borderRightWidth
-            + r.paddingLeft + r.paddingRight;
-          c.pbw = c.aw;
-          // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
-          const o = block(style, c, rem, pr);
-          item.node.result = o.res;
-          item.node.constraints = o.c;
-          // 继续普通递归
-          const children = item.node.children;
-          for (let i = 0, len = children.length; i < len; i++) {
-            children[i].layMode(o.c, LayoutMode.NORMAL, oofMap);
-          }
-          // 特殊marginLR/w计算
-          // 模拟end
-          if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
-            item.node.result!.h = item.node.constraints.cy - item.node.constraints.oy;
-          }
+          item.node.layOof(c, oofMap);
         });
       }
     }
@@ -364,6 +315,29 @@ export abstract class AbstractNode implements ITypeNode {
         }
       }
     }
+    // absolute要考虑trbl的偏移
+    else if (style.position === Position.ABSOLUTE) {
+      let w = 0, h = 0;
+      const parent = this.getContainingBlockNode();
+      if (parent) {
+        const pr = parent.result!;
+        w = pr.w + pr.paddingLeft + pr.paddingRight;
+        h = pr.h + pr.paddingTop + pr.paddingBottom;
+      }
+      // 根节点特殊处理
+      else {
+        const root = this.root!;
+        w = root.constraints!.aw;
+        h = root.constraints!.ah;
+      }
+      const { left, top, right, bottom } = style;
+      if (left.u !== Unit.AUTO) {
+        x += calLength(left, w, rem, res.fontWeight);
+      }
+      if (top.u !== Unit.AUTO) {
+        y += calLength(top, h, rem, res.fontSize);
+      }
+    }
     if (x || y) {
       res.x += x;
       res.y += y;
@@ -388,12 +362,36 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  layOof(constraints: Constraints) {
+  layOof(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>) {
+    const { cx, cy } = constraints;
     const pr = this.parent ? this.parent.result! : undefined;
     const rem = this.root ? this.root.result!.fontSize : 16;
-    const res = preset(this.style, constraints, 'box', rem, pr) as Box;
-    const { min, max } = this.beginOof(constraints, rem, res);
-    return Math.max(min, Math.min(max, constraints.aw));
+    const inherit = preset(this.style, constraints, 'box', rem, pr) as Box;
+    const { min, max } = this.beginOof(constraints, rem, inherit);
+    const w = Math.max(min, Math.min(max, constraints.aw));
+    constraints.aw = constraints.pbw = w;
+    constraints.cx = cx;
+    constraints.cy = cy;
+    // 特殊之处，约束要包含border/padding
+    const style = this.style;
+    const r = preset(style, constraints, 'box', rem, pr) as Box;
+    constraints.aw += r.marginLeft + r.marginRight
+      + r.borderLeftWidth + r.borderRightWidth
+      + r.paddingLeft + r.paddingRight;
+    constraints.pbw = constraints.aw;
+    // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
+    const o = block(style, constraints, rem, pr);
+    this.result = o.res;
+    this.constraints = o.c;
+    // 继续普通递归
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      children[i].layMode(o.c, LayoutMode.NORMAL, oofMap);
+    }
+    // 模拟end
+    if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
+      this.result!.h = this.constraints.cy - this.constraints.oy;
+    }
   }
 
   private beginOof(constraints: Constraints, rem?: number, inherit?: ComputedStyle) {

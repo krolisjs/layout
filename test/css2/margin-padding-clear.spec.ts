@@ -215,4 +215,69 @@ describe('margin-padding-clear', () => {
       borderLeftWidth: 10,
     });
   });
+
+  it('margin-007', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+      },
+      children: [
+        {
+          style: {
+            position: 'absolute',
+            left: 25,
+            top: 100,
+            width: 30,
+            height: 10,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.result?.h).toBe(0);
+    expect(node.children[0].result).toMatchObject({
+      x: 25,
+      y: 100,
+      w: 30,
+      h: 10,
+    });
+  });
+
+  it.skip('margin-auto-on-block-box', () => {
+    const node = genNode({
+      style: {
+        marginLeft: 250,
+        width: 100,
+      },
+      children: [
+        {
+          style: {
+            marginTop: 'auto',
+            marginRight: 'auto',
+            marginBottom: 'auto',
+            marginLeft: 'auto',
+            width: 50,
+            height: 5,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.result).toMatchObject({
+      x: 250,
+      y: 0,
+      w: 100,
+      h: 5,
+    });
+    expect(node.children[0].result).toMatchObject({
+      x: 275,
+      y: 0,
+      w: 50,
+      h: 5,
+      marginTop: 0,
+      marginRight: 25,
+      marginBottom: 0,
+      marginLeft: 25,
+    });
+  });
 });
