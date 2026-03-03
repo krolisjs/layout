@@ -1,5 +1,5 @@
 import { Context } from './context';
-import type { Constraints, InputConstraints, Rect, Result } from './layout';
+import type { Constraints, InputConstraints, normalizeConstraints, Rect, Result } from './layout';
 import {
   AbstractNode,
   Node,
@@ -35,17 +35,18 @@ export {
   AbstractNode,
   BoxSizing,
   Context,
+  calCssLength,
   Display,
   FontStyle,
-  Node,
-  Position,
-  TextNode,
-  Unit,
-  calCssLength,
   getDefaultStyle,
   getMeasureText,
+  Node,
+  normalizeConstraints,
   normalizeStyle,
+  Position,
   setMeasureText,
+  TextNode,
+  Unit,
 };
 
 export type {

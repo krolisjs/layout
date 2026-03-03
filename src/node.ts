@@ -1,12 +1,14 @@
-import { Display, getDefaultStyle, Position, Unit } from './style';
 import type { JStyle, Style } from './style';
+import { Display, getDefaultStyle, Position, Unit } from './style';
 import {
   block,
   calLength,
   Constraints,
   Inline,
   inline,
+  InputConstraints,
   LayoutMode,
+  normalizeConstraints,
   oofBlock,
   oofInline,
   oofText,
@@ -14,7 +16,6 @@ import {
   text,
   Text
 } from './layout';
-import { MeasureText } from './text.js';
 
 export enum NodeType {
   Node = 0,
@@ -97,7 +98,11 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  lay(constraints: Constraints, layoutMode = LayoutMode.NORMAL) {
+  lay(constraints: InputConstraints) {
+    this.layNormal(normalizeConstraints(constraints), LayoutMode.NORMAL);
+  }
+
+  layNormal(constraints: Constraints, layoutMode: LayoutMode) {
     // 非正常中断，如absolute预测量阶段递归到子absolute无返回
     const b = this.begin(constraints, layoutMode);
     if (!b) {
@@ -107,7 +112,7 @@ export abstract class AbstractNode implements ITypeNode {
     // 先序遍历递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].lay(b.c, b.layoutMode);
+      children[i].layNormal(b.c, b.layoutMode);
     }
     this.end(layoutMode);
   }

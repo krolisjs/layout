@@ -25,7 +25,7 @@ describe('linebox', () => {
         },
       ],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -102,7 +102,7 @@ describe('linebox', () => {
         { content: 'Last line' },
       ],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 2,
       y: 0,
@@ -187,7 +187,7 @@ describe('linebox', () => {
         { content: 'Last line' },
       ],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 2,
       y: 192,

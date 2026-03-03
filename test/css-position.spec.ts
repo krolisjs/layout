@@ -31,7 +31,7 @@ describe('css-position', () => {
         },
       ],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.children[0].result).toEqual({
       x: 10,
       y: 10,
@@ -88,7 +88,7 @@ describe('css-position', () => {
         },
       ],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.children[0].children[0].result).toEqual({
       x: 0,
       y: 0,
@@ -145,7 +145,7 @@ describe('css-position', () => {
         },
       ],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.children[0].children[0].result).toEqual({
       x: 0,
       y: 0,
@@ -189,7 +189,7 @@ describe('css-position', () => {
         },
       ],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,

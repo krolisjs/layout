@@ -1,4 +1,4 @@
-import { Constraints, InputConstraints, Result } from './layout';
+import { Constraints, InputConstraints, normalizeConstraints, Result } from './layout';
 import { MeasureText } from './text';
 import type { Style } from './style';
 import { AbstractNode, genNode, Node } from './node';
@@ -25,7 +25,7 @@ export class Context<T extends IAllNode> {
   }
 
   begin(source: T, style: Style) {
-    const node = genNode(source, style, this.measureText);
+    const node = genNode(source, style);
     if (this.current) {
       (this.current as Node).appendChild(node);
     }
@@ -39,17 +39,6 @@ export class Context<T extends IAllNode> {
     }
   }
 
-  getConstraints() {
-    return Object.assign({
-      ox: 0,
-      oy: 0,
-      cx: 0,
-      cy: 0,
-      pbw: this.constraints.aw,
-      pbh: this.constraints.ah,
-    }, this.constraints) as Constraints;
-  }
-
   end() {
     const stack = this.stack;
     stack.pop();
@@ -61,7 +50,7 @@ export class Context<T extends IAllNode> {
     }
     // 收集结束，从root开始布局
     if (!this.current) {
-      this.root!.lay(this.getConstraints());
+      this.root!.lay(this.constraints);
       const onConfigured = this.onConfigured;
       const stackCopy = this.stackCopy;
       for (let i = 0, len = stackCopy.length; i < len; i++) {

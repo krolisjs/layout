@@ -63,6 +63,17 @@ export enum LayoutMode {
   OOF_MEASURE  = 0b100, // absolute测量阶段
 }
 
+export function normalizeConstraints(ic: InputConstraints) {
+  return Object.assign({
+    ox: 0,
+    oy: 0,
+    cx: 0,
+    cy: 0,
+    pbw: ic.aw,
+    pbh: ic.ah,
+  }, ic) as Constraints;
+}
+
 export function calLength(target: Length, pb: number, em: number, rem: number) {
   if (target.u === Unit.PX || target.u === Unit.NUMBER) {
     return target.v;

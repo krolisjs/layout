@@ -26,7 +26,7 @@ describe('normal-flow', () => {
         children: [{ content: 'Fill Text' }],
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 1,
       y: 1,
@@ -69,7 +69,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -138,7 +138,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     const child = node.children[0];
     expect(child.result).toEqual({
       x: 32,
@@ -182,7 +182,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     const child = node.children[0];
     expect(child.result).toEqual({
       x: 32,
@@ -225,7 +225,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     const child = node.children[0];
     expect(child.result).toEqual({
       x: 32,
@@ -268,7 +268,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,
@@ -304,7 +304,7 @@ describe('normal-flow', () => {
         height: 100,
       },
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -350,7 +350,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     const child = node.children[0];
     expect(child.result).toEqual({
       x: 100,
@@ -390,7 +390,7 @@ describe('normal-flow', () => {
         borderLeftWidth: '2em',
       },
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 32,
       y: 0,
@@ -429,7 +429,7 @@ describe('normal-flow', () => {
         paddingLeft: '2em',
       },
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 32,
       y: 0,
@@ -470,7 +470,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -537,7 +537,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -604,7 +604,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -671,7 +671,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -739,7 +739,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -807,7 +807,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -875,7 +875,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -943,7 +943,7 @@ describe('normal-flow', () => {
         },
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -1004,7 +1004,7 @@ describe('normal-flow', () => {
         width: 0,
       },
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -1039,7 +1039,7 @@ describe('normal-flow', () => {
         height: 0,
       },
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
@@ -1088,7 +1088,7 @@ describe('normal-flow', () => {
         }],
       }],
     }, ctx);
-    node.lay(ctx.getConstraints());
+    node.lay(ctx.constraints);
     expect(node.result).toEqual({
       x: 0,
       y: 0,
