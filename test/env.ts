@@ -11,7 +11,7 @@ type Item = {
   label?: string;
 };
 
-export function genNode(item: Item, ctx: Context<IAllNode>) {
+export function genNode(item: Item) {
   let node: AbstractNode;
   if ('content' in item) {
     node = new TextNode(item.content, item.style);
@@ -20,7 +20,7 @@ export function genNode(item: Item, ctx: Context<IAllNode>) {
     node = new Node(item.style, []);
     if (item.children) {
       item.children.forEach(child => {
-        const n = genNode(child, ctx);
+        const n = genNode(child);
         (node as Node).appendChild(n);
       });
     }

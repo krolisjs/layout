@@ -122,9 +122,9 @@ export abstract class AbstractNode implements ITypeNode {
 
   layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>) {
     const b = this.begin(constraints, layoutMode);
-    // 可能进入absolute预测量阶段，在包含块节点end时进行预测量
+    // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
-      const n = this.getContainingBlockNode();
+      const n = this.getContainingBlockNode() || this.root;
       if (n) {
         let list: Oof[];
         if (oofMap.has(n)) {
@@ -140,8 +140,6 @@ export abstract class AbstractNode implements ITypeNode {
           cy: constraints.cy,
         });
       }
-      // 没有包含块则相对于root的约束
-      else {}
       return;
     }
     this.constraints = b.c;
@@ -297,8 +295,8 @@ export abstract class AbstractNode implements ITypeNode {
           const aw = result.w + result.paddingLeft + result.paddingRight;
           const ah = result.h + result.paddingTop + result.paddingBottom;
           const c: Constraints = {
-            ox: result.x,
-            oy: result.y,
+            ox: result.x - result.paddingLeft,
+            oy: result.y - result.paddingTop,
             aw,
             ah,
             pbw: aw,
@@ -310,23 +308,23 @@ export abstract class AbstractNode implements ITypeNode {
           // 获取到测量宽后用作aw，然后走一遍普通布局，inline要视作block
           const w = item.node.layOof(c);
           c.aw = c.pbw = w;
+          c.cx = item.cx;
+          c.cy = item.cy;
           item.node.constraints = c;
           // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
           const pr = this.parent ? this.parent.result! : undefined;
           const rem = this.root ? this.root.result!.fontSize : 16;
-          if ([Display.INLINE_FLEX, Display.FLEX].includes(style.display)) {}
-          else {
-            const o = block(style, c, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
-            item.node.result = o.res;
-          }
+          const o = block(style, c, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
+          item.node.result = o.res;
+          item.node.constraints = o.c;
           // 继续普通递归
           const children = item.node.children;
           for (let i = 0, len = children.length; i < len; i++) {
-            children[i].layMode(c, LayoutMode.NORMAL, oofMap);
+            children[i].layMode(o.c, LayoutMode.NORMAL, oofMap);
           }
           // 模拟end
           if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
-            item.node.result!.h = c.cy - c.oy;
+            item.node.result!.h = item.node.constraints.cy - item.node.constraints.oy;
           }
         });
       }
