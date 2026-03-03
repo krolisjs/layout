@@ -1,9 +1,10 @@
 import { expect } from 'expect';
 import { createTestContext, genNode } from '../env.ts';
-import { AbstractNode, Context, FontStyle } from '../../dist/index.js';
+import { Context, FontStyle } from '../../dist/index.js';
+import type { IAllNode } from '../../dist/index.js';
 
 describe('linebox', () => {
-  let ctx: Context<AbstractNode>;
+  let ctx: Context<IAllNode>;
 
   beforeEach(() => {
     ctx = createTestContext();
@@ -23,9 +24,9 @@ describe('linebox', () => {
           children: [ { content: 'Filler text' } ],
         },
       ],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 10000,
@@ -51,7 +52,7 @@ describe('linebox', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[1].rect).toEqual({
+    expect(node.children[1].result).toEqual({
       x: 0,
       y: 80,
       w: 440,
@@ -100,9 +101,9 @@ describe('linebox', () => {
         { style: { width: '2in' }, children: [ { content: 'Filler text' } ] },
         { content: 'Last line' },
       ],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 2,
       y: 0,
       w: 192,
@@ -141,7 +142,7 @@ describe('linebox', () => {
       ],
       type: 'inline',
     });
-    expect(node.children[1].rect).toEqual({
+    expect(node.children[1].result).toEqual({
       x: 2,
       y: 24,
       w: 192,
@@ -185,9 +186,9 @@ describe('linebox', () => {
         { style: { width: '2in' }, children: [ { content: 'Filler text' } ] },
         { content: 'Last line' },
       ],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 2,
       y: 192,
       w: 192,
@@ -226,7 +227,7 @@ describe('linebox', () => {
       ],
       type: 'inline',
     });
-    expect(node.children[1].rect).toEqual({
+    expect(node.children[1].result).toEqual({
       x: 2,
       y: 216,
       w: 192,

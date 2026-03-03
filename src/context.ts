@@ -1,35 +1,73 @@
-import { InputConstraints, Layout, Result } from './layout';
+import { Constraints, InputConstraints, Result } from './layout';
 import { MeasureText } from './text';
-import { Style } from './style';
-import { INode, ITextNode } from './node';
+import type { Style } from './style';
+import { AbstractNode, genNode, Node } from './node';
+import type { IAllNode } from './node';
 
-export class Context<T extends (INode | ITextNode)> {
+export class Context<T extends IAllNode> {
+  readonly constraints: InputConstraints;
   readonly onConfigured: (node: T, res: Result) => void; // 结果钩子
-  readonly layout: Layout<T>;
-  label = ''; // debug信息
+  measureText?: MeasureText;
+  private root: AbstractNode | null = null;
+  private current: AbstractNode | null = null;
+  private stack: { source: T, node: AbstractNode }[] = []; // 生成layoutTree用，伴随begin/end出入栈
+  private stackCopy: { source: T, node: AbstractNode }[] = []; // 同上但结果调用，记录整树不出栈
 
   constructor(props: {
     constraints: InputConstraints;
     onConfigured: (node: T, res: Result) => void;
     measureText?: MeasureText;
     rem?: number;
-    label?: string;
   }) {
+    this.constraints = props.constraints;
     this.onConfigured = props.onConfigured;
-    this.layout = new Layout<T>(
-      props.constraints,
-      props.onConfigured,
-      props.measureText,
-      props.rem,
-    );
-    this.label = props.label || this.label;
+    this.measureText = props.measureText;
   }
 
-  begin(node: T, style: Style) {
-    this.layout.begin(node, style);
+  begin(source: T, style: Style) {
+    const node = genNode(source, style, this.measureText);
+    if (this.current) {
+      (this.current as Node).appendChild(node);
+    }
+    this.current = node;
+    const o = { source, node };
+    this.stack.push(o);
+    this.stackCopy.push(o);
+    // 首个是根节点
+    if (!this.root) {
+      this.root = node;
+    }
   }
 
-  end(node: T) {
-    this.layout.end(node);
+  getConstraints() {
+    return Object.assign({
+      ox: 0,
+      oy: 0,
+      cx: 0,
+      cy: 0,
+      pbw: this.constraints.aw,
+      pbh: this.constraints.ah,
+    }, this.constraints) as Constraints;
+  }
+
+  end() {
+    const stack = this.stack;
+    stack.pop();
+    if (stack.length) {
+      this.current = stack[stack.length - 1].node;
+    }
+    else {
+      this.current = null;
+    }
+    // 收集结束，从root开始布局
+    if (!this.current) {
+      this.root!.lay(this.getConstraints());
+      const onConfigured = this.onConfigured;
+      const stackCopy = this.stackCopy;
+      for (let i = 0, len = stackCopy.length; i < len; i++) {
+        const item = stackCopy[i];
+        onConfigured(item.source, item.node.result!);
+      }
+    }
   }
 }

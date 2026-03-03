@@ -1,6 +1,14 @@
 import { Context } from './context';
 import { Constraints, InputConstraints, Layout, Rect } from './layout';
-import { AbstractNode, INode, Node, Text } from './node';
+import {
+  AbstractNode,
+  IAllNode,
+  INode,
+  ITypeNode,
+  ITextNode,
+  Node,
+  TextNode,
+} from './node';
 import {
   BoxSizing,
   CssFontSize,
@@ -14,9 +22,14 @@ import {
   Unit,
   calCssLength,
   getDefaultStyle,
-  normalizeJStyle,
+  normalizeStyle,
 } from './style';
-import { MeasureText, MeasureTextRes, getMeasureText, setMeasureText } from './text';
+import {
+  MeasureText,
+  MeasureTextRes,
+  getMeasureText,
+  setMeasureText,
+} from './text';
 
 export {
   AbstractNode,
@@ -27,12 +40,12 @@ export {
   Layout,
   Node,
   Position,
-  Text,
+  TextNode,
   Unit,
   calCssLength,
   getDefaultStyle,
   getMeasureText,
-  normalizeJStyle,
+  normalizeStyle,
   setMeasureText,
 };
 
@@ -40,7 +53,10 @@ export type {
   CssFontSize,
   CssLength,
   Constraints,
+  IAllNode,
   INode,
+  ITextNode,
+  ITypeNode,
   InputConstraints,
   Length,
   JStyle,

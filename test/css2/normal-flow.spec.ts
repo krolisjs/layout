@@ -1,9 +1,10 @@
 import { expect } from 'expect';
 import { createTestContext, genNode } from '../env.ts';
-import { AbstractNode, Context, FontStyle } from '../../dist/index.js';
+import { Context, FontStyle } from '../../dist/index.js';
+import type { IAllNode } from '../../dist/index.js';
 
 describe('normal-flow', () => {
-  let ctx: Context<AbstractNode>;
+  let ctx: Context<IAllNode>;
 
   beforeEach(() => {
     ctx = createTestContext();
@@ -24,9 +25,9 @@ describe('normal-flow', () => {
       }, {
         children: [{ content: 'Fill Text' }],
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 1,
       y: 1,
       w: 9998,
@@ -56,23 +57,20 @@ describe('normal-flow', () => {
 
   it('blocks-011', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: '3em',
         height: '1em',
       },
       children: [{
-        label: '1',
         style: {
           height: '1em',
           borderRightWidth: '2em',
           borderLeftWidth: '2em',
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.label).toBe('0');
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 48,
@@ -99,8 +97,7 @@ describe('normal-flow', () => {
       type: 'box',
     });
     const child = node.children[0];
-    expect(child.label).toBe('1');
-    expect(child.rect).toEqual({
+    expect(child.result).toEqual({
       x: 32,
       y: 0,
       w: 0,
@@ -130,22 +127,20 @@ describe('normal-flow', () => {
 
   it('blocks-012', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: '3em',
         height: '1em',
       },
       children: [{
-        label: '1',
         style: {
           paddingLeft: '2em',
           paddingRight: '2em',
         },
       }],
-    });
-    node.lay(ctx);
+    }, ctx);
+    node.lay(ctx.getConstraints());
     const child = node.children[0];
-    expect(child.rect).toEqual({
+    expect(child.result).toEqual({
       x: 32,
       y: 0,
       w: 0,
@@ -175,23 +170,21 @@ describe('normal-flow', () => {
 
   it('blocks-014', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: '5em',
         height: '1em',
       },
       children: [{
-        label: '1',
         style: {
           height: '1em',
           borderRightWidth: '2em',
           borderLeftWidth: '2em',
         },
       }],
-    });
-    node.lay(ctx);
+    }, ctx);
+    node.lay(ctx.getConstraints());
     const child = node.children[0];
-    expect(child.rect).toEqual({
+    expect(child.result).toEqual({
       x: 32,
       y: 0,
       w: 16,
@@ -221,22 +214,20 @@ describe('normal-flow', () => {
 
   it('blocks-015', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: '5em',
         height: '1em',
       },
       children: [{
-        label: '1',
         style: {
           paddingLeft: '2em',
           paddingRight: '2em',
         },
       }],
-    });
-    node.lay(ctx);
+    }, ctx);
+    node.lay(ctx.getConstraints());
     const child = node.children[0];
-    expect(child.rect).toEqual({
+    expect(child.result).toEqual({
       x: 32,
       y: 0,
       w: 16,
@@ -266,21 +257,19 @@ describe('normal-flow', () => {
 
   it('blocks-020', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 300,
         height: 100,
       },
       children: [{
-        label: '1',
         style: {
           width: '200%',
           height: '200%',
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.children[0].rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 600,
@@ -310,14 +299,13 @@ describe('normal-flow', () => {
 
   it('blocks-020', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: '300px',
         height: 100,
       },
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 300,
@@ -347,13 +335,11 @@ describe('normal-flow', () => {
 
   it('blocks-026', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 300,
         height: 300,
       },
       children: [{
-        label: '1',
         style: {
           width: '50%',
           height: 100,
@@ -363,10 +349,10 @@ describe('normal-flow', () => {
           borderLeftWidth: 100,
         },
       }],
-    });
-    node.lay(ctx);
+    }, ctx);
+    node.lay(ctx.getConstraints());
     const child = node.children[0];
-    expect(child.rect).toEqual({
+    expect(child.result).toEqual({
       x: 100,
       y: 100,
       w: 150,
@@ -396,7 +382,6 @@ describe('normal-flow', () => {
 
   it('blocks-027', () => {
     const node = genNode({
-      label: '0',
       style: {
         boxSizing: 'borderBox',
         width: '3em',
@@ -404,9 +389,9 @@ describe('normal-flow', () => {
         borderRightWidth: '2em',
         borderLeftWidth: '2em',
       },
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 32,
       y: 0,
       w: 0,
@@ -436,7 +421,6 @@ describe('normal-flow', () => {
 
   it('blocks-028', () => {
     const node = genNode({
-      label: '0',
       style: {
         boxSizing: 'borderBox',
         width: '3em',
@@ -444,9 +428,9 @@ describe('normal-flow', () => {
         paddingRight: '2em',
         paddingLeft: '2em',
       },
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 32,
       y: 0,
       w: 0,
@@ -476,20 +460,18 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-margin-bottom', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 100,
       },
       children: [{
-        label: '1',
         style: {
           marginBottom: '50%',
           height: 50,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 100,
@@ -515,7 +497,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 100,
@@ -545,20 +527,18 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-margin-left', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 200,
       },
       children: [{
-        label: '1',
         style: {
           marginLeft: '50%',
           height: 100,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 200,
@@ -584,7 +564,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 100,
       y: 0,
       w: 100,
@@ -614,20 +594,18 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-margin-right', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 200,
       },
       children: [{
-        label: '1',
         style: {
           marginRight: '50%',
           height: 100,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 200,
@@ -653,7 +631,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 100,
@@ -683,20 +661,18 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-margin-top', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 100,
       },
       children: [{
-        label: '1',
         style: {
           marginTop: '50%',
           height: 50,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 100,
@@ -722,7 +698,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 50,
       w: 100,
@@ -752,21 +728,19 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-padding-bottom', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 500,
       },
       children: [{
-        label: '1',
         style: {
           paddingBottom: '10%',
           width: 100,
           height: 50,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 500,
@@ -792,7 +766,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 100,
@@ -822,21 +796,19 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-padding-left', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 500,
       },
       children: [{
-        label: '1',
         style: {
           paddingLeft: '10%',
           width: 50,
           height: 100,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 500,
@@ -862,7 +834,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 50,
       y: 0,
       w: 50,
@@ -892,21 +864,19 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-padding-right', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 500,
       },
       children: [{
-        label: '1',
         style: {
           paddingRight: '10%',
           width: 50,
           height: 100,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 500,
@@ -932,7 +902,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 50,
@@ -962,21 +932,19 @@ describe('normal-flow', () => {
 
   it('containing-block-percent-padding-top', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 500,
       },
       children: [{
-        label: '1',
         style: {
           paddingTop: '10%',
           width: 100,
           height: 50,
         },
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 500,
@@ -1002,7 +970,7 @@ describe('normal-flow', () => {
       rects: null,
       type: 'box',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 50,
       w: 100,
@@ -1032,13 +1000,12 @@ describe('normal-flow', () => {
 
   it('width-001', () => {
     const node = genNode({
-      label: '0',
       style: {
         width: 0,
       },
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 0,
@@ -1068,13 +1035,12 @@ describe('normal-flow', () => {
 
   it('height-001', () => {
     const node = genNode({
-      label: '0',
       style: {
         height: 0,
       },
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 10000,
@@ -1104,14 +1070,12 @@ describe('normal-flow', () => {
 
   it('inlines-002', () => {
     const node = genNode({
-      label: '0',
       style: {
         display: 'inline',
         paddingTop: '0.5em',
         paddingBottom: '0.5em',
       },
       children: [{
-        label: '1',
         style: {
           display: 'inline',
           borderTopWidth: '0.5em',
@@ -1120,13 +1084,12 @@ describe('normal-flow', () => {
           borderLeftWidth: '0.5em',
         },
         children: [{
-          label: '2',
           content: '1234567890',
         }],
       }],
-    });
-    node.lay(ctx);
-    expect(node.rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.result).toEqual({
       x: 0,
       y: 0,
       w: 176,
@@ -1159,7 +1122,7 @@ describe('normal-flow', () => {
       ],
       type: 'inline',
     });
-    expect(node.children[0].rect).toEqual({
+    expect(node.children[0].result).toEqual({
       x: 8,
       y: 0,
       w: 160,
@@ -1192,7 +1155,7 @@ describe('normal-flow', () => {
       ],
       type: 'inline',
     });
-    expect(node.children[0].children[0].rect).toEqual({
+    expect(node.children[0].children[0].result).toEqual({
       x: 8,
       y: 0,
       w: 160,

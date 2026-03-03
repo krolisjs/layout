@@ -1,5 +1,5 @@
-import type { JStyle } from '../dist/index.js';
-import { AbstractNode, Context, Node, Text } from '../dist/index.js';
+import type { IAllNode, JStyle } from '../dist/index.js';
+import { AbstractNode, Context, Node, TextNode } from '../dist/index.js';
 
 type Item = {
   style?: Partial<JStyle>;
@@ -11,16 +11,16 @@ type Item = {
   label?: string;
 };
 
-export function genNode(item: Item) {
+export function genNode(item: Item, ctx: Context<IAllNode>) {
   let node: AbstractNode;
   if ('content' in item) {
-    node = new Text(item.content, item.style, item);
+    node = new TextNode(item.content, ctx.measureText!, item.style, item);
   }
   else {
     node = new Node(item.style, [], item);
     if (item.children) {
       item.children.forEach(child => {
-        const n = genNode(child);
+        const n = genNode(child, ctx);
         (node as Node).appendChild(n);
       });
     }
@@ -29,13 +29,12 @@ export function genNode(item: Item) {
 }
 
 export function createTestContext() {
-  return new Context<AbstractNode>({
+  return new Context<IAllNode>({
     constraints: {
       aw: 10000,
       ah: 10000,
     },
-    onConfigured: (node, rect) => {
-      node.rect = rect;
+    onConfigured: (node, res) => {
     },
     measureText: (content, fontFamily, fontSize, lineHeight) => {
       // 这里的参数类型可以利用 TS 自动推导，不用全写一遍

@@ -1,9 +1,10 @@
 import { expect } from 'expect';
 import { createTestContext, genNode } from './env.ts';
-import { AbstractNode, Context, FontStyle } from '../dist/index.js';
+import { Context, FontStyle } from '../dist/index.js';
+import type { IAllNode } from '../dist/index.js';
 
 describe('css-position', () => {
-  let ctx: Context<AbstractNode>;
+  let ctx: Context<IAllNode>;
 
   beforeEach(() => {
     ctx = createTestContext();
@@ -29,9 +30,9 @@ describe('css-position', () => {
           },
         },
       ],
-    });
-    node.lay(ctx);
-    expect(node.children[0].rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.children[0].result).toEqual({
       x: 10,
       y: 10,
       w: 80,
@@ -86,9 +87,9 @@ describe('css-position', () => {
           ],
         },
       ],
-    });
-    node.lay(ctx);
-    expect(node.children[0].children[0].rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.children[0].children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 100,
@@ -143,9 +144,9 @@ describe('css-position', () => {
           ],
         },
       ],
-    });
-    node.lay(ctx);
-    expect(node.children[0].children[0].rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.children[0].children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 100,
@@ -187,9 +188,9 @@ describe('css-position', () => {
           },
         },
       ],
-    });
-    node.lay(ctx);
-    expect(node.children[0].rect).toEqual({
+    }, ctx);
+    node.lay(ctx.getConstraints());
+    expect(node.children[0].result).toEqual({
       x: 0,
       y: 0,
       w: 100,
