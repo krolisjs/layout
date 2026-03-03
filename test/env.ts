@@ -1,5 +1,5 @@
-import type { IAllNode, JStyle } from '../dist/index.js';
-import { AbstractNode, Context, Node, TextNode } from '../dist/index.js';
+import type { IAllNode, JStyle, Result } from '../dist/index.js';
+import { AbstractNode, Context, Node, setMeasureText, TextNode } from '../dist/index.js';
 
 type Item = {
   style?: Partial<JStyle>;
@@ -14,10 +14,10 @@ type Item = {
 export function genNode(item: Item, ctx: Context<IAllNode>) {
   let node: AbstractNode;
   if ('content' in item) {
-    node = new TextNode(item.content, ctx.measureText!, item.style, item);
+    node = new TextNode(item.content, item.style);
   }
   else {
-    node = new Node(item.style, [], item);
+    node = new Node(item.style, []);
     if (item.children) {
       item.children.forEach(child => {
         const n = genNode(child, ctx);
@@ -29,14 +29,14 @@ export function genNode(item: Item, ctx: Context<IAllNode>) {
 }
 
 export function createTestContext() {
-  return new Context<IAllNode>({
+  const ctx = new Context<IAllNode>({
     constraints: {
       aw: 10000,
       ah: 10000,
     },
-    onConfigured: (node, res) => {
+    onConfigured: (node: IAllNode, res: Result) => {
     },
-    measureText: (content, fontFamily, fontSize, lineHeight) => {
+    measureText: (content: string, fontFamily: string, fontSize: number, lineHeight: number) => {
       // 这里的参数类型可以利用 TS 自动推导，不用全写一遍
       return {
         width: fontSize * content.length,
@@ -45,4 +45,6 @@ export function createTestContext() {
       };
     },
   });
+  setMeasureText(ctx.measureText!);
+  return ctx;
 }

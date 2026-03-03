@@ -1,6 +1,6 @@
 import { BoxSizing, FontStyle, Unit } from './style';
 import type { Length, Style } from './style';
-import { CJK_REG_EXTENDED, isEnter, LineBox, MeasureText, smartMeasure, TextBox } from './text';
+import { CJK_REG_EXTENDED, getMeasureText, isEnter, LineBox, MeasureText, smartMeasure, TextBox } from './text';
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
@@ -230,7 +230,11 @@ export function inline(style: Style, constraints: Constraints, rem: number, pr?:
   return { res, c: constraints };
 }
 
-export function text(style: Style, constraints: Constraints, content: string, measureText: MeasureText, rem: number, pr?: Result) {
+export function text(style: Style, constraints: Constraints, content: string, rem: number, pr?: Result) {
+  const measureText = getMeasureText();
+  if (!measureText) {
+    throw new Error('Text must be passed to the measureText method.');
+  }
   const res = preset(style, constraints, 'text', rem, pr) as Text;
   // inline的上下margin无效
   res.marginTop = res.marginBottom = 0;
@@ -332,7 +336,11 @@ export function oofBlock(style: Style, constraints: Constraints, rem: number, pr
 
 export function oofInline(style: Style, constraints: Constraints, rem: number, pr?: Result) {}
 
-export function oofText(style: Style, constraints: Constraints, content: string, measureText: MeasureText, rem: number, pr?: Result) {
+export function oofText(style: Style, constraints: Constraints, content: string, rem: number, pr?: Result) {
+  const measureText = getMeasureText();
+  if (!measureText) {
+    throw new Error('Text must be passed to the measureText method.');
+  }
   const res = preset(style, constraints, 'text', rem, pr) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求

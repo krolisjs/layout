@@ -1,35 +1,35 @@
 import { Context } from './context';
-import { Constraints, InputConstraints, Layout, Rect } from './layout';
+import type { Constraints, InputConstraints, Rect, Result } from './layout';
 import {
   AbstractNode,
+  Node,
+  TextNode,
+} from './node';
+import type {
   IAllNode,
   INode,
   ITypeNode,
   ITextNode,
-  Node,
-  TextNode,
 } from './node';
 import {
   BoxSizing,
-  CssFontSize,
-  CssLength,
   Display,
   FontStyle,
-  JStyle,
   Position,
-  Style,
-  Length,
   Unit,
   calCssLength,
   getDefaultStyle,
   normalizeStyle,
 } from './style';
-import {
-  MeasureText,
-  MeasureTextRes,
-  getMeasureText,
-  setMeasureText,
-} from './text';
+import type {
+  CssFontSize,
+  CssLength,
+  Length,
+  JStyle,
+  Style,
+} from './style';
+import { getMeasureText, setMeasureText } from './text';
+import type { MeasureText, MeasureTextRes } from './text';
 
 export {
   AbstractNode,
@@ -37,7 +37,6 @@ export {
   Context,
   Display,
   FontStyle,
-  Layout,
   Node,
   Position,
   TextNode,
@@ -64,4 +63,5 @@ export type {
   MeasureText,
   MeasureTextRes,
   Rect,
+  Result,
 };

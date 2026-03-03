@@ -16,10 +16,6 @@ import {
 } from './layout';
 import { MeasureText } from './text.js';
 
-type Options = {
-  label?: string;
-};
-
 export enum NodeType {
   Node = 0,
   Text = 1,
@@ -54,7 +50,7 @@ export abstract class AbstractNode implements ITypeNode {
   constraints: Constraints | null = null; // 本身产生的约束，传给children
   result: Result | null = null;
 
-  protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>, options?: Options) {
+  protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
     this.nodeType = nodeType;
     this.style = getDefaultStyle(style);
   }
@@ -147,7 +143,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else if (this.nodeType === NodeType.Text) {
       const t = this as unknown as TextNode;
-      const o = text(style, constraints, t.content, t.measureText, rem, pr);
+      const o = text(style, constraints, t.content, rem, pr);
       this.result = o.res;
       c = o.c;
     }
@@ -324,7 +320,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
     if (this.nodeType === NodeType.Text) {
       const t = this as unknown as TextNode;
-      return oofText(style, constraints, t.content, t.measureText, rem, pr);
+      return oofText(style, constraints, t.content, rem, pr);
     }
     else if (style.display === Display.INLINE) {
       return oofInline(style, constraints, rem, pr);
@@ -355,8 +351,8 @@ export abstract class AbstractNode implements ITypeNode {
 export class Node extends AbstractNode {
   children: AbstractNode[];
 
-  constructor(style?: Partial<JStyle | Style>, children: AbstractNode[] = [], options?: Options) {
-    super(NodeType.Node, style, options);
+  constructor(style?: Partial<JStyle | Style>, children: AbstractNode[] = []) {
+    super(NodeType.Node, style);
     this.children = children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
@@ -415,21 +411,16 @@ export class Node extends AbstractNode {
 export class TextNode extends AbstractNode implements ITextNode {
   declare nodeType: NodeType.Text;
   content = '';
-  measureText: MeasureText;
 
-  constructor(content: string, measureText: MeasureText, style?: Partial<JStyle | Style>, options?: Options) {
-    super(NodeType.Text, style, options);
+  constructor(content: string, style?: Partial<JStyle | Style>) {
+    super(NodeType.Text, style);
     this.content = content;
-    this.measureText = measureText;
   }
 }
 
-export function genNode(node: IAllNode, style?: Partial<JStyle | Style>, measureText?: MeasureText) {
+export function genNode(node: IAllNode, style?: Partial<JStyle | Style>) {
   if (node.nodeType === NodeType.Text) {
-    if (!measureText) {
-      throw new Error('Text must be passed to the measureText method.');
-    }
-    return new TextNode(node.content, measureText, style);
+    return new TextNode(node.content, style);
   }
   return new Node(style);
 }
