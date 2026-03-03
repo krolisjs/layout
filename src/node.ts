@@ -311,9 +311,13 @@ export abstract class AbstractNode implements ITypeNode {
           c.cx = item.cx;
           c.cy = item.cy;
           item.node.constraints = c;
-          // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
+          // 特殊之处，约束要包含border/padding
           const pr = this.parent ? this.parent.result! : undefined;
           const rem = this.root ? this.root.result!.fontSize : 16;
+          const r = preset(style, c, 'box', rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight) as Box;
+          c.aw += r.paddingLeft + r.paddingRight + r.borderLeftWidth + r.borderRightWidth;
+          c.pbw = c.aw;
+          // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
           const o = block(style, c, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
           item.node.result = o.res;
           item.node.constraints = o.c;
@@ -322,6 +326,7 @@ export abstract class AbstractNode implements ITypeNode {
           for (let i = 0, len = children.length; i < len; i++) {
             children[i].layMode(o.c, LayoutMode.NORMAL, oofMap);
           }
+          // 特殊marginLR/w计算
           // 模拟end
           if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
             item.node.result!.h = item.node.constraints.cy - item.node.constraints.oy;
@@ -408,7 +413,11 @@ export abstract class AbstractNode implements ITypeNode {
         else {
           // block如果定宽则直接返回，否则递归
           if (isFixed(style.width)) {
-            const w = calLength(style.width, constraints.pbw, fontSize, rem);
+            const r = preset(style, constraints, 'box', rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight);
+            const w = calLength(style.width, constraints.pbw, fontSize, rem)
+              + r.marginLeft + r.marginRight
+              + r.borderLeftWidth + r.borderRightWidth
+              + r.paddingLeft + r.paddingRight;
             min = min ? Math.min(min, w) : w;
             max = Math.max(max, w);
           }

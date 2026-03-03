@@ -71,7 +71,7 @@ describe('margin-padding-clear', () => {
     expect(node.children[1].result).toMatchObject({
       x: 10,
       y: 10,
-      w: 10,
+      w: 54,
       h: 34,
       borderTopWidth: 10,
       borderRightWidth: 10,
@@ -94,5 +94,62 @@ describe('margin-padding-clear', () => {
     });
   });
 
-  it('margin-005', () => {});
+  it('margin-005', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+      },
+      children: [
+        {
+          style: {
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            borderTopWidth: 10,
+            borderRightWidth: 10,
+            borderBottomWidth: 10,
+            borderLeftWidth: 10,
+          },
+          children: [
+            {
+              style: {
+                marginTop: 'auto',
+                marginRight: 'auto',
+                marginBottom: 'auto',
+                marginLeft: 'auto',
+                borderTopWidth: 10,
+                borderRightWidth: 10,
+                borderBottomWidth: 10,
+                borderLeftWidth: 10,
+                width: 30,
+                height: 10,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.result?.h).toBe(0);
+    expect(node.children[0].result).toMatchObject({
+      x: 10,
+      y: 10,
+      w: 50,
+      h: 30,
+      borderTopWidth: 10,
+      borderRightWidth: 10,
+      borderBottomWidth: 10,
+      borderLeftWidth: 10,
+    });
+    expect(node.children[0].children[0].result).toMatchObject({
+      x: 20,
+      y: 20,
+      w: 30,
+      h: 10,
+      borderTopWidth: 10,
+      borderRightWidth: 10,
+      borderBottomWidth: 10,
+      borderLeftWidth: 10,
+    });
+  });
 });
