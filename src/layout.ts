@@ -74,7 +74,7 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function preset(style: Style, constraints: Constraints, type: Result['type'], rem = 16, inherit?: ComputedStyle) {
+export function preset(style: Style, constraints: Constraints, type: Result['type'], rem: number, inherit?: ComputedStyle) {
   const res: any = {
     type,
     rects: type === 'box' ? null : [],
@@ -207,7 +207,7 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(style: Style, constraints: Constraints, rem?: number, inherit?: ComputedStyle) {
+export function block(style: Style, constraints: Constraints, rem: number, inherit?: ComputedStyle) {
   const res = preset(style, constraints, 'box', rem, inherit) as Box;
   res.type = 'box';
   // 返回递归的供子节点使用
@@ -350,7 +350,7 @@ export function text(style: Style, constraints: Constraints, content: string, re
   return { res, c: constraints };
 }
 
-export function oofText(style: Style, constraints: Constraints, content: string, rem?: number, inherit?: ComputedStyle) {
+export function oofText(style: Style, constraints: Constraints, content: string, rem: number, inherit?: ComputedStyle) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');

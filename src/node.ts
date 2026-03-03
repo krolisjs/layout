@@ -1,5 +1,4 @@
-import type { JStyle, Style } from './style';
-import { calLength, Display, getDefaultStyle, isFixed, Position, Unit, } from './style';
+import { BoxSizing, calLength, Display, getDefaultStyle, isFixed, JStyle, Position, Style, Unit } from './style';
 import type { Box, Constraints, Inline, InputConstraints, Result, Text, } from './layout';
 import { block, ComputedStyle, inline, LayoutMode, normalizeConstraints, oofText, preset, text, } from './layout';
 
@@ -29,6 +28,12 @@ type Oof = {
   cy: number;
 };
 
+type Root = {
+  rem: number,
+  w: number,
+  h: number,
+};
+
 let id = 0;
 
 export abstract class AbstractNode implements ITypeNode {
@@ -39,7 +44,7 @@ export abstract class AbstractNode implements ITypeNode {
   parent: Node | null = null;
   prev: AbstractNode | null = null;
   next: AbstractNode | null = null;
-  root: AbstractNode | null = null;
+  inputConstraints: InputConstraints | null = null;
   constraints: Constraints | null = null; // 本身产生的约束，传给children
   result: Result | null = null;
 
@@ -60,7 +65,6 @@ export abstract class AbstractNode implements ITypeNode {
         }
         node.next = this;
         this.prev = node;
-        node.root = this.root;
         parent.children.splice(i, 0, node);
       }
     }
@@ -78,7 +82,6 @@ export abstract class AbstractNode implements ITypeNode {
         }
         node.next = this.next;
         this.next = node;
-        node.root = this.root;
         parent.children.splice(i + 1, 0, node);
       }
     }
@@ -90,18 +93,28 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  lay(constraints: InputConstraints) {
+  lay(inputConstraints: InputConstraints) {
+    if (getRoot(this) !== this) {
+      throw new Error('Caller is not root: ' + this);
+    }
+    this.inputConstraints = inputConstraints;
+    const rem = calLength(this.style.fontSize, 1600, 16, 16) || 16;
+    const root: Root = {
+      rem,
+      w: inputConstraints.aw,
+      h: inputConstraints.ah,
+    };
     // 遇到absolute进入测量模式，等其包含块节点end时机开始测量
     const oofMap: WeakMap<AbstractNode, Oof[]> = new WeakMap();
     // 入口普通模式
-    this.layMode(normalizeConstraints(constraints), LayoutMode.NORMAL, oofMap);
+    this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, root);
   }
 
-  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>) {
-    const b = this.begin(constraints, layoutMode);
+  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
+    const b = this.begin(constraints, layoutMode, root);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
-      const n = this.getContainingBlockNode() || this.root;
+      const n = this.getContainingBlockNode() || getRoot(this);
       if (n) {
         let list: Oof[];
         if (oofMap.has(n)) {
@@ -123,15 +136,15 @@ export abstract class AbstractNode implements ITypeNode {
     // 先序遍历递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(b.c, b.layoutMode, oofMap);
+      children[i].layMode(b.c, b.layoutMode, oofMap, root);
     }
-    this.end(oofMap);
+    this.end(oofMap, root);
   }
 
-  private begin(constraints: Constraints, layoutMode: LayoutMode) {
+  private begin(constraints: Constraints, layoutMode: LayoutMode, root: Root) {
     const style = this.style;
     const pr = this.parent ? this.parent.result! : undefined;
-    const rem = this.root ? this.root.result!.fontSize : 16;
+    const rem = root.rem;
     let c: Constraints;
     if (style.position === Position.ABSOLUTE) {
       // 如果绝对值定宽，且没有最小限制，直接处理即可；位置可以等最后处理偏移
@@ -171,7 +184,7 @@ export abstract class AbstractNode implements ITypeNode {
     return { layoutMode, c };
   }
 
-  private end(oofMap: WeakMap<AbstractNode, Oof[]>) {
+  private end(oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
     const style = this.style;
     const result = this.result!;
     // 递归结束后处理
@@ -240,13 +253,14 @@ export abstract class AbstractNode implements ITypeNode {
         if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
           result.h = constraints.cy - constraints.oy;
         }
-        const cp = this.parent?.constraints;
+        const parent = this.parent;
+        const cp = parent?.constraints;
         if (cp) {
           const mbp = result.marginBottom + result.paddingBottom + result.borderBottomWidth;
           cp.cy = result.y + result.h + mbp;
         }
         // inline可能包含block，兼容也需要向上处理，类似子inline一样的逻辑
-        if (this.parent) {
+        if (parent) {
           let parent = this.parent as Node | null;
           let current = this.result!;
           while (parent) {
@@ -261,6 +275,41 @@ export abstract class AbstractNode implements ITypeNode {
             // 依旧中断，逻辑也一样，上层block/flex会继续处理
             else {
               break;
+            }
+          }
+        }
+        // margin:auto水平居中
+        const { boxSizing, marginLeft, marginRight } = style;
+        const pr = parent?.result;
+        const w = pr ? pr.w : root.w;
+        let w2 = result.w;
+        if (boxSizing === BoxSizing.CONTENT_BOX) {
+          w2 += result.borderLeftWidth + result.borderRightWidth + result.paddingLeft + result.paddingRight;
+        }
+        if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
+          if (w2 < w) {
+            const half = (w - w2) * 0.5;
+            result.x += half;
+            result.marginLeft = half;
+            result.marginRight = half;
+          }
+          else if (w2 !== w) {
+            if (pr) {
+              result.marginRight = pr.x + pr.w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
+            }
+            else {
+              result.marginRight = w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
+            }
+          }
+        }
+        // 计算值也得更新
+        else if (marginRight.u === Unit.AUTO) {
+          if (w2 !== w) {
+            if (pr) {
+              result.marginRight = pr.x + pr.w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
+            }
+            else {
+              result.marginRight = w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
             }
           }
         }
@@ -282,17 +331,17 @@ export abstract class AbstractNode implements ITypeNode {
             cy: item.cy,
           };
           // 获取到测量宽后用作aw，然后走一遍普通布局，inline要视作block
-          item.node.layOof(c, oofMap);
+          item.node.layOof(c, oofMap, root);
         });
       }
     }
     // root节点开始处理relative的偏移
     if (!this.parent) {
-      this.finish(0, 0, result.fontSize);
+      this.finish(0, 0, result.fontSize, root);
     }
   }
 
-  finish(x: number, y: number, rem: number) {
+  finish(x: number, y: number, rem: number, root: Root) {
     const style = this.style;
     const res = this.result!;
     if (style.position === Position.RELATIVE) {
@@ -326,9 +375,8 @@ export abstract class AbstractNode implements ITypeNode {
       }
       // 根节点特殊处理
       else {
-        const root = this.root!;
-        w = root.constraints!.aw;
-        h = root.constraints!.ah;
+        w = root.w;
+        h = root.h;
       }
       const { left, top, right, bottom } = style;
       if (left.u !== Unit.AUTO) {
@@ -358,14 +406,14 @@ export abstract class AbstractNode implements ITypeNode {
     }
     const children = this.children;
     for (let i = 0; i < children.length; i++) {
-      children[i].finish(x, y, rem);
+      children[i].finish(x, y, rem, root);
     }
   }
 
-  layOof(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>) {
+  layOof(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
     const { cx, cy } = constraints;
     const pr = this.parent ? this.parent.result! : undefined;
-    const rem = this.root ? this.root.result!.fontSize : 16;
+    const rem = root.rem;
     const inherit = preset(this.style, constraints, 'box', rem, pr) as Box;
     const { min, max } = this.beginOof(constraints, rem, inherit);
     const w = Math.max(min, Math.min(max, constraints.aw));
@@ -386,7 +434,7 @@ export abstract class AbstractNode implements ITypeNode {
     // 继续普通递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(o.c, LayoutMode.NORMAL, oofMap);
+      children[i].layMode(o.c, LayoutMode.NORMAL, oofMap, root);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
@@ -394,7 +442,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  private beginOof(constraints: Constraints, rem?: number, inherit?: ComputedStyle) {
+  private beginOof(constraints: Constraints, rem: number, inherit?: ComputedStyle) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -473,7 +521,6 @@ export class Node extends AbstractNode {
     const last = children[children.length - 1];
     children.push(item);
     item.parent = this;
-    item.root = this.root;
     if (last) {
       last.next = item;
       item.prev = last;
@@ -485,7 +532,6 @@ export class Node extends AbstractNode {
     const first = children[0];
     children.unshift(item);
     item.parent = this;
-    item.root = this.root;
     if (first) {
       first.prev = item;
       item.next = first;
@@ -505,7 +551,7 @@ export class Node extends AbstractNode {
         next.prev = prev || null;
       }
       children.splice(i, 1);
-      item.parent = item.prev = item.next = item.root = null;
+      item.parent = item.prev = item.next = null;
     }
   }
 }
@@ -525,4 +571,14 @@ export function genNode(node: IAllNode, style?: Partial<JStyle | Style>) {
     return new TextNode(node.content, style);
   }
   return new Node(style);
+}
+
+function getRoot(item: AbstractNode) {
+  let parent: AbstractNode | null = item;
+  let temp = item;
+  while (parent) {
+    temp = parent;
+    parent = parent.parent;
+  }
+  return temp;
 }
