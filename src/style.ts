@@ -402,3 +402,26 @@ export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
   }
   return res;
 };
+
+export function calLength(target: Length, pb: number, em = 16, rem = 16) {
+  if (target.u === Unit.PX || target.u === Unit.NUMBER) {
+    return target.v;
+  }
+  else if (target.u === Unit.PERCENT) {
+    return target.v * 0.01 * pb;
+  }
+  else if (target.u === Unit.IN) {
+    return target.v * 96;
+  }
+  else if (target.u === Unit.EM) {
+    return target.v * em;
+  }
+  else if (target.u === Unit.REM) {
+    return target.v * rem;
+  }
+  return 0;
+}
+
+export function isFixed(o: Length) {
+  return [Unit.PX, Unit.IN, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u);
+}

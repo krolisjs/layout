@@ -1,20 +1,29 @@
+import {
+  calLength,
+  Display,
+  FontStyle,
+  getDefaultStyle,
+  isFixed,
+  Position,
+  Unit,
+} from './style';
 import type { JStyle, Style } from './style';
-import { Display, getDefaultStyle, Position, Unit } from './style';
 import {
   block,
-  calLength,
-  Constraints,
-  Inline,
   inline,
-  InputConstraints,
   LayoutMode,
   normalizeConstraints,
-  oofBlock,
-  oofInline,
   oofText,
-  Result,
+  preset,
   text,
-  Text
+} from './layout';
+import type {
+  Box,
+  Constraints,
+  Inline,
+  InputConstraints,
+  Result,
+  Text,
 } from './layout';
 
 export enum NodeType {
@@ -36,6 +45,12 @@ export interface ITextNode extends ITypeNode {
 }
 
 export type IAllNode = INode | ITextNode;
+
+type Oof = {
+  node: AbstractNode;
+  cx: number;
+  cy: number;
+};
 
 let id = 0;
 
@@ -99,48 +114,64 @@ export abstract class AbstractNode implements ITypeNode {
   }
 
   lay(constraints: InputConstraints) {
-    this.layNormal(normalizeConstraints(constraints), LayoutMode.NORMAL);
+    // 遇到absolute进入测量模式，等其包含块节点end时机开始测量
+    const oofMap: WeakMap<AbstractNode, Oof[]> = new WeakMap();
+    // 入口普通模式
+    this.layMode(normalizeConstraints(constraints), LayoutMode.NORMAL, oofMap);
   }
 
-  layNormal(constraints: Constraints, layoutMode: LayoutMode) {
-    // 非正常中断，如absolute预测量阶段递归到子absolute无返回
+  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>) {
     const b = this.begin(constraints, layoutMode);
-    if (!b) {
+    // 可能进入absolute预测量阶段，在包含块节点end时进行预测量
+    if (b.layoutMode & LayoutMode.OOF_MEASURE) {
+      const n = this.getContainingBlockNode();
+      if (n) {
+        let list: Oof[];
+        if (oofMap.has(n)) {
+          list = oofMap.get(n)!;
+        }
+        else {
+          list = [];
+          oofMap.set(n, list);
+        }
+        list.push({
+          node: this,
+          cx: constraints.cx,
+          cy: constraints.cy,
+        });
+      }
+      // 没有包含块则相对于root的约束
+      else {}
       return;
     }
     this.constraints = b.c;
     // 先序遍历递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layNormal(b.c, b.layoutMode);
+      children[i].layMode(b.c, b.layoutMode, oofMap);
     }
-    this.end(layoutMode);
+    this.end(oofMap);
   }
 
   private begin(constraints: Constraints, layoutMode: LayoutMode) {
     const style = this.style;
     const pr = this.parent ? this.parent.result! : undefined;
     const rem = this.root ? this.root.result!.fontSize : 16;
-    if (layoutMode & LayoutMode.OOF_MEASURE) {
-      this.beginOof(constraints);
-      return;
-    }
     let c: Constraints;
     if (style.position === Position.ABSOLUTE) {
       // 如果绝对值定宽，且没有最小限制，直接处理即可；位置可以等最后处理偏移
       const { width, minWidth } = style;
       let isFixedWidth = false;
-      if ([Unit.PX, Unit.IN, Unit.EM, Unit.REM, Unit.NUMBER].includes(width.u)
-        && minWidth.u === Unit.AUTO) {
+      if (isFixed(width) && minWidth.u === Unit.AUTO) {
         isFixedWidth = true;
       }
       // 定宽不用测量，inline强制为对应block
       if (isFixedWidth) {
-        const o = block(style, constraints, rem, pr);
+        const o = block(style, constraints, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
         this.result = o.res;
         c = o.c;
       }
-      // 进入测量模式
+      // 进入测量模式，等包含块节点end时开始测量
       else {
         layoutMode |= LayoutMode.OOF_MEASURE;
         c = constraints;
@@ -148,28 +179,24 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else if (this.nodeType === NodeType.Text) {
       const t = this as unknown as TextNode;
-      const o = text(style, constraints, t.content, rem, pr);
+      const o = text(style, constraints, t.content, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
       this.result = o.res;
       c = o.c;
     }
     else if (style.display === Display.INLINE) {
-      const o = inline(style, constraints, rem, pr);
+      const o = inline(style, constraints, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
       this.result = o.res;
       c = o.c;
     }
     else {
-      const o = block(style, constraints, rem, pr);
+      const o = block(style, constraints, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
       this.result = o.res;
       c = o.c;
     }
     return { layoutMode, c };
   }
 
-  private end(layoutMode: LayoutMode) {
-    // 预测量阶段不需要任何处理
-    if (layoutMode & LayoutMode.OOF_MEASURE) {
-      return;
-    }
+  private end(oofMap: WeakMap<AbstractNode, Oof[]>) {
     const style = this.style;
     const result = this.result!;
     // 递归结束后处理
@@ -214,7 +241,9 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else {
       // 定宽且无最小限制的，无向上处理被inline包含逻辑；偏移等到包含块end时处理
-      if (style.position === Position.ABSOLUTE) {}
+      if (style.position === Position.ABSOLUTE) {
+        // 不用做任何事情
+      }
       // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
       else if (style.display === Display.INLINE) {
         const r = (result as Inline);
@@ -260,6 +289,46 @@ export abstract class AbstractNode implements ITypeNode {
             }
           }
         }
+      }
+      // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
+      if ([Position.RELATIVE, Position.ABSOLUTE].includes(style.position) && oofMap.has(this)) {
+        const list = oofMap.get(this)!;
+        list.forEach(item => {
+          const aw = result.w + result.paddingLeft + result.paddingRight;
+          const ah = result.h + result.paddingTop + result.paddingBottom;
+          const c: Constraints = {
+            ox: result.x,
+            oy: result.y,
+            aw,
+            ah,
+            pbw: aw,
+            pbh: ah,
+            cx: item.cx,
+            cy: item.cy,
+          };
+          const style = item.node.style;
+          // 获取到测量宽后用作aw，然后走一遍普通布局，inline要视作block
+          const w = item.node.layOof(c);
+          c.aw = c.pbw = w;
+          item.node.constraints = c;
+          // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
+          const pr = this.parent ? this.parent.result! : undefined;
+          const rem = this.root ? this.root.result!.fontSize : 16;
+          if ([Display.INLINE_FLEX, Display.FLEX].includes(style.display)) {}
+          else {
+            const o = block(style, c, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
+            item.node.result = o.res;
+          }
+          // 继续普通递归
+          const children = item.node.children;
+          for (let i = 0, len = children.length; i < len; i++) {
+            children[i].layMode(c, LayoutMode.NORMAL, oofMap);
+          }
+          // 模拟end
+          if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
+            item.node.result!.h = c.cy - c.oy;
+          }
+        });
       }
     }
     // root节点开始处理relative的偏移
@@ -315,24 +384,45 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  private beginOof(constraints: Constraints) {
-    const style = this.style;
+  layOof(constraints: Constraints) {
     const pr = this.parent ? this.parent.result! : undefined;
     const rem = this.root ? this.root.result!.fontSize : 16;
-    // absolute预测量阶段忽略递归的absolute
-    if (style.position === Position.ABSOLUTE) {
-      return;
+    const res = preset(this.style, constraints, 'box', rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight) as Box;
+    const { min, max } = this.beginOof(constraints, rem, res.fontSize, res.fontFamily, res.fontWeight, res.fontStyle, res.lineHeight);
+    return Math.max(min, Math.min(max, constraints.aw));
+  }
+
+  private beginOof(constraints: Constraints, rem?: number, fontSize?: number, fontFamily?: string, fontWeight?: number, fontStyle?: FontStyle, lineHeight?: number) {
+    let min = 0, max = 0;
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      const style = child.style;
+      // 测量阶段递归的子节点absolute忽略
+      if (style.position !== Position.ABSOLUTE) {
+        if (child.nodeType === NodeType.Text) {
+          const t = child as unknown as TextNode;
+          const o = oofText(style, constraints, t.content, rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight);
+          min = min ? Math.min(min, o.min) : o.min;
+          max = Math.max(max, o.max);
+        }
+        else if (style.display === Display.INLINE) {}
+        else {
+          // block如果定宽则直接返回，否则递归
+          if (isFixed(style.width)) {
+            const w = calLength(style.width, constraints.pbw, fontSize, rem);
+            min = min ? Math.min(min, w) : w;
+            max = Math.max(max, w);
+          }
+          else {
+            const o = child.beginOof(constraints, rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight);
+            min = min ? Math.min(min, o.min) : o.min;
+            max = Math.max(max, o.max);
+          }
+        }
+      }
     }
-    if (this.nodeType === NodeType.Text) {
-      const t = this as unknown as TextNode;
-      return oofText(style, constraints, t.content, rem, pr);
-    }
-    else if (style.display === Display.INLINE) {
-      return oofInline(style, constraints, rem, pr);
-    }
-    else {
-      return oofBlock(style, constraints, rem, pr);
-    }
+    return { min, max };
   }
 
   // 获取absolute的包围块节点
@@ -354,6 +444,7 @@ export abstract class AbstractNode implements ITypeNode {
 }
 
 export class Node extends AbstractNode {
+  declare nodeType: NodeType.Node;
   children: AbstractNode[];
 
   constructor(style?: Partial<JStyle | Style>, children: AbstractNode[] = []) {

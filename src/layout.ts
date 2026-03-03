@@ -1,6 +1,6 @@
-import { BoxSizing, FontStyle, Unit } from './style';
-import type { Length, Style } from './style';
-import { CJK_REG_EXTENDED, getMeasureText, isEnter, LineBox, MeasureText, smartMeasure, TextBox } from './text';
+import { BoxSizing, calLength, FontStyle, Style, Unit } from './style';
+import type { LineBox, TextBox } from './text';
+import { CJK_REG_EXTENDED, getMeasureText, isEnter, smartMeasure } from './text';
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
@@ -74,26 +74,7 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function calLength(target: Length, pb: number, em: number, rem: number) {
-  if (target.u === Unit.PX || target.u === Unit.NUMBER) {
-    return target.v;
-  }
-  else if (target.u === Unit.PERCENT) {
-    return target.v * 0.01 * pb;
-  }
-  else if (target.u === Unit.IN) {
-    return target.v * 96;
-  }
-  else if (target.u === Unit.EM) {
-    return target.v * em;
-  }
-  else if (target.u === Unit.REM) {
-    return target.v * rem;
-  }
-  return 0;
-}
-
-export function preset(style: Style, constraints: Constraints, type: Result['type'], rem = 16, pr?: Result) {
+export function preset(style: Style, constraints: Constraints, type: Result['type'], rem = 16, fontSize = 16, fontFamily = 'sans-serif', fontWeight = 400, fontStyle = FontStyle.NORMAL, lineHeight = 24) {
   const res: any = {
     type,
     rects: type === 'box' ? null : [],
@@ -122,17 +103,31 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   };
 
   if (style.fontFamily === 'inherit') {
-    res.fontFamily = pr?.fontFamily || 'sans-serif';
+    res.fontFamily = fontFamily || 'sans-serif';
   }
   else {
     res.fontFamily = style.fontFamily;
   }
 
   if (style.fontSize.u === Unit.INHERIT) {
-    res.fontSize = pr?.fontSize ?? 16;
+    res.fontSize = fontSize || 16;
   }
   else {
-    res.fontSize = Math.max(0, calLength(style.fontSize, (pr?.fontSize ?? 16) * 100, 0, rem));
+    res.fontSize = Math.max(0, calLength(style.fontSize, (fontSize || 16) * 100, 0, rem));
+  }
+
+  if (style.fontWeight === 0) {
+    res.fontWeight = fontWeight || 400;
+  }
+  else {
+    res.fontWeight = style.fontWeight;
+  }
+
+  if (style.fontStyle === FontStyle.INHERIT) {
+    res.fontStyle = fontStyle || FontStyle.NORMAL;
+  }
+  else {
+    res.fontStyle = style.fontStyle;
   }
 
   ([
@@ -166,10 +161,10 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
       res[k] = Math.max(0, v * res.fontSize);
     }
     else if (k === 'lineHeight' && u === Unit.INHERIT) {
-      res[k] = pr?.lineHeight ?? 24;
+      res[k] = lineHeight || 24;
     }
     else if (k === 'lineHeight') {
-      res[k] = Math.max(0, calLength(style[k], pr?.lineHeight ?? 24, res.fontSize, rem));
+      res[k] = Math.max(0, calLength(style[k], lineHeight || 24, res.fontSize, rem));
     }
     else {
       res[k] = Math.max(0, calLength(style[k], constraints.pbw, res.fontSize, rem));
@@ -200,8 +195,8 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(style: Style, constraints: Constraints, rem: number, pr?: Result) {
-  const res = preset(style, constraints, 'box', rem, pr) as Box;
+export function block(style: Style, constraints: Constraints, rem?: number, fontSize?: number, fontFamily?: string, fontWeight?: number, fontStyle?: FontStyle, lineHeight?: number) {
+  const res = preset(style, constraints, 'box', rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight) as Box;
   res.type = 'box';
   // 返回递归的供子节点使用
   const ox = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
@@ -232,8 +227,8 @@ export function block(style: Style, constraints: Constraints, rem: number, pr?: 
   return { res, c };
 }
 
-export function inline(style: Style, constraints: Constraints, rem: number, pr?: Result) {
-  const res = preset(style, constraints, 'inline', rem, pr) as Inline;
+export function inline(style: Style, constraints: Constraints, rem: number, fontSize?: number, fontFamily?: string, fontWeight?: number, fontStyle?: FontStyle, lineHeight?: number) {
+  const res = preset(style, constraints, 'inline', rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
   res.marginTop = res.marginBottom = 0;
   // 修改当前的，inline复用
@@ -241,12 +236,12 @@ export function inline(style: Style, constraints: Constraints, rem: number, pr?:
   return { res, c: constraints };
 }
 
-export function text(style: Style, constraints: Constraints, content: string, rem: number, pr?: Result) {
+export function text(style: Style, constraints: Constraints, content: string, rem: number, fontSize?: number, fontFamily?: string, fontWeight?: number, fontStyle?: FontStyle, lineHeight?: number) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(style, constraints, 'text', rem, pr) as Text;
+  const res = preset(style, constraints, 'text', rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight) as Text;
   // inline的上下margin无效
   res.marginTop = res.marginBottom = 0;
   let cx = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
@@ -343,16 +338,12 @@ export function text(style: Style, constraints: Constraints, content: string, re
   return { res, c: constraints };
 }
 
-export function oofBlock(style: Style, constraints: Constraints, rem: number, pr?: Result) {}
-
-export function oofInline(style: Style, constraints: Constraints, rem: number, pr?: Result) {}
-
-export function oofText(style: Style, constraints: Constraints, content: string, rem: number, pr?: Result) {
+export function oofText(style: Style, constraints: Constraints, content: string, rem?: number, fontSize?: number, fontFamily?: string, fontWeight?: number, fontStyle?: FontStyle, lineHeight?: number) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(style, constraints, 'text', rem, pr) as Text;
+  const res = preset(style, constraints, 'text', rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求
   const list = content.split(/[\n\u2028]/);
@@ -395,11 +386,14 @@ export function oofText(style: Style, constraints: Constraints, content: string,
     for (let i = 0, len = content.length; i < len; i++) {
       const c = content[i];
       let width = 0;
-      if (cache[c] !== undefined) {
-        width = cache[c];
-      }
-      else {
-        width = measureText(c, res.fontFamily, res.fontSize, res.lineHeight, res.fontWeight, res.fontStyle, res.letterSpacing).width;
+      // 最大单字可能已求得，可省略
+      if (min < res.fontSize && !i && i !== len - 1) {
+        if (cache[c] !== undefined) {
+          width = cache[c];
+        }
+        else {
+          width = measureText(c, res.fontFamily, res.fontSize, res.lineHeight, res.fontWeight, res.fontStyle, res.letterSpacing).width;
+        }
       }
       if (!i) {
         width += res.marginLeft + res.paddingLeft + res.borderLeftWidth;

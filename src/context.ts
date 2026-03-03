@@ -1,4 +1,4 @@
-import { Constraints, InputConstraints, normalizeConstraints, Result } from './layout';
+import { InputConstraints, Result } from './layout';
 import { MeasureText } from './text';
 import type { Style } from './style';
 import { AbstractNode, genNode, Node } from './node';

@@ -1,5 +1,15 @@
 import { Context } from './context';
-import type { Constraints, InputConstraints, normalizeConstraints, Rect, Result } from './layout';
+import { LayoutMode, normalizeConstraints } from './layout';
+import type {
+  Box,
+  ComputedStyle,
+  Constraints,
+  Inline,
+  InputConstraints,
+  Rect,
+  Result,
+  Text,
+} from './layout';
 import {
   AbstractNode,
   Node,
@@ -40,6 +50,7 @@ export {
   FontStyle,
   getDefaultStyle,
   getMeasureText,
+  LayoutMode,
   Node,
   normalizeConstraints,
   normalizeStyle,
@@ -50,19 +61,23 @@ export {
 };
 
 export type {
+  Box,
   CssFontSize,
   CssLength,
+  ComputedStyle,
   Constraints,
   IAllNode,
   INode,
+  Inline,
   ITextNode,
   ITypeNode,
   InputConstraints,
   Length,
-  JStyle,
-  Style,
   MeasureText,
   MeasureTextRes,
+  JStyle,
+  Style,
+  Text,
   Rect,
   Result,
 };
