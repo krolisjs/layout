@@ -218,7 +218,7 @@ export function block(style: Style, constraints: Constraints, rem?: number, inhe
     oy,
     aw: res.w,
     ah: res.h,
-    cx: oy,
+    cx: ox,
     cy: oy,
     pbw: res.w,
     pbh: res.h,
@@ -228,12 +228,12 @@ export function block(style: Style, constraints: Constraints, rem?: number, inhe
       = Math.max(0, constraints.aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
   }
   if (style.height.u === Unit.AUTO) {
-    c.ah = Infinity;
+    c.ah = constraints.ah;
     c.pbh = undefined; // auto
   }
   // 父级高度auto时，%失效也是auto
   else if (style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
-    c.ah = Infinity;
+    c.ah = constraints.ah;
     c.pbh = undefined;
   }
   return { res, c };
