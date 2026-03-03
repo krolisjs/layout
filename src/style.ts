@@ -403,7 +403,7 @@ export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
   return res;
 };
 
-export function calLength(target: Length, pb: number, em = 16, rem = 16) {
+export function calLength(target: Length, pb: number, rem = 16, em = 16) {
   if (target.u === Unit.PX || target.u === Unit.NUMBER) {
     return target.v;
   }

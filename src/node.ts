@@ -1,7 +1,6 @@
 import {
   calLength,
   Display,
-  FontStyle,
   getDefaultStyle,
   isFixed,
   Position,
@@ -9,7 +8,7 @@ import {
 } from './style';
 import type { JStyle, Style } from './style';
 import {
-  block,
+  block, ComputedStyle,
   inline,
   LayoutMode,
   normalizeConstraints,
@@ -165,7 +164,7 @@ export abstract class AbstractNode implements ITypeNode {
       }
       // 定宽不用测量，inline强制为对应block
       if (isFixedWidth) {
-        const o = block(style, constraints, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
+        const o = block(style, constraints, rem, pr);
         this.result = o.res;
         c = o.c;
       }
@@ -177,17 +176,17 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else if (this.nodeType === NodeType.Text) {
       const t = this as unknown as TextNode;
-      const o = text(style, constraints, t.content, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
+      const o = text(style, constraints, t.content, rem, pr);
       this.result = o.res;
       c = o.c;
     }
     else if (style.display === Display.INLINE) {
-      const o = inline(style, constraints, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
+      const o = inline(style, constraints, rem, pr);
       this.result = o.res;
       c = o.c;
     }
     else {
-      const o = block(style, constraints, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
+      const o = block(style, constraints, rem, pr);
       this.result = o.res;
       c = o.c;
     }
@@ -314,11 +313,13 @@ export abstract class AbstractNode implements ITypeNode {
           // 特殊之处，约束要包含border/padding
           const pr = this.parent ? this.parent.result! : undefined;
           const rem = this.root ? this.root.result!.fontSize : 16;
-          const r = preset(style, c, 'box', rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight) as Box;
-          c.aw += r.paddingLeft + r.paddingRight + r.borderLeftWidth + r.borderRightWidth;
+          const r = preset(style, c, 'box', rem, pr) as Box;
+          c.aw += r.marginLeft + r.marginRight
+            + r.borderLeftWidth + r.borderRightWidth
+            + r.paddingLeft + r.paddingRight;
           c.pbw = c.aw;
           // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
-          const o = block(style, c, rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight);
+          const o = block(style, c, rem, pr);
           item.node.result = o.res;
           item.node.constraints = o.c;
           // 继续普通递归
@@ -346,20 +347,20 @@ export abstract class AbstractNode implements ITypeNode {
     if (style.position === Position.RELATIVE) {
       const { left, top, right, bottom } = style;
       if (left.u !== Unit.AUTO) {
-        x += calLength(left, res.w, res.fontSize, rem);
+        x += calLength(left, res.w, rem, res.fontSize);
       }
       else if (right.u !== Unit.AUTO) {
-        x -= calLength(right, res.w, res.fontSize, rem);
+        x -= calLength(right, res.w, rem, res.fontSize);
       }
       if (top.u !== Unit.AUTO) {
         // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
         if (top.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== undefined) {
-          y += calLength(top, res.h, res.fontSize, rem);
+          y += calLength(top, res.h, rem, res.fontSize);
         }
       }
       else if (bottom.u !== Unit.AUTO) {
         if (bottom.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== undefined) {
-          y -= calLength(bottom, res.h, res.fontSize, rem);
+          y -= calLength(bottom, res.h, rem, res.fontSize);
         }
       }
     }
@@ -390,12 +391,12 @@ export abstract class AbstractNode implements ITypeNode {
   layOof(constraints: Constraints) {
     const pr = this.parent ? this.parent.result! : undefined;
     const rem = this.root ? this.root.result!.fontSize : 16;
-    const res = preset(this.style, constraints, 'box', rem, pr?.fontSize, pr?.fontFamily, pr?.fontWeight, pr?.fontStyle, pr?.lineHeight) as Box;
-    const { min, max } = this.beginOof(constraints, rem, res.fontSize, res.fontFamily, res.fontWeight, res.fontStyle, res.lineHeight);
+    const res = preset(this.style, constraints, 'box', rem, pr) as Box;
+    const { min, max } = this.beginOof(constraints, rem, res);
     return Math.max(min, Math.min(max, constraints.aw));
   }
 
-  private beginOof(constraints: Constraints, rem?: number, fontSize?: number, fontFamily?: string, fontWeight?: number, fontStyle?: FontStyle, lineHeight?: number) {
+  private beginOof(constraints: Constraints, rem?: number, inherit?: ComputedStyle) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -405,7 +406,7 @@ export abstract class AbstractNode implements ITypeNode {
       if (style.position !== Position.ABSOLUTE) {
         if (child.nodeType === NodeType.Text) {
           const t = child as unknown as TextNode;
-          const o = oofText(style, constraints, t.content, rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight);
+          const o = oofText(style, constraints, t.content, rem, inherit);
           min = min ? Math.min(min, o.min) : o.min;
           max = Math.max(max, o.max);
         }
@@ -413,8 +414,8 @@ export abstract class AbstractNode implements ITypeNode {
         else {
           // block如果定宽则直接返回，否则递归
           if (isFixed(style.width)) {
-            const r = preset(style, constraints, 'box', rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight);
-            const w = calLength(style.width, constraints.pbw, fontSize, rem)
+            const r = preset(style, constraints, 'box', rem, inherit);
+            const w = calLength(style.width, constraints.pbw, rem, inherit?.fontSize)
               + r.marginLeft + r.marginRight
               + r.borderLeftWidth + r.borderRightWidth
               + r.paddingLeft + r.paddingRight;
@@ -422,7 +423,7 @@ export abstract class AbstractNode implements ITypeNode {
             max = Math.max(max, w);
           }
           else {
-            const o = child.beginOof(constraints, rem, fontSize, fontFamily, fontWeight, fontStyle, lineHeight);
+            const o = child.beginOof(constraints, rem, inherit);
             min = min ? Math.min(min, o.min) : o.min;
             max = Math.max(max, o.max);
           }
