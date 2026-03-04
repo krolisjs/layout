@@ -276,6 +276,14 @@ describe('margin-padding-clear', () => {
             height: 5,
           },
         },
+        {
+          style: {
+            marginLeft: 'auto',
+            marginRight: -125,
+            width: 50,
+            height: 5,
+          },
+        },
       ],
     });
     node.lay(ctx.constraints);
@@ -301,6 +309,12 @@ describe('margin-padding-clear', () => {
       w: 50,
       h: 5,
       marginLeft: -125,
+    });
+    expect(node.children[3].result).toMatchObject({
+      x: 375,
+      w: 50,
+      h: 5,
+      marginRight: -125,
     });
   });
 });

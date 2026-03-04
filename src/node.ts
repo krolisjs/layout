@@ -288,9 +288,10 @@ export abstract class AbstractNode implements ITypeNode {
           if (w2 < w) {
             const half = (w - w2) * 0.5;
             result.x += half;
-            result.marginLeft = half;
-            result.marginRight = half;
           }
+        }
+        else if (marginLeft.u === Unit.AUTO && marginRight.u !== Unit.AUTO && marginRight.v) {
+          result.x -= result.marginRight;
         }
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
