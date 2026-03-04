@@ -94,12 +94,10 @@ export abstract class AbstractNode implements ITypeNode {
   }
 
   lay(inputConstraints: InputConstraints) {
-    if (getRoot(this) !== this) {
-      throw new Error('Caller is not root: ' + this);
-    }
     this.inputConstraints = inputConstraints;
-    const rem = calLength(this.style.fontSize, 1600, 16, 16) || 16;
-    const root: Root = {
+    const root = getRoot(this);
+    const rem = calLength(root.style.fontSize, 1600, 16, 16) || 16;
+    const r: Root = {
       rem,
       w: inputConstraints.aw,
       h: inputConstraints.ah,
@@ -107,7 +105,7 @@ export abstract class AbstractNode implements ITypeNode {
     // 遇到absolute进入测量模式，等其包含块节点end时机开始测量
     const oofMap: WeakMap<AbstractNode, Oof[]> = new WeakMap();
     // 入口普通模式
-    this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, root);
+    this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, r);
   }
 
   layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
@@ -292,25 +290,6 @@ export abstract class AbstractNode implements ITypeNode {
             result.x += half;
             result.marginLeft = half;
             result.marginRight = half;
-          }
-          else if (w2 !== w) {
-            if (pr) {
-              result.marginRight = pr.x + pr.w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
-            }
-            else {
-              result.marginRight = w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
-            }
-          }
-        }
-        // 计算值也得更新
-        else if (marginRight.u === Unit.AUTO) {
-          if (w2 !== w) {
-            if (pr) {
-              result.marginRight = pr.x + pr.w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
-            }
-            else {
-              result.marginRight = w - (result.x + result.w + result.paddingRight + result.borderRightWidth);
-            }
           }
         }
       }

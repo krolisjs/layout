@@ -243,7 +243,7 @@ describe('margin-padding-clear', () => {
     });
   });
 
-  it.skip('margin-auto-on-block-box', () => {
+  it('margin-auto-on-block-box', () => {
     const node = genNode({
       style: {
         marginLeft: 250,
@@ -260,6 +260,22 @@ describe('margin-padding-clear', () => {
             height: 5,
           },
         },
+        {
+          style: {
+            marginRight: 'auto',
+            marginLeft: 'auto',
+            width: 200,
+            height: 5,
+          },
+        },
+        {
+          style: {
+            marginRight: 'auto',
+            marginLeft: -125,
+            width: 50,
+            height: 5,
+          },
+        },
       ],
     });
     node.lay(ctx.constraints);
@@ -267,17 +283,24 @@ describe('margin-padding-clear', () => {
       x: 250,
       y: 0,
       w: 100,
-      h: 5,
     });
     expect(node.children[0].result).toMatchObject({
       x: 275,
       y: 0,
       w: 50,
       h: 5,
-      marginTop: 0,
-      marginRight: 25,
-      marginBottom: 0,
-      marginLeft: 25,
+    });
+    expect(node.children[1].result).toMatchObject({
+      x: 250,
+      y: 5,
+      w: 200,
+      h: 5,
+    });
+    expect(node.children[2].result).toMatchObject({
+      x: 125,
+      w: 50,
+      h: 5,
+      marginLeft: -125,
     });
   });
 });
