@@ -146,14 +146,23 @@ export abstract class AbstractNode implements ITypeNode {
     let c: Constraints;
     if (style.position === Position.ABSOLUTE) {
       // 如果绝对值定宽，且没有最小限制，直接处理即可；位置可以等最后处理偏移
-      const { width, minWidth } = style;
+      const { width, minWidth, maxWidth } = style;
       let isFixedWidth = false;
-      if (isFixed(width) && minWidth.u === Unit.AUTO) {
+      if (isFixed(width)) {
         isFixedWidth = true;
       }
       // 定宽不用测量，inline强制为对应block
       if (isFixedWidth) {
-        const o = block(style, constraints, rem, pr);
+        const res = preset(style, constraints, 'box', rem, pr) as Box;
+        if (minWidth.u !== Unit.AUTO) {
+          const m = calLength(minWidth, constraints.pbw, rem, res.fontSize);
+          res.w = Math.max(res.w, m);
+        }
+        if (maxWidth.u !== Unit.AUTO) {
+          const m = calLength(maxWidth, constraints.pbw, rem, res.fontSize);
+          res.w = Math.min(res.w, m);
+        }
+        const o = block(style, constraints, rem, pr, res);
         this.result = o.res;
         c = o.c;
       }
@@ -298,19 +307,48 @@ export abstract class AbstractNode implements ITypeNode {
       if ([Position.RELATIVE, Position.ABSOLUTE].includes(style.position) && oofMap.has(this)) {
         const list = oofMap.get(this)!;
         list.forEach(item => {
-          const aw = result.w + result.paddingLeft + result.paddingRight;
-          const ah = result.h + result.paddingTop + result.paddingBottom;
+          const pbw = result.w + result.paddingLeft + result.paddingRight;
+          const pbh = result.h + result.paddingTop + result.paddingBottom;
           const c: Constraints = {
             ox: result.x - result.paddingLeft,
             oy: result.y - result.paddingTop,
-            aw,
-            ah,
-            pbw: aw,
-            pbh: ah,
+            aw: pbw - item.cx, // 默认trbl都是auto时就是文档流当前位置
+            ah: pbh - item.cy,
+            pbw,
+            pbh,
             cx: item.cx,
             cy: item.cy,
           };
-          // 获取到测量宽后用作aw，然后走一遍普通布局，inline要视作block
+          // 预测量的约束尺寸也受trbl影响
+          const { left, right, top, bottom } = item.node.style;
+          const pr = item.node.parent!.result!;
+          if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
+            const lt = calLength(left, pbw, root.rem, pr.fontSize);
+            const rt = calLength(right, pbw, root.rem, pr.fontSize);
+            c.aw = pbw - lt - rt;
+          }
+          else if (left.u !== Unit.AUTO) {
+            const lt = calLength(left, pbw, root.rem, pr.fontSize);
+            c.aw = pbw - lt;
+          }
+          else if (right.u !== Unit.AUTO) {
+            const rt = calLength(right, pbw, root.rem, pr.fontSize);
+            c.aw = pbw - rt;
+          }
+          if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
+            const tt = calLength(top, pbh, root.rem, pr.fontSize);
+            const bt = calLength(bottom, pbh, root.rem, pr.fontSize);
+            c.ah = pbh - tt - bt;
+          }
+          else if (top.u !== Unit.AUTO) {
+            const tt = calLength(top, pbh, root.rem, pr.fontSize);
+            c.ah = pbh - tt;
+          }
+          else if (bottom.u !== Unit.AUTO) {
+            const bt = calLength(bottom, pbh, root.rem, pr.fontSize);
+            c.ah = pbh - bt;
+          }
+          // 获取到测量宽后，走一遍普通布局，inline要视作block
           item.node.layOof(c, oofMap, root);
         });
       }
@@ -396,19 +434,81 @@ export abstract class AbstractNode implements ITypeNode {
     const rem = root.rem;
     const inherit = preset(this.style, constraints, 'box', rem, pr) as Box;
     const { min, max } = this.beginOof(constraints, rem, inherit);
-    const w = Math.max(min, Math.min(max, constraints.aw));
-    constraints.aw = constraints.pbw = w;
+    // 怕beginOof影响cx/cy
     constraints.cx = cx;
     constraints.cy = cy;
-    // 特殊之处，约束要包含border/padding
+    // 根据trbl确定最终尺寸
     const style = this.style;
-    const r = preset(style, constraints, 'box', rem, pr) as Box;
-    constraints.aw += r.marginLeft + r.marginRight
-      + r.borderLeftWidth + r.borderRightWidth
-      + r.paddingLeft + r.paddingRight;
+    const { boxSizing, left, right, top, bottom, marginLeft, marginRight, marginTop, marginBottom, width, height } = style;
+    const res = preset(style, constraints, 'box', rem, pr) as Box;
+    const mbpW = res.marginLeft + res.marginRight
+      + res.borderLeftWidth + res.borderRightWidth
+      + res.paddingLeft + res.paddingRight;
     constraints.pbw = constraints.aw;
+    const mbpH = res.marginTop + res.marginBottom
+      + res.borderTopWidth + res.borderBottomWidth
+      + res.paddingTop + res.paddingBottom;
+    constraints.pbh = constraints.ah;
+    // 尺寸优先级，显式width不走这里
+    if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
+      res.w = constraints.aw - res.left - res.right;
+      if (boxSizing === BoxSizing.CONTENT_BOX) {
+        res.w += mbpW;
+      }
+      constraints.aw = res.w;
+    }
+    else if (left.u === Unit.AUTO || right.u === Unit.AUTO) {
+      res.w = Math.max(min, Math.min(max, constraints.aw));
+      if (boxSizing === BoxSizing.CONTENT_BOX) {
+        res.w += mbpW;
+      }
+      constraints.aw = res.w;
+    }
+    if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
+      res.h = constraints.ah - res.top - res.bottom;
+      if (boxSizing === BoxSizing.CONTENT_BOX) {
+        res.h += mbpH;
+      }
+      constraints.ah = res.h;
+    }
+    else if (boxSizing === BoxSizing.CONTENT_BOX) {
+      res.h += mbpH;
+      constraints.ah = res.h;
+    }
+    // 边距平分
+    if (left.u !== Unit.AUTO && right.u !== Unit.AUTO && width.u !== Unit.AUTO) {
+      if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {}
+      else if (marginLeft.u === Unit.AUTO) {}
+      else if (marginRight.u === Unit.AUTO) {}
+    }
+    else {
+      if (marginLeft.u === Unit.AUTO) {
+        const d = res.marginLeft;
+        res.marginLeft = 0;
+        if (d) {
+          res.x -= d;
+          res.w += d;
+        }
+      }
+      if (marginRight.u === Unit.AUTO) {
+        const d = res.marginRight;
+        res.marginRight = 0;
+        if (d) {
+          res.w += d;
+        }
+      }
+    }
+    // 定位填充
+    if (left.u !== Unit.AUTO) {
+      res.x = constraints.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+      constraints.cx = res.left;
+    }
+    if (top.u !== Unit.AUTO) {
+      res.y = constraints.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
+      constraints.cy = res.top;
+    }
     // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
-    const o = block(style, constraints, rem, pr);
+    const o = block(style, constraints, rem, pr, res);
     this.result = o.res;
     this.constraints = o.c;
     // 继续普通递归

@@ -317,4 +317,45 @@ describe('margin-padding-clear', () => {
       marginRight: -125,
     });
   });
+
+  it('margin-border-padding-001', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+        paddingTop: 10,
+        paddingRight: 10,
+        paddingBottom: 10,
+        paddingLeft: 10,
+      },
+      children: [
+        {
+          style: {
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            marginTop: 10,
+            marginRight: 10,
+            marginBottom: 10,
+            marginLeft: 10,
+            paddingTop: 10,
+            paddingRight: 10,
+            paddingBottom: 10,
+            paddingLeft: 10,
+            borderTopWidth: 10,
+            borderRightWidth: 10,
+            borderBottomWidth: 10,
+            borderLeftWidth: 10,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.result?.h).toBe(0);
+    expect(node.children[0].result).toMatchObject({
+      x: 30,
+      y: 30,
+      w: 0,
+      h: 0,
+    });
+  });
 });

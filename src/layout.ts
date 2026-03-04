@@ -5,6 +5,10 @@ import { CJK_REG_EXTENDED, getMeasureText, isEnter, smartMeasure } from './text'
 export type Rect = { x: number; y: number; w: number; h: number };
 
 export type ComputedStyle = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
   marginTop: number;
   marginRight: number;
   marginBottom: number;
@@ -82,6 +86,10 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
     y: constraints.cy,
     w: 0,
     h: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     marginTop: 0,
     marginRight: 0,
     marginBottom: 0,
@@ -110,10 +118,10 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   }
 
   if (style.fontSize.u === Unit.INHERIT) {
-    res.fontSize = inherit?.fontSize || 16;
+    res.fontSize = inherit?.fontSize || rem;
   }
   else {
-    res.fontSize = Math.max(0, calLength(style.fontSize, (inherit?.fontSize || 16) * 100, rem, 0));
+    res.fontSize = calLength(style.fontSize, (inherit?.fontSize || rem) * 100, rem, 0) || inherit?.fontSize || rem;
   }
 
   if (style.fontWeight === 0) {
@@ -131,6 +139,10 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   }
 
   ([
+    'top',
+    'right',
+    'bottom',
+    'left',
     'marginTop',
     'marginRight',
     'marginBottom',
@@ -207,9 +219,11 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(style: Style, constraints: Constraints, rem: number, inherit?: ComputedStyle) {
-  const res = preset(style, constraints, 'box', rem, inherit) as Box;
-  res.type = 'box';
+export function block(style: Style, constraints: Constraints, rem: number, inherit?: ComputedStyle, res?: Box) {
+  if (!res) {
+    res = preset(style, constraints, 'box', rem, inherit) as Box;
+    res.type = 'box';
+  }
   // 返回递归的供子节点使用
   const ox = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
   const oy = constraints.cy + res.marginTop + res.paddingTop + res.borderTopWidth;
