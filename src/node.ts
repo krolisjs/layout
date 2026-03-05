@@ -1,6 +1,6 @@
 import { BoxSizing, calLength, Display, getDefaultStyle, isFixed, JStyle, Position, Style, Unit } from './style';
-import type { Box, Constraints, Inline, InputConstraints, Result, Text, } from './layout';
-import { block, ComputedStyle, inline, LayoutMode, normalizeConstraints, oofText, preset, text, } from './layout';
+import type { Box, Constraints, Inline, InputConstraints, Result, Root, Text } from './layout';
+import { block, ComputedStyle, inline, LayoutMode, normalizeConstraints, oofText, preset, text } from './layout';
 
 export enum NodeType {
   Node = 0,
@@ -26,12 +26,6 @@ type Oof = {
   node: AbstractNode;
   cx: number;
   cy: number;
-};
-
-type Root = {
-  rem: number,
-  w: number,
-  h: number,
 };
 
 let id = 0;
@@ -108,8 +102,8 @@ export abstract class AbstractNode implements ITypeNode {
     this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, r);
   }
 
-  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
-    const b = this.begin(constraints, layoutMode, root);
+  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root, pr?: Result, ps?: Style) {
+    const b = this.begin(constraints, layoutMode, root, pr, ps);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
       const n = this.getContainingBlockNode() || getRoot(this);
@@ -134,14 +128,13 @@ export abstract class AbstractNode implements ITypeNode {
     // 先序遍历递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(b.c, b.layoutMode, oofMap, root);
+      children[i].layMode(b.c, b.layoutMode, oofMap, root, this.result!, this.style);
     }
     this.end(oofMap, root);
   }
 
-  private begin(constraints: Constraints, layoutMode: LayoutMode, root: Root) {
+  private begin(constraints: Constraints, layoutMode: LayoutMode, root: Root, pc?: ComputedStyle, ps?: Style) {
     const style = this.style;
-    const pr = this.parent ? this.parent.result! : undefined;
     const rem = root.rem;
     let c: Constraints;
     if (style.position === Position.ABSOLUTE) {
@@ -153,7 +146,7 @@ export abstract class AbstractNode implements ITypeNode {
       }
       // 定宽不用测量，inline强制为对应block
       if (isFixedWidth) {
-        const res = preset(style, constraints, 'box', rem, pr) as Box;
+        const res = preset(style, constraints, 'box', root, pc, ps) as Box;
         if (minWidth.u !== Unit.AUTO) {
           const m = calLength(minWidth, constraints.pbw, rem, res.fontSize);
           res.w = Math.max(res.w, m);
@@ -162,7 +155,7 @@ export abstract class AbstractNode implements ITypeNode {
           const m = calLength(maxWidth, constraints.pbw, rem, res.fontSize);
           res.w = Math.min(res.w, m);
         }
-        const o = block(style, constraints, rem, pr, res);
+        const o = block(style, constraints, root, pc, ps, res);
         this.result = o.res;
         c = o.c;
       }
@@ -174,17 +167,17 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else if (this.nodeType === NodeType.Text) {
       const t = this as unknown as TextNode;
-      const o = text(style, constraints, t.content, rem, pr);
+      const o = text(style, constraints, t.content, root, pc, ps);
       this.result = o.res;
       c = o.c;
     }
     else if (style.display === Display.INLINE) {
-      const o = inline(style, constraints, rem, pr);
+      const o = inline(style, constraints, root, pc, ps);
       this.result = o.res;
       c = o.c;
     }
     else {
-      const o = block(style, constraints, rem, pr);
+      const o = block(style, constraints, root, pc, ps);
       this.result = o.res;
       c = o.c;
     }
@@ -430,17 +423,18 @@ export abstract class AbstractNode implements ITypeNode {
 
   layOof(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
     const { cx, cy } = constraints;
-    const pr = this.parent ? this.parent.result! : undefined;
-    const rem = root.rem;
-    const inherit = preset(this.style, constraints, 'box', rem, pr) as Box;
-    const { min, max } = this.beginOof(constraints, rem, inherit);
+    const style = this.style;
+    const parent = this.parent!;
+    const pr = parent.result!;
+    const ps = parent.style;
+    const pc = preset(style, constraints, 'box', root, pr, ps);
+    const { min, max } = this.beginOof(constraints, root, pc, style);
     // 怕beginOof影响cx/cy
     constraints.cx = cx;
     constraints.cy = cy;
     // 根据trbl确定最终尺寸
-    const style = this.style;
     const { boxSizing, left, right, top, bottom, marginLeft, marginRight, marginTop, marginBottom, width, height } = style;
-    const res = preset(style, constraints, 'box', rem, pr) as Box;
+    const res = preset(style, constraints, 'box', root, pr, ps) as Box;
     const mbpW = res.marginLeft + res.marginRight
       + res.borderLeftWidth + res.borderRightWidth
       + res.paddingLeft + res.paddingRight;
@@ -508,13 +502,13 @@ export abstract class AbstractNode implements ITypeNode {
       constraints.cy = res.top;
     }
     // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
-    const o = block(style, constraints, rem, pr, res);
+    const o = block(style, constraints, root, pr, ps, res);
     this.result = o.res;
     this.constraints = o.c;
     // 继续普通递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(o.c, LayoutMode.NORMAL, oofMap, root);
+      children[i].layMode(o.c, LayoutMode.NORMAL, oofMap, root, this.result, style);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
@@ -522,7 +516,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  private beginOof(constraints: Constraints, rem: number, inherit: ComputedStyle) {
+  private beginOof(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -531,18 +525,18 @@ export abstract class AbstractNode implements ITypeNode {
       // 测量阶段递归的子节点absolute忽略
       if (style.position !== Position.ABSOLUTE) {
         if (child.nodeType === NodeType.Text) {
-          const o = child.beginOofText(constraints, rem, inherit);
-          min = min ? Math.max(min, o.min) : o.min;
+          const o = child.beginOofText(constraints, root, pc, ps);
+          min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else if (style.display === Display.INLINE) {
-          const o = child.beginOofInline(constraints, rem, inherit);
-          min = min ? Math.max(min, o.min) : o.min;
+          const o = child.beginOofInline(constraints, root, pc, ps);
+          min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else {
-          const o = child.beginOofBlock(constraints, rem, inherit);
-          min = min ? Math.max(min, o.min) : o.min;
+          const o = child.beginOofBlock(constraints, root, pc, ps);
+          min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
       }
@@ -550,47 +544,54 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private beginOofBlock(constraints: Constraints, rem: number, inherit: ComputedStyle) {
+  private beginOofBlock(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
     let min = 0, max = 0;
     const style = this.style;
     // block如果定宽则直接返回，否则递归
     if (isFixed(style.width)) {
-      const r = preset(style, constraints, 'box', rem, inherit);
-      const w = calLength(style.width, constraints.pbw, rem, inherit?.fontSize)
-        + r.marginLeft + r.marginRight
-        + r.borderLeftWidth + r.borderRightWidth
-        + r.paddingLeft + r.paddingRight;
+      let w = calLength(style.width, constraints.pbw, root.rem, pc.fontSize);
+      if (style.boxSizing === BoxSizing.CONTENT_BOX) {
+        const r = preset(style, constraints, 'box', root, pc, ps) as Box;
+        w += r.marginLeft + r.marginRight
+          + r.borderLeftWidth + r.borderRightWidth
+          + r.paddingLeft + r.paddingRight;
+      }
       min = w;
       max = w;
     }
     else {
-      const ih = preset(style, constraints, 'box', rem, inherit) as Box;
+      const r = preset(style, constraints, 'box', root, pc, ps) as Box;
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
-        const o = children[i].beginOof(constraints, rem, ih);
-        min = min ? Math.max(min, o.min) : o.min;
+        const o = children[i].beginOof(constraints, root, r, style);
+        min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }
+      const mbp = r.marginLeft + r.marginRight
+        + r.borderLeftWidth + r.borderRightWidth
+        + r.paddingLeft + r.paddingRight;
+      min += mbp;
+      max += mbp;
     }
     return { min, max };
   }
 
-  private beginOofInline(constraints: Constraints, rem: number, inherit: ComputedStyle) {
+  private beginOofInline(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
     let min = 0, max = 0;
     const style = this.style;
-    const ih = preset(style, constraints, 'inline', rem, inherit) as Inline;
+    const r = preset(style, constraints, 'inline', root, pc, ps) as Inline;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      const o = children[i].beginOof(constraints, rem, ih);
-      min = min ? Math.max(min, o.min) : o.min;
+      const o = children[i].beginOof(constraints, root, r, this.style);
+      min = Math.max(min, o.min);
       max += o.max;
     }
     return { min, max };
   }
 
-  private beginOofText(constraints: Constraints, rem: number, inherit: ComputedStyle) {
+  private beginOofText(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
     const t = this as unknown as TextNode;
-    return oofText(this.style, constraints, t.content, rem, inherit);
+    return oofText(this.style, constraints, t.content, root, pc, ps);
   }
 
   // 获取absolute的包围块节点
