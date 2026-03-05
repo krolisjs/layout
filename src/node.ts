@@ -522,7 +522,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  private beginOof(constraints: Constraints, rem: number, inherit?: ComputedStyle) {
+  private beginOof(constraints: Constraints, rem: number, inherit: ComputedStyle) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -531,32 +531,66 @@ export abstract class AbstractNode implements ITypeNode {
       // 测量阶段递归的子节点absolute忽略
       if (style.position !== Position.ABSOLUTE) {
         if (child.nodeType === NodeType.Text) {
-          const t = child as unknown as TextNode;
-          const o = oofText(style, constraints, t.content, rem, inherit);
-          min = min ? Math.min(min, o.min) : o.min;
+          const o = child.beginOofText(constraints, rem, inherit);
+          min = min ? Math.max(min, o.min) : o.min;
           max = Math.max(max, o.max);
         }
-        else if (style.display === Display.INLINE) {}
+        else if (style.display === Display.INLINE) {
+          const o = child.beginOofInline(constraints, rem, inherit);
+          min = min ? Math.max(min, o.min) : o.min;
+          max = Math.max(max, o.max);
+        }
         else {
-          // block如果定宽则直接返回，否则递归
-          if (isFixed(style.width)) {
-            const r = preset(style, constraints, 'box', rem, inherit);
-            const w = calLength(style.width, constraints.pbw, rem, inherit?.fontSize)
-              + r.marginLeft + r.marginRight
-              + r.borderLeftWidth + r.borderRightWidth
-              + r.paddingLeft + r.paddingRight;
-            min = min ? Math.min(min, w) : w;
-            max = Math.max(max, w);
-          }
-          else {
-            const o = child.beginOof(constraints, rem, inherit);
-            min = min ? Math.min(min, o.min) : o.min;
-            max = Math.max(max, o.max);
-          }
+          const o = child.beginOofBlock(constraints, rem, inherit);
+          min = min ? Math.max(min, o.min) : o.min;
+          max = Math.max(max, o.max);
         }
       }
     }
     return { min, max };
+  }
+
+  private beginOofBlock(constraints: Constraints, rem: number, inherit: ComputedStyle) {
+    let min = 0, max = 0;
+    const style = this.style;
+    // block如果定宽则直接返回，否则递归
+    if (isFixed(style.width)) {
+      const r = preset(style, constraints, 'box', rem, inherit);
+      const w = calLength(style.width, constraints.pbw, rem, inherit?.fontSize)
+        + r.marginLeft + r.marginRight
+        + r.borderLeftWidth + r.borderRightWidth
+        + r.paddingLeft + r.paddingRight;
+      min = w;
+      max = w;
+    }
+    else {
+      const ih = preset(style, constraints, 'box', rem, inherit) as Box;
+      const children = this.children;
+      for (let i = 0, len = children.length; i < len; i++) {
+        const o = children[i].beginOof(constraints, rem, ih);
+        min = min ? Math.max(min, o.min) : o.min;
+        max = Math.max(max, o.max);
+      }
+    }
+    return { min, max };
+  }
+
+  private beginOofInline(constraints: Constraints, rem: number, inherit: ComputedStyle) {
+    let min = 0, max = 0;
+    const style = this.style;
+    const ih = preset(style, constraints, 'inline', rem, inherit) as Inline;
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const o = children[i].beginOof(constraints, rem, ih);
+      min = min ? Math.max(min, o.min) : o.min;
+      max += o.max;
+    }
+    return { min, max };
+  }
+
+  private beginOofText(constraints: Constraints, rem: number, inherit: ComputedStyle) {
+    const t = this as unknown as TextNode;
+    return oofText(this.style, constraints, t.content, rem, inherit);
   }
 
   // 获取absolute的包围块节点

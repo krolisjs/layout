@@ -358,4 +358,58 @@ describe('margin-padding-clear', () => {
       h: 0,
     });
   });
+
+  it('margin-bottom-004', () => {
+    const node = genNode({
+      style: {
+      },
+      children: [
+        {
+          style: {
+            marginBottom: 0,
+            borderBottomWidth: 5,
+          },
+        },
+        {
+          style: {
+            borderTopWidth: 5,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[1].result).toMatchObject({
+      x: 0,
+      y: 10,
+      borderTopWidth: 5,
+    });
+  });
+
+  it('margin-bottom-007', () => {
+    const node = genNode({
+      style: {
+        height: 101,
+        borderBottomWidth: 5,
+      },
+      children: [
+        {
+          style: {
+            marginBottom: 96,
+            borderBottomWidth: 5,
+          },
+        },
+        {
+          style: {
+            borderTopWidth: 5,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[1].result).toMatchObject({
+      x: 0,
+      y: 106,
+      borderTopWidth: 5,
+    });
+  });
 });
