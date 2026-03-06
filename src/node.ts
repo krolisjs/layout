@@ -1,5 +1,5 @@
 import { BoxSizing, calLength, Display, getDefaultStyle, isFixed, JStyle, Position, Style, Unit } from './style';
-import type { Box, Constraints, Inline, InputConstraints, Result, Root, Text } from './layout';
+import type { Box, Constraints, Inline, InputConstraints, Result, RootC, Text } from './layout';
 import { block, ComputedStyle, inline, LayoutMode, normalizeConstraints, oofText, preset, text } from './layout';
 
 export enum NodeType {
@@ -89,9 +89,9 @@ export abstract class AbstractNode implements ITypeNode {
 
   lay(inputConstraints: InputConstraints) {
     this.inputConstraints = inputConstraints;
-    const root = getRoot(this);
-    const rem = calLength(root.style.fontSize, 1600, 16, 16) || 16;
-    const r: Root = {
+    const rc = getRoot(this);
+    const rem = calLength(rc.style.fontSize, 1600, 16, 16) || 16;
+    const r: RootC = {
       rem,
       w: inputConstraints.aw,
       h: inputConstraints.ah,
@@ -102,8 +102,8 @@ export abstract class AbstractNode implements ITypeNode {
     this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, r);
   }
 
-  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root, pr?: Result, ps?: Style) {
-    const b = this.begin(constraints, layoutMode, root, pr, ps);
+  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, rc: RootC, pr?: Result, ps?: Style) {
+    const b = this.begin(constraints, layoutMode, rc, pr, ps);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
       const n = this.getContainingBlockNode() || getRoot(this);
@@ -128,63 +128,39 @@ export abstract class AbstractNode implements ITypeNode {
     // 先序遍历递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(b.c, b.layoutMode, oofMap, root, this.result!, this.style);
+      children[i].layMode(b.c, b.layoutMode, oofMap, rc, this.result!, this.style);
     }
-    this.end(oofMap, root);
+    this.end(oofMap, rc);
   }
 
-  private begin(constraints: Constraints, layoutMode: LayoutMode, root: Root, pc?: ComputedStyle, ps?: Style) {
+  private begin(constraints: Constraints, layoutMode: LayoutMode, rc: RootC, pc?: ComputedStyle, ps?: Style) {
     const style = this.style;
-    const rem = root.rem;
     let c: Constraints;
+    // absolute进入预测量模式
     if (style.position === Position.ABSOLUTE) {
-      // 如果绝对值定宽，且没有最小限制，直接处理即可；位置可以等最后处理偏移
-      const { width, minWidth, maxWidth } = style;
-      let isFixedWidth = false;
-      if (isFixed(width)) {
-        isFixedWidth = true;
-      }
-      // 定宽不用测量，inline强制为对应block
-      if (isFixedWidth) {
-        const res = preset(style, constraints, 'box', root, pc, ps) as Box;
-        if (minWidth.u !== Unit.AUTO) {
-          const m = calLength(minWidth, constraints.pbw, rem, res.fontSize);
-          res.w = Math.max(res.w, m);
-        }
-        if (maxWidth.u !== Unit.AUTO) {
-          const m = calLength(maxWidth, constraints.pbw, rem, res.fontSize);
-          res.w = Math.min(res.w, m);
-        }
-        const o = block(style, constraints, root, pc, ps, res);
-        this.result = o.res;
-        c = o.c;
-      }
-      // 进入测量模式，等包含块节点end时开始测量
-      else {
-        layoutMode |= LayoutMode.OOF_MEASURE;
-        c = constraints;
-      }
+      layoutMode |= LayoutMode.OOF_MEASURE;
+      c = constraints;
     }
     else if (this.nodeType === NodeType.Text) {
       const t = this as unknown as TextNode;
-      const o = text(style, constraints, t.content, root, pc, ps);
+      const o = text(style, constraints, t.content, rc, pc, ps);
       this.result = o.res;
       c = o.c;
     }
     else if (style.display === Display.INLINE) {
-      const o = inline(style, constraints, root, pc, ps);
+      const o = inline(style, constraints, rc, pc, ps);
       this.result = o.res;
       c = o.c;
     }
     else {
-      const o = block(style, constraints, root, pc, ps);
+      const o = block(style, constraints, rc, pc, ps);
       this.result = o.res;
       c = o.c;
     }
     return { layoutMode, c };
   }
 
-  private end(oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
+  private end(oofMap: WeakMap<AbstractNode, Oof[]>, rc: RootC) {
     const style = this.style;
     const result = this.result!;
     // 递归结束后处理
@@ -228,7 +204,7 @@ export abstract class AbstractNode implements ITypeNode {
       }
     }
     else {
-      // 定宽且无最小限制的，无向上处理被inline包含逻辑；trbl偏移等到最后处理
+      // 定宽且无最小限制的，无向上处理被inline包含逻辑
       if (style.position === Position.ABSOLUTE) {
         // 不用做任何事情
       }
@@ -281,7 +257,7 @@ export abstract class AbstractNode implements ITypeNode {
         // margin:auto水平居中
         const { boxSizing, marginLeft, marginRight } = style;
         const pr = parent?.result;
-        const w = pr ? pr.w : root.w;
+        const w = pr ? pr.w : rc.w;
         let w2 = result.w;
         if (boxSizing === BoxSizing.CONTENT_BOX) {
           w2 += result.borderLeftWidth + result.borderRightWidth + result.paddingLeft + result.paddingRight;
@@ -297,7 +273,7 @@ export abstract class AbstractNode implements ITypeNode {
         }
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
-      if ([Position.RELATIVE, Position.ABSOLUTE].includes(style.position) && oofMap.has(this)) {
+      if (oofMap.has(this)) {
         const list = oofMap.get(this)!;
         list.forEach(item => {
           const pbw = result.w + result.paddingLeft + result.paddingRight;
@@ -312,47 +288,18 @@ export abstract class AbstractNode implements ITypeNode {
             cx: item.cx,
             cy: item.cy,
           };
-          // 预测量的约束尺寸也受trbl影响
-          const { left, right, top, bottom } = item.node.style;
-          const pr = item.node.parent!.result!;
-          if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
-            const lt = calLength(left, pbw, root.rem, pr.fontSize);
-            const rt = calLength(right, pbw, root.rem, pr.fontSize);
-            c.aw = pbw - lt - rt;
-          }
-          else if (left.u !== Unit.AUTO) {
-            const lt = calLength(left, pbw, root.rem, pr.fontSize);
-            c.aw = pbw - lt;
-          }
-          else if (right.u !== Unit.AUTO) {
-            const rt = calLength(right, pbw, root.rem, pr.fontSize);
-            c.aw = pbw - rt;
-          }
-          if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
-            const tt = calLength(top, pbh, root.rem, pr.fontSize);
-            const bt = calLength(bottom, pbh, root.rem, pr.fontSize);
-            c.ah = pbh - tt - bt;
-          }
-          else if (top.u !== Unit.AUTO) {
-            const tt = calLength(top, pbh, root.rem, pr.fontSize);
-            c.ah = pbh - tt;
-          }
-          else if (bottom.u !== Unit.AUTO) {
-            const bt = calLength(bottom, pbh, root.rem, pr.fontSize);
-            c.ah = pbh - bt;
-          }
           // 获取到测量宽后，走一遍普通布局，inline要视作block
-          item.node.layOof(c, oofMap, root);
+          item.node.layOof(c, oofMap, rc);
         });
       }
     }
     // root节点开始处理relative的偏移
     if (!this.parent) {
-      this.finish(0, 0, result.fontSize, root);
+      this.finish(0, 0, result.fontSize, rc);
     }
   }
 
-  finish(x: number, y: number, rem: number, root: Root) {
+  finish(x: number, y: number, rem: number, rc: RootC) {
     const style = this.style;
     const res = this.result!;
     if (style.position === Position.RELATIVE) {
@@ -375,28 +322,6 @@ export abstract class AbstractNode implements ITypeNode {
         }
       }
     }
-    // absolute要考虑trbl的偏移
-    else if (style.position === Position.ABSOLUTE) {
-      let w = 0, h = 0;
-      const parent = this.getContainingBlockNode();
-      if (parent) {
-        const pr = parent.result!;
-        w = pr.w + pr.paddingLeft + pr.paddingRight;
-        h = pr.h + pr.paddingTop + pr.paddingBottom;
-      }
-      // 根节点特殊处理
-      else {
-        w = root.w;
-        h = root.h;
-      }
-      const { left, top, right, bottom } = style;
-      if (left.u !== Unit.AUTO) {
-        x += calLength(left, w, rem, res.fontWeight);
-      }
-      if (top.u !== Unit.AUTO) {
-        y += calLength(top, h, rem, res.fontSize);
-      }
-    }
     if (x || y) {
       res.x += x;
       res.y += y;
@@ -417,106 +342,136 @@ export abstract class AbstractNode implements ITypeNode {
     }
     const children = this.children;
     for (let i = 0; i < children.length; i++) {
-      children[i].finish(x, y, rem, root);
+      children[i].finish(x, y, rem, rc);
     }
   }
 
-  layOof(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, root: Root) {
+  layOof(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, rc: RootC) {
     const { cx, cy } = constraints;
     const style = this.style;
     const parent = this.parent!;
     const pr = parent.result!;
     const ps = parent.style;
-    const pc = preset(style, constraints, 'box', root, pr, ps);
-    const { min, max } = this.beginOof(constraints, root, pc, style);
+    const pc = preset(style, constraints, 'box', rc, pr, ps);
     // 怕beginOof影响cx/cy
     constraints.cx = cx;
     constraints.cy = cy;
     // 根据trbl确定最终尺寸
     const { boxSizing, left, right, top, bottom, marginLeft, marginRight, marginTop, marginBottom, width, height } = style;
-    const res = preset(style, constraints, 'box', root, pr, ps) as Box;
-    const mbpW = res.marginLeft + res.marginRight
-      + res.borderLeftWidth + res.borderRightWidth
-      + res.paddingLeft + res.paddingRight;
-    constraints.pbw = constraints.aw;
-    const mbpH = res.marginTop + res.marginBottom
-      + res.borderTopWidth + res.borderBottomWidth
-      + res.paddingTop + res.paddingBottom;
-    constraints.pbh = constraints.ah;
-    // 尺寸优先级，显式width不走这里
-    if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
-      res.w = constraints.aw - res.left - res.right;
-      if (boxSizing === BoxSizing.CONTENT_BOX) {
-        res.w += mbpW;
-      }
-      constraints.aw = res.w;
+    const res = preset(style, constraints, 'box', rc, pr, ps) as Box;
+    this.result = res;
+    // const mbpW = res.marginLeft + res.marginRight
+    //   + res.borderLeftWidth + res.borderRightWidth
+    //   + res.paddingLeft + res.paddingRight;
+    // constraints.pbw = constraints.aw;
+    // const mbpH = res.marginTop + res.marginBottom
+    //   + res.borderTopWidth + res.borderBottomWidth
+    //   + res.paddingTop + res.paddingBottom;
+    // 尺寸优先级
+    if (width.u !== Unit.AUTO) {
+      // constraints.aw = res.w;
     }
-    else if (left.u === Unit.AUTO || right.u === Unit.AUTO) {
+    else if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
+      res.w = constraints.aw - res.left - res.right - res.marginLeft - res.marginRight;
+      // if (boxSizing === BoxSizing.CONTENT_BOX) {
+      //   res.w += mbpW;
+      // }
+      // constraints.aw = res.w;
+    }
+    else {
+      const { min, max } = this.beginOof(constraints, rc, pc, style);
       res.w = Math.max(min, Math.min(max, constraints.aw));
-      if (boxSizing === BoxSizing.CONTENT_BOX) {
-        res.w += mbpW;
-      }
-      constraints.aw = res.w;
+      // if (boxSizing === BoxSizing.CONTENT_BOX) {
+      //   res.w += mbpW;
+      // }
+      constraints.ah = constraints.aw - (left.u === Unit.AUTO ? cx : res.left) - res.right;
     }
-    if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
-      res.h = constraints.ah - res.top - res.bottom;
-      if (boxSizing === BoxSizing.CONTENT_BOX) {
-        res.h += mbpH;
-      }
-      constraints.ah = res.h;
+    if (height.u !== Unit.AUTO) {
     }
-    else if (boxSizing === BoxSizing.CONTENT_BOX) {
-      res.h += mbpH;
-      constraints.ah = res.h;
+    else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
+      res.h = constraints.ah - res.top - res.bottom - res.marginTop - res.marginBottom;
+      // if (boxSizing === BoxSizing.CONTENT_BOX) {
+      //   res.h += mbpH;
+      // }
+      // constraints.ah = res.h;
     }
     // 边距平分
     if (left.u !== Unit.AUTO && right.u !== Unit.AUTO && width.u !== Unit.AUTO) {
-      if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {}
-      else if (marginLeft.u === Unit.AUTO) {}
-      else if (marginRight.u === Unit.AUTO) {}
+      const residual = constraints.aw - (res.left + res.right + res.w);
+      if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
+        if (residual > 0) {
+          const half = residual * 0.5;
+          res.x += half;
+          res.marginLeft = half;
+          res.marginRight = half;
+        }
+        else if (residual < 0) {
+          res.marginRight = residual;
+        }
+      }
+      else if (marginLeft.u === Unit.AUTO) {
+        res.marginLeft = residual;
+      }
+      else if (marginRight.u === Unit.AUTO) {
+        res.marginRight = residual;
+      }
+    }
+    if (top.u !== Unit.AUTO && bottom .u !== Unit.AUTO && height.u !== Unit.AUTO) {
+      const residual = constraints.ah - (res.top + res.bottom + res.h);
+      if (marginTop.u === Unit.AUTO && marginBottom.u === Unit.AUTO) {
+        const half = residual * 0.5;
+        res.y += half;
+        res.marginTop = half;
+        res.marginBottom = half;
+      }
+    }
+    // 超额约束修正
+    if (left.u === Unit.AUTO && right.u === Unit.AUTO) {
+      res.left = constraints.cx;
+      res.right = constraints.aw - res.left - res.w - res.marginLeft - res.marginRight;
+    }
+    else if (left.u === Unit.AUTO) {
+      res.left = constraints.aw - res.right - res.w - res.marginLeft - res.marginRight;
     }
     else {
-      if (marginLeft.u === Unit.AUTO) {
-        const d = res.marginLeft;
-        res.marginLeft = 0;
-        if (d) {
-          res.x -= d;
-          res.w += d;
-        }
-      }
-      if (marginRight.u === Unit.AUTO) {
-        const d = res.marginRight;
-        res.marginRight = 0;
-        if (d) {
-          res.w += d;
-        }
-      }
+      res.right = constraints.aw - res.left - res.w - res.marginLeft - res.marginRight;
     }
-    // 定位填充
-    if (left.u !== Unit.AUTO) {
-      res.x = constraints.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
-      constraints.cx = res.left;
+    res.x = res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+    if (top.u === Unit.AUTO && bottom.u === Unit.AUTO) {
+      res.top = constraints.cy;
+      res.bottom = constraints.ah - res.top - res.h - res.marginTop - res.marginBottom;
     }
-    if (top.u !== Unit.AUTO) {
-      res.y = constraints.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
-      constraints.cy = res.top;
+    else if (top.u === Unit.AUTO) {
+      res.top = constraints.ah - res.bottom - res.h - res.marginTop - res.marginBottom;
     }
+    else {
+      res.right = constraints.ah - res.top - res.h - res.marginLeft - res.marginRight;
+    }
+    res.y = res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
     // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
-    const o = block(style, constraints, root, pr, ps, res);
-    this.result = o.res;
-    this.constraints = o.c;
+    const c: Constraints = {
+      ox: res.x,
+      oy: res.y,
+      aw: res.w,
+      ah: constraints.ah,
+      pbw: res.w,
+      pbh: constraints.ah,
+      cx: res.x,
+      cy: res.y,
+    };
+    this.constraints = c;
     // 继续普通递归
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(o.c, LayoutMode.NORMAL, oofMap, root, this.result, style);
+      children[i].layMode(c, LayoutMode.NORMAL, oofMap, rc, res, style);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
-      this.result!.h = this.constraints.cy - this.constraints.oy;
+      res.h = c.cy - c.oy;
     }
   }
 
-  private beginOof(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
+  private beginOof(constraints: Constraints, rc: RootC, pc: ComputedStyle, ps: Style) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -525,17 +480,17 @@ export abstract class AbstractNode implements ITypeNode {
       // 测量阶段递归的子节点absolute忽略
       if (style.position !== Position.ABSOLUTE) {
         if (child.nodeType === NodeType.Text) {
-          const o = child.beginOofText(constraints, root, pc, ps);
+          const o = child.beginOofText(constraints, rc, pc, ps);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else if (style.display === Display.INLINE) {
-          const o = child.beginOofInline(constraints, root, pc, ps);
+          const o = child.beginOofInline(constraints, rc, pc, ps);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else {
-          const o = child.beginOofBlock(constraints, root, pc, ps);
+          const o = child.beginOofBlock(constraints, rc, pc, ps);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
@@ -544,14 +499,14 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private beginOofBlock(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
+  private beginOofBlock(constraints: Constraints, rc: RootC, pc: ComputedStyle, ps: Style) {
     let min = 0, max = 0;
     const style = this.style;
     // block如果定宽则直接返回，否则递归
     if (isFixed(style.width)) {
-      let w = calLength(style.width, constraints.pbw, root.rem, pc.fontSize);
+      let w = calLength(style.width, constraints.pbw, rc.rem, pc.fontSize);
       if (style.boxSizing === BoxSizing.CONTENT_BOX) {
-        const r = preset(style, constraints, 'box', root, pc, ps) as Box;
+        const r = preset(style, constraints, 'box', rc, pc, ps) as Box;
         w += r.marginLeft + r.marginRight
           + r.borderLeftWidth + r.borderRightWidth
           + r.paddingLeft + r.paddingRight;
@@ -560,10 +515,10 @@ export abstract class AbstractNode implements ITypeNode {
       max = w;
     }
     else {
-      const r = preset(style, constraints, 'box', root, pc, ps) as Box;
+      const r = preset(style, constraints, 'box', rc, pc, ps) as Box;
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
-        const o = children[i].beginOof(constraints, root, r, style);
+        const o = children[i].beginOof(constraints, rc, r, style);
         min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }
@@ -576,22 +531,22 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private beginOofInline(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
+  private beginOofInline(constraints: Constraints, rc: RootC, pc: ComputedStyle, ps: Style) {
     let min = 0, max = 0;
     const style = this.style;
-    const r = preset(style, constraints, 'inline', root, pc, ps) as Inline;
+    const r = preset(style, constraints, 'inline', rc, pc, ps) as Inline;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      const o = children[i].beginOof(constraints, root, r, this.style);
+      const o = children[i].beginOof(constraints, rc, r, this.style);
       min = Math.max(min, o.min);
       max += o.max;
     }
     return { min, max };
   }
 
-  private beginOofText(constraints: Constraints, root: Root, pc: ComputedStyle, ps: Style) {
+  private beginOofText(constraints: Constraints, rc: RootC, pc: ComputedStyle, ps: Style) {
     const t = this as unknown as TextNode;
-    return oofText(this.style, constraints, t.content, root, pc, ps);
+    return oofText(this.style, constraints, t.content, rc, pc, ps);
   }
 
   // 获取absolute的包围块节点
