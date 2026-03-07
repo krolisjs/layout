@@ -37,6 +37,16 @@ describe('normal-flow', () => {
       borderBottomWidth: 1,
       borderLeftWidth: 1,
     });
+    expect(node.children[1].result).toMatchObject({
+      x: 1,
+      y: 25,
+      w: 9998,
+      h: 24,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+    });
   });
 
   it('blocks-011', () => {

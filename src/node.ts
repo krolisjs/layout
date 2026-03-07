@@ -102,8 +102,8 @@ export abstract class AbstractNode implements ITypeNode {
     this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, r);
   }
 
-  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, rc: RootC, pr?: Result, ps?: Style) {
-    const b = this.begin(constraints, layoutMode, rc, pr, ps);
+  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, rc: RootC, pr?: Result, ps?: Style, prev?: AbstractNode) {
+    const b = this.begin(constraints, layoutMode, rc, pr, ps, prev);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
       const n = this.getContainingBlockNode() || getRoot(this);
@@ -127,13 +127,15 @@ export abstract class AbstractNode implements ITypeNode {
     this.constraints = b.c;
     // 先序遍历递归
     const children = this.children;
+    prev = undefined;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(b.c, b.layoutMode, oofMap, rc, this.result!, this.style);
+      prev = children[i].layMode(b.c, b.layoutMode, oofMap, rc, this.result!, this.style, prev) || prev;
     }
-    this.end(oofMap, rc);
+    this.end(constraints, oofMap, rc);
+    return this;
   }
 
-  private begin(constraints: Constraints, layoutMode: LayoutMode, rc: RootC, pc?: ComputedStyle, ps?: Style) {
+  private begin(constraints: Constraints, layoutMode: LayoutMode, rc: RootC, pc?: ComputedStyle, ps?: Style, prev?: AbstractNode) {
     const style = this.style;
     let c: Constraints;
     // absolute进入预测量模式
@@ -153,6 +155,14 @@ export abstract class AbstractNode implements ITypeNode {
       c = o.c;
     }
     else {
+      // 之前可能的inline换行，不会是absolute
+      if (prev) {
+        const pr = prev.result!;
+        if (pr.type === 'inline' || pr.type === 'text') {
+          constraints.cx = constraints.ox;
+          constraints.cy += pr.h;
+        }
+      }
       const o = block(style, constraints, rc, pc, ps);
       this.result = o.res;
       c = o.c;
@@ -160,7 +170,7 @@ export abstract class AbstractNode implements ITypeNode {
     return { layoutMode, c };
   }
 
-  private end(oofMap: WeakMap<AbstractNode, Oof[]>, rc: RootC) {
+  private end(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, rc: RootC) {
     const style = this.style;
     const result = this.result!;
     // 递归结束后处理
@@ -190,6 +200,8 @@ export abstract class AbstractNode implements ITypeNode {
                 w: lineBox.w,
                 h: lineBox.h,
               });
+              // 换行没有首行的mbp可能影响x
+              parentResult.x = Math.min(parentResult.x, lineBox.x);
             }
           });
           parentResult.w = Math.max(parentResult.w, current.x + current.w - parentResult.x);
@@ -199,15 +211,16 @@ export abstract class AbstractNode implements ITypeNode {
         }
         // inline可能包含block，中断，在block中还会继续向上递归，因为流顺序最后处理的叶子节点一定是正确的
         else {
+          const pc = parent.constraints!;
+          pc.cy = result.y + result.h + result.marginTop + result.borderTopWidth + result.paddingTop
+            + result.marginBottom + result.borderBottomWidth + result.paddingBottom;
           break;
         }
       }
     }
     else {
-      // 定宽且无最小限制的，无向上处理被inline包含逻辑
-      if (style.position === Position.ABSOLUTE) {
-        // 不用做任何事情
-      }
+      // 不用做任何事情
+      if (style.position === Position.ABSOLUTE) {}
       // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
       else if (style.display === Display.INLINE) {
         const r = (result as Inline);
@@ -224,10 +237,10 @@ export abstract class AbstractNode implements ITypeNode {
       }
       // 默认block
       else {
-        const constraints = this.constraints!;
+        const c = this.constraints!;
         // 自动高度，以及%高度但父级是auto
-        if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
-          result.h = constraints.cy - constraints.oy;
+        if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
+          result.h = c.cy - c.oy;
         }
         const parent = this.parent;
         const cp = parent?.constraints;
@@ -243,6 +256,8 @@ export abstract class AbstractNode implements ITypeNode {
             const parentStyle = parent.style;
             if (parentStyle.display === Display.INLINE) {
               const parentResult = parent.result as Inline;
+              // block换行就会忽略首行mbp，影响x
+              parentResult.x = Math.min(parentResult.x, current.x);
               parentResult.w = Math.max(parentResult.w, current.x + current.w - parentResult.x);
               parentResult.h = Math.max(parentResult.h, current.y + current.h - parentResult.y);
               current = parentResult;
@@ -254,7 +269,7 @@ export abstract class AbstractNode implements ITypeNode {
             }
           }
         }
-        // margin:auto水平居中
+        // margin:auto处理
         const { boxSizing, marginLeft, marginRight } = style;
         const pr = parent?.result;
         const w = pr ? pr.w : rc.w;
@@ -266,28 +281,44 @@ export abstract class AbstractNode implements ITypeNode {
           if (w2 < w) {
             const half = (w - w2) * 0.5;
             result.x += half;
+            result.marginLeft = half;
+            result.marginRight = half;
           }
         }
         else if (marginLeft.u === Unit.AUTO && marginRight.u !== Unit.AUTO && marginRight.v) {
           result.x -= result.marginRight;
         }
+        constraints.cx = constraints.ox;
+        constraints.cy = result.y + result.h + result.marginBottom + result.borderBottomWidth + result.paddingBottom;
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
       if (oofMap.has(this)) {
         const list = oofMap.get(this)!;
-        list.forEach(item => {
+        list.forEach((item, i) => {
           const pbw = result.w + result.paddingLeft + result.paddingRight;
           const pbh = result.h + result.paddingTop + result.paddingBottom;
           const c: Constraints = {
             ox: result.x - result.paddingLeft,
             oy: result.y - result.paddingTop,
-            aw: pbw - item.cx, // 默认trbl都是auto时就是文档流当前位置
-            ah: pbh - item.cy,
+            aw: pbw,
+            ah: pbh,
             pbw,
             pbh,
             cx: item.cx,
             cy: item.cy,
           };
+          // 可用尺寸以当前位置和end距离为准
+          c.aw -= c.cx - c.ox;
+          c.ah -= c.cy - c.oy;
+          // inline特殊，尺寸以首行和末行为边界
+          if (result.type === 'inline') {
+            const rects = result.rects;
+            if (rects.length) {
+              const first = rects[0];
+              c.ox = first.x - result.paddingLeft;
+              c.oy = first.y - result.paddingTop;
+            }
+          }
           // 获取到测量宽后，走一遍普通布局，inline要视作block
           item.node.layOof(c, oofMap, rc);
         });
@@ -352,7 +383,6 @@ export abstract class AbstractNode implements ITypeNode {
     const parent = this.parent!;
     const pr = parent.result!;
     const ps = parent.style;
-    const pc = preset(style, constraints, 'box', rc, pr, ps);
     // 怕beginOof影响cx/cy
     constraints.cx = cx;
     constraints.cy = cy;
@@ -360,40 +390,25 @@ export abstract class AbstractNode implements ITypeNode {
     const { boxSizing, left, right, top, bottom, marginLeft, marginRight, marginTop, marginBottom, width, height } = style;
     const res = preset(style, constraints, 'box', rc, pr, ps) as Box;
     this.result = res;
-    // const mbpW = res.marginLeft + res.marginRight
-    //   + res.borderLeftWidth + res.borderRightWidth
-    //   + res.paddingLeft + res.paddingRight;
-    // constraints.pbw = constraints.aw;
-    // const mbpH = res.marginTop + res.marginBottom
-    //   + res.borderTopWidth + res.borderBottomWidth
-    //   + res.paddingTop + res.paddingBottom;
-    // 尺寸优先级
-    if (width.u !== Unit.AUTO) {
-      // constraints.aw = res.w;
+    if (left.u !== Unit.AUTO) {
+      res.x = constraints.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
     }
+    if (top.u !== Unit.AUTO) {
+      res.y = constraints.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
+    }
+    // 尺寸优先级
+    if (width.u !== Unit.AUTO) {}
     else if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
-      res.w = constraints.aw - res.left - res.right - res.marginLeft - res.marginRight;
-      // if (boxSizing === BoxSizing.CONTENT_BOX) {
-      //   res.w += mbpW;
-      // }
-      // constraints.aw = res.w;
+      res.w = constraints.pbw - res.left - res.right - res.marginLeft - res.marginRight;
     }
     else {
-      const { min, max } = this.beginOof(constraints, rc, pc, style);
+      const { min, max } = this.beginOof(constraints, rc, res, style);
       res.w = Math.max(min, Math.min(max, constraints.aw));
-      // if (boxSizing === BoxSizing.CONTENT_BOX) {
-      //   res.w += mbpW;
-      // }
       constraints.ah = constraints.aw - (left.u === Unit.AUTO ? cx : res.left) - res.right;
     }
-    if (height.u !== Unit.AUTO) {
-    }
+    if (height.u !== Unit.AUTO) {}
     else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
-      res.h = constraints.ah - res.top - res.bottom - res.marginTop - res.marginBottom;
-      // if (boxSizing === BoxSizing.CONTENT_BOX) {
-      //   res.h += mbpH;
-      // }
-      // constraints.ah = res.h;
+      res.h = constraints.pbh! - res.top - res.bottom - res.marginTop - res.marginBottom;
     }
     // 边距平分
     if (left.u !== Unit.AUTO && right.u !== Unit.AUTO && width.u !== Unit.AUTO) {
@@ -427,7 +442,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
     // 超额约束修正
     if (left.u === Unit.AUTO && right.u === Unit.AUTO) {
-      res.left = constraints.cx;
+      res.left = constraints.cx - constraints.ox;
       res.right = constraints.aw - res.left - res.w - res.marginLeft - res.marginRight;
     }
     else if (left.u === Unit.AUTO) {
@@ -436,9 +451,9 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       res.right = constraints.aw - res.left - res.w - res.marginLeft - res.marginRight;
     }
-    res.x = res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+    res.x = constraints.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
     if (top.u === Unit.AUTO && bottom.u === Unit.AUTO) {
-      res.top = constraints.cy;
+      res.top = constraints.cy - constraints.oy;
       res.bottom = constraints.ah - res.top - res.h - res.marginTop - res.marginBottom;
     }
     else if (top.u === Unit.AUTO) {
@@ -447,7 +462,7 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       res.right = constraints.ah - res.top - res.h - res.marginLeft - res.marginRight;
     }
-    res.y = res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
+    res.y = constraints.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
     // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
     const c: Constraints = {
       ox: res.x,
@@ -466,9 +481,10 @@ export abstract class AbstractNode implements ITypeNode {
       children[i].layMode(c, LayoutMode.NORMAL, oofMap, rc, res, style);
     }
     // 模拟end
-    if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
+    if (style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO)) {
       res.h = c.cy - c.oy;
     }
+    this.end(constraints, oofMap, rc);
   }
 
   private beginOof(constraints: Constraints, rc: RootC, pc: ComputedStyle, ps: Style) {

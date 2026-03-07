@@ -256,6 +256,9 @@ export function block(style: Style, constraints: Constraints, rc: RootC, pc?: Co
     c.ah = constraints.ah;
     c.pbh = undefined;
   }
+  // 父级约束x归零
+  constraints.cx = constraints.ox;
+  constraints.cy = oy + res.h + res.marginBottom + res.paddingBottom + res.borderBottomWidth;
   return { res, c };
 }
 
@@ -365,8 +368,9 @@ export function text(style: Style, constraints: Constraints, content: string, rc
   const last = lineBox;
   res.h = last.y + last.h - constraints.cy;
   res.rects = lineBoxes;
-  // 没有子节点不需要产生新的递归约束
-  constraints.cy += res.h;
+  // 没有子节点不需要产生新的递归约束，但要修改父级约束当前位置
+  constraints.cx = cx;
+  constraints.cy = cy;
   return { res, c: constraints };
 }
 

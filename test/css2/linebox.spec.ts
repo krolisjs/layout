@@ -77,7 +77,7 @@ describe('linebox', () => {
     });
     node.lay(ctx.constraints);
     expect(node.result).toMatchObject({
-      x: 2,
+      x: 0,
       y: 0,
       w: 192,
       h: 72,
@@ -93,7 +93,7 @@ describe('linebox', () => {
           h: 24,
         },
         {
-          x: 2,
+          x: 0,
           y: 48,
           w: 144,
           h: 24,
@@ -102,7 +102,7 @@ describe('linebox', () => {
       type: 'inline',
     });
     expect(node.children[1].result).toMatchObject({
-      x: 2,
+      x: 0,
       y: 24,
       w: 192,
       h: 24,
@@ -130,7 +130,7 @@ describe('linebox', () => {
     });
     node.lay(ctx.constraints);
     expect(node.result).toMatchObject({
-      x: 2,
+      x: 0,
       y: 192,
       w: 192,
       h: 72,
@@ -146,7 +146,7 @@ describe('linebox', () => {
           h: 24,
         },
         {
-          x: 2,
+          x: 0,
           y: 240,
           w: 144,
           h: 24,
@@ -154,7 +154,7 @@ describe('linebox', () => {
       ],
     });
     expect(node.children[1].result).toMatchObject({
-      x: 2,
+      x: 0,
       y: 216,
       w: 192,
       h: 24,
