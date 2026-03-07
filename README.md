@@ -24,7 +24,36 @@ npm install @krolis/layout
 ### Simple integration 简单接入
 
 ```ts
-import { AbstractNode, Context, Node } from '@krolis/layout';
+import { AbstractNode, Context, Node, TextNode } from '@krolis/layout';
+
+const text = new TextNode('content', {
+  borderLeftWidth: 2,
+});
+
+const child = new Node({
+  paddingTop: '10%',
+  height: 50,
+}, [text]);
+
+const root = new Node({
+  width: 500,
+}, [child]);
+
+root.lay({
+  aw: 10000,
+  ah: 10000,
+}); // Entry 入口
+
+console.log(root.rect); // { x: 0, y: 0, w: 500, h: 100, ... }
+console.log(child.rect); // { x: 0, y: 0, w: 500, h: 50, paddingTop: 50, ... }
+console.log(text.rect); // { x: 2, y: 0, rects: { x: 2, y: 50, ... } }
+```
+
+### Imperative integration 指令式接入
+
+```ts
+import { Context } from '@krolis/layout';
+import type { IAllNode, Result, Style } from '@krolis/layout';
 
 // A context object must be created for each layout cycle 每轮布局需要创建一个context对象
 const ctx = new Context<AbstractNode>({
@@ -33,47 +62,23 @@ const ctx = new Context<AbstractNode>({
     ah: 10000, // 最外层可用尺寸，如果根节点固定尺寸这里定义无效
   },
   // Hook, callback when the layout is completed 钩子，在布局完成时回调
-  onConfigured: (node, rect) => {
-    node.rect = rect;
+  onConfigured: (node: AbstractNode, res: Result) => {
+    console.log
   },
 });
 
-const child = new Node({
-  paddingTop: '10%',
-  width: 100,
-  height: 50,
-});
-
-const container = new Node({
-  width: 500,
-}, [
-  child,
-]);
-
-container.lay(ctx); // Entry 入口
-
-console.log(container.rect); // { x: 0, y: 0, w: 500, h: 100, ... }
-console.log(child.rect); // { x: 0, y: 0, w: 100, h: 50, paddingTop: 50, ... }
-```
-
-### Imperative integration 指令式接入
-
-```ts
-import { Context, Rect, Style } from '@krolis/layout';
-
 // You might already have your own render tree and leaf node structures 你可能有自己的渲染树和叶子结点结构
-class Node {
+class YourNode implements IAllNode {
   style: Style;
-  children: Node[];
-  rect: Rect | null = null; // Stores layout result 布局结果
+  children: YourNode[];
 
-  constructor(style: Style, children: Node[] = []) {
+  constructor(style: Style, children: YourNode[] = []) {
     this.style = style;
     this.children = children;
   }
   
   // Implement the lay() method to traverse leaf nodes in pre-order 实现一个lay()方法，先序遍历叶子节点
-  lay(ctx: Context<Node>) {
+  lay(ctx: Context<IAllNode>) {
     // First, invoke the begin method 先调用begin()方法
     ctx.begin(this, this.style);
     // Followed by a pre-order traversal 再先序遍历
@@ -81,7 +86,7 @@ class Node {
       child.lay(ctx);
     });
     // Finally call the end method 最后调用end()方法
-    ctx.end(this, this.style);
+    ctx.end(this);
   }
 }
 

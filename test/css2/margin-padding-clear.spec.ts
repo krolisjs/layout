@@ -529,4 +529,85 @@ describe('margin-padding-clear', () => {
       borderRightWidth: 2,
     });
   });
+
+  it('padding-001', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+      },
+      children: [
+        {
+          style: {
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: 500,
+            height: 308,
+            borderTopWidth: 10,
+            borderRightWidth: 10,
+            borderBottomWidth: 10,
+            borderLeftWidth: 10,
+          },
+        },
+        {
+          style: {
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            paddingTop: 96,
+            paddingRight: 96,
+            paddingBottom: 96,
+            paddingLeft: 96,
+            borderTopWidth: 10,
+            borderRightWidth: 10,
+            borderBottomWidth: 10,
+            borderLeftWidth: 10,
+          },
+          children: [
+            {
+              style: {
+                width: 288,
+                height: 96,
+                borderTopWidth: 10,
+                borderRightWidth: 10,
+                borderBottomWidth: 10,
+                borderLeftWidth: 10,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 10,
+      y: 10,
+      w: 500,
+      h: 308,
+      borderTopWidth: 10,
+      borderRightWidth: 10,
+      borderBottomWidth: 10,
+      borderLeftWidth: 10,
+    });
+    expect(node.children[1].result).toMatchObject({
+      x: 106,
+      y: 106,
+      w: 308,
+      h: 116,
+      borderTopWidth: 10,
+      borderRightWidth: 10,
+      borderBottomWidth: 10,
+      borderLeftWidth: 10,
+    });
+    expect(node.children[1].children[0].result).toMatchObject({
+      x: 116,
+      y: 116,
+      w: 288,
+      h: 96,
+      borderTopWidth: 10,
+      borderRightWidth: 10,
+      borderBottomWidth: 10,
+      borderLeftWidth: 10,
+    });
+  });
 });
