@@ -413,6 +413,31 @@ describe('margin-padding-clear', () => {
     });
   });
 
+  it('margin-collapse-002', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            marginBottom: 20,
+            height: 10,
+          },
+        },
+        {
+          style: {
+            marginTop: 10,
+            height: 10,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[1].result).toMatchObject({
+      y: 30,
+      h: 10,
+      marginTop: 10,
+    });
+  });
+
   it('margin-left-055', () => {
     const node = genNode({
       style: {

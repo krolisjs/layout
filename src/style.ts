@@ -59,6 +59,14 @@ export enum VerticalAlign {
   MIDDLE = 3,
 }
 
+export enum Overflow {
+  AUTO = 0,
+  VISIBLE = 1,
+  HIDDEN = 2,
+  CLIP = 3,
+  SCROLL = 4,
+}
+
 // export enum WordBreak {
 //   INHERIT = 0,
 //   NORMAL = 1,
@@ -102,6 +110,7 @@ export type Style = {
   lineHeight: Length;
   letterSpacing: Length;
   verticalAlign: VerticalAlign;
+  overflow: Overflow;
   minWidth: Length;
   maxWidth: Length;
   // wordBreak: WordBreak;
@@ -143,6 +152,7 @@ export type JStyle = {
   lineHeight: CssFontSize;
   letterSpacing: CssFontSize;
   verticalAlign: 'baseline' | 'top' | 'bottom' | 'middle';
+  overflow: 'auto' | 'visible' | 'hidden' | 'clip' | 'scroll';
   minWidth: CssMinMax;
   maxWidth: CssMinMax;
   // wordBreak: 'normal' | 'breakAll' | 'keepAll';
@@ -179,6 +189,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     lineHeight: { v: 0, u: Unit.INHERIT },
     letterSpacing: { v: 0, u: Unit.INHERIT },
     verticalAlign: VerticalAlign.BASELINE,
+    overflow: Overflow.AUTO,
     minWidth: { v: 0, u: Unit.AUTO },
     maxWidth: { v: 0, u: Unit.AUTO },
     // wordBreak: WordBreak.INHERIT,

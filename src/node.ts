@@ -124,12 +124,33 @@ export abstract class AbstractNode implements ITypeNode {
       }
       return;
     }
+    // margin合并检查，这里先处理相邻的上下边距
+    if (prev && [Display.BLOCK, Display.FLEX].includes(prev.style.display) && [Display.BLOCK, Display.FLEX].includes(this.style.display)) {
+      const mb = prev.result!.marginBottom;
+      const res = this.result!;
+      const mt = res.marginTop;
+      if (mb && mt) {
+        // 正正、负负、正负的不同情况
+        if (mb > 0 && mt > 0) {
+          const max = Math.max(mb, mt);
+          const d = max - (mb + mt);
+          res.y += d;
+        }
+        else if (mb < 0 && mt < 0) {
+          const min = Math.min(mb, mt);
+          const d = min - (mb + mt);
+          res.y += d;
+        }
+        // 默认就相加，正负不用管
+      }
+    }
     this.constraints = b.c;
     // 先序遍历递归
     const children = this.children;
     prev = undefined;
     for (let i = 0, len = children.length; i < len; i++) {
-      prev = children[i].layMode(b.c, b.layoutMode, oofMap, rc, this.result!, this.style, prev) || prev;
+      const child = children[i];
+      prev = child.layMode(b.c, b.layoutMode, oofMap, rc, this.result!, this.style, prev) || prev;
     }
     this.end(constraints, oofMap, rc);
     return this;
