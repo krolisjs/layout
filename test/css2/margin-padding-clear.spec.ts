@@ -610,4 +610,94 @@ describe('margin-padding-clear', () => {
       borderLeftWidth: 10,
     });
   });
+
+  it('padding-bottom-003', () => {
+    const node = genNode({
+      style: {
+      },
+      children: [
+        {
+          style: {
+            borderTopWidth: 2,
+            paddingBottom: 1,
+          },
+        },
+        {
+          style: {
+            marginTop: -3,
+            borderBottomWidth: 2,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      y: 2,
+      paddingBottom: 1,
+    });
+    expect(node.children[1].result).toMatchObject({
+      x: 0,
+      y: 0,
+      marginTop: -3,
+      borderBottomWidth: 2,
+    });
+  });
+
+  it('padding-left-001', () => {
+    const node = genNode({
+      style: {
+        paddingLeft: -1,
+        borderLeftWidth: 5,
+      },
+      children: [
+        {
+          style: {
+            borderLeftWidth: 5,
+            height: '1in',
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.result).toMatchObject({
+      x: 5,
+      y: 0,
+      paddingLeft: 0,
+      h: 96,
+    });
+    expect(node.children[0].result).toMatchObject({
+      x: 10,
+      y: 0,
+      h: 96,
+    });
+  });
+
+  it('padding-left-006', () => {
+    const node = genNode({
+      style: {
+        paddingLeft: 96,
+        borderLeftWidth: 2,
+      },
+      children: [
+        {
+          style: {
+            marginLeft: -98,
+            borderLeftWidth: 2,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.result).toMatchObject({
+      x: 98,
+      paddingLeft: 96,
+      borderLeftWidth: 2,
+    });
+    expect(node.children[0].result).toMatchObject({
+      x: 2,
+      marginLeft: -98,
+      borderLeftWidth: 2,
+    });
+  });
 });

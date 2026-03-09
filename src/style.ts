@@ -20,16 +20,18 @@ export enum Unit {
   INHERIT = 1,
   PX = 2,
   IN = 3,
-  EM = 4,
-  REM = 5,
-  PERCENT = 6,
-  NUMBER = 7,
-  VW = 8,
-  VH = 9,
-  VMAX = 10,
-  VMIN = 11,
-  MIN_CONTENT = 12,
-  MAX_CONTENT = 13,
+  PT = 4,
+  PC = 5,
+  EM = 6,
+  REM = 7,
+  PERCENT = 8,
+  NUMBER = 9,
+  VW = 10,
+  VH = 11,
+  VMAX = 12,
+  VMIN = 13,
+  MIN_CONTENT = 14,
+  MAX_CONTENT = 15,
 }
 
 export enum BoxSizing {
@@ -225,6 +227,12 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
       u: Unit.IN,
     };
   }
+  else if (/pc$/.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.PC,
+    };
+  }
   else if (/em$/.test(v as string)) {
     return {
       v: n,
@@ -413,6 +421,12 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
   else if (target.u === Unit.IN) {
     return target.v * 96;
   }
+  else if (target.u === Unit.PT) {
+    return target.v * 4 / 3;
+  }
+  else if (target.u === Unit.PC) {
+    return target.v * 16;
+  }
   else if (target.u === Unit.EM) {
     return target.v * em;
   }
@@ -423,5 +437,5 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
 }
 
 export function isFixed(o: Length) {
-  return [Unit.PX, Unit.IN, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u);
+  return [Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u);
 }
