@@ -22,16 +22,17 @@ export enum Unit {
   IN = 3,
   PT = 4,
   PC = 5,
-  EM = 6,
-  REM = 7,
-  PERCENT = 8,
-  NUMBER = 9,
-  VW = 10,
-  VH = 11,
-  VMAX = 12,
-  VMIN = 13,
-  MIN_CONTENT = 14,
-  MAX_CONTENT = 15,
+  CM = 6,
+  EM = 7,
+  REM = 8,
+  PERCENT = 9,
+  NUMBER = 10,
+  VW = 11,
+  VH = 12,
+  VMAX = 13,
+  VMIN = 14,
+  MIN_CONTENT = 15,
+  MAX_CONTENT = 16,
 }
 
 export enum BoxSizing {
@@ -227,10 +228,22 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
       u: Unit.IN,
     };
   }
+  else if (/pt$/.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.PT,
+    };
+  }
   else if (/pc$/.test(v as string)) {
     return {
       v: n,
       u: Unit.PC,
+    };
+  }
+  else if (/cm$/.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.CM,
     };
   }
   else if (/em$/.test(v as string)) {
@@ -427,6 +440,9 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
   else if (target.u === Unit.PC) {
     return target.v * 16;
   }
+  else if (target.u === Unit.CM) {
+    return target.v * 37.8;
+  }
   else if (target.u === Unit.EM) {
     return target.v * em;
   }
@@ -437,5 +453,5 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
 }
 
 export function isFixed(o: Length) {
-  return [Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u);
+  return [Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.CM, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u);
 }

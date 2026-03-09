@@ -732,4 +732,96 @@ describe('margin-padding-clear', () => {
       borderLeftWidth: 2,
     });
   });
+
+  it('padding-right-001', () => {
+    const node = genNode({
+      style: {
+        paddingRight: -1,
+        borderRightWidth: 5,
+      },
+      children: [
+        {
+          style: {
+            borderRightWidth: 5,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      borderRightWidth: 5,
+    });
+  });
+
+  it('padding-right-018', () => {
+    const node = genNode({
+      style: {
+        paddingRight: 72,
+        borderRightWidth: 6,
+        width: 0,
+      },
+      children: [
+        {
+          style: {
+            marginRight: -78,
+            borderRightWidth: 6,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      w: 72,
+      borderRightWidth: 6,
+    });
+  });
+
+  it('padding-top-034', () => {
+    const node = genNode({
+      style: {
+        paddingTop: '-1cm',
+        borderTopWidth: 5,
+      },
+      children: [
+        {
+          style: {
+            borderBottomWidth: 6,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].result).toMatchObject({
+      y: 5,
+      borderBottomWidth: 6,
+    });
+  });
+
+  it('padding-top-094', () => {
+    const node = genNode({
+      style: {
+        width: 100,
+      },
+      children: [
+        {
+          style: {
+            paddingTop: '50%',
+            borderTopWidth: 50,
+          },
+        },
+        {
+          style: {
+            marginTop: -100,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[1].result).toMatchObject({
+      y: 0,
+      marginTop: -100,
+    });
+  });
 });
