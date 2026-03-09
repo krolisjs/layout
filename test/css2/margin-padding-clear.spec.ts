@@ -530,6 +530,38 @@ describe('margin-padding-clear', () => {
     });
   });
 
+  it('margin-top-008', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            marginBottom: -98,
+            borderTopWidth: 2,
+          },
+        },
+        {
+          style: {
+            marginTop: 96,
+            borderTopWidth: 2,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].result).toMatchObject({
+      y: 2,
+      h: 0,
+      marginBottom: -98,
+      borderTopWidth: 2,
+    });
+    expect(node.children[1].result).toMatchObject({
+      y: 2,
+      h: 0,
+      marginTop: 96,
+      borderTopWidth: 2,
+    });
+  });
+
   it('padding-001', () => {
     const node = genNode({
       style: {
