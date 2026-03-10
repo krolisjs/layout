@@ -556,6 +556,56 @@ describe('margin-padding-clear', () => {
     });
   });
 
+  it('margin-collapse-010', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            marginTop: 20,
+            overflow: 'scroll',
+          },
+          children: [
+            {
+              style: {
+                marginTop: 20,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].children[0].result).toMatchObject({
+      y: 40,
+      marginTop: 20,
+    });
+  });
+
+  it('margin-collapse-011', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            marginTop: 20,
+            overflow: 'auto',
+          },
+          children: [
+            {
+              style: {
+                marginTop: 20,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].children[0].result).toMatchObject({
+      y: 40,
+      marginTop: 20,
+    });
+  });
+
   it('margin-left-055', () => {
     const node = genNode({
       style: {

@@ -130,7 +130,8 @@ export abstract class AbstractNode implements ITypeNode {
    * @param constraints 父级约束
    * @param layoutMode 模式
    * @param oofMap 包含块节点记录，等end时开始处理拥有的absolute
-   * @param global root的一些单位，margin合并递归回溯的值
+   * @param global root的一些单位
+   * @param ms marginStruct，处理margin合并
    * @param pc parentComputedStyle（Result的一部分），子节点计算继承style需要
    * @param ps parentStyle，子节点继承style需要
    * @param prevFlow 流的兄弟节点，遇到absolute跳过

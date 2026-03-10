@@ -64,6 +64,7 @@ export enum Overflow {
   HIDDEN = 1,
   CLIP = 2,
   SCROLL = 3,
+  AUTO = 4,
 }
 
 // export enum WordBreak {
@@ -153,7 +154,7 @@ export type JStyle = {
   lineHeight: CssFontSize;
   letterSpacing: CssFontSize;
   verticalAlign: 'baseline' | 'top' | 'bottom' | 'middle';
-  overflow: 'visible' | 'hidden' | 'clip' | 'scroll';
+  overflow: 'visible' | 'hidden' | 'clip' | 'scroll' | 'auto';
   minWidth: CssMinMax;
   maxWidth: CssMinMax;
   minHeight: CssMinMax;
@@ -449,6 +450,7 @@ export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
         hidden: Overflow.HIDDEN,
         clip: Overflow.CLIP,
         scroll: Overflow.SCROLL,
+        auto: Overflow.AUTO,
       }[style.overflow] || Overflow.VISIBLE;
     }
   }
