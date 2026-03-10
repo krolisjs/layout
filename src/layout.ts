@@ -1,6 +1,7 @@
 import { BoxSizing, calLength, FontStyle, Style, Unit } from './style';
 import type { LineBox, TextBox } from './text';
 import { CJK_REG_EXTENDED, getMeasureText, isEnter, smartMeasure } from './text';
+import { AbstractNode } from './node';
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
@@ -27,6 +28,10 @@ export type ComputedStyle = {
   fontStyle: FontStyle;
   lineHeight: number;
   letterSpacing: number;
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
 };
 
 export type Box = {
@@ -47,7 +52,8 @@ export type Text = {
 
 export type Result = Box | Inline | Text;
 
-export type RootC = {
+export type Global = {
+  root: AbstractNode,
   rem: number,
   w: number,
   h: number,
@@ -73,6 +79,38 @@ export enum LayoutMode {
   OOF_MEASURE  = 0b100, // absolute测量阶段
 }
 
+export class MarginStruct {
+  pos = 0;
+  neg = 0;
+
+  append(n: number) {
+    if (n > 0) {
+      this.pos = Math.max(this.pos, n);
+    }
+    else if (n < 0) {
+      this.neg = Math.min(this.neg, n);
+    }
+  }
+
+  solve() {
+    return this.pos + this.neg;
+  }
+
+  reset(n = 0) {
+    if (n > 0) {
+      this.pos = n;
+      this.neg = 0;
+    }
+    else if (n < 0) {
+      this.pos = 0;
+      this.neg = n;
+    }
+    else {
+      this.pos = this.neg = n;
+    }
+  }
+}
+
 export function normalizeConstraints(ic: InputConstraints) {
   return Object.assign({
     ox: 0,
@@ -84,7 +122,7 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function preset(style: Style, constraints: Constraints, type: Result['type'], rc: RootC, pc?: ComputedStyle, ps?: Style) {
+export function preset(style: Style, constraints: Constraints, type: Result['type'], global: Global, pc?: ComputedStyle, ps?: Style) {
   const res: any = {
     type,
     rects: type === 'box' ? null : [],
@@ -124,10 +162,10 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   }
 
   if (style.fontSize.u === Unit.INHERIT) {
-    res.fontSize = pc?.fontSize || rc.rem;
+    res.fontSize = pc?.fontSize || global.rem;
   }
   else {
-    res.fontSize = calLength(style.fontSize, (pc?.fontSize || rc.rem) * 100, rc.rem, 0) || pc?.fontSize || rc.rem;
+    res.fontSize = calLength(style.fontSize, (pc?.fontSize || global.rem) * 100, global.rem, 0) || pc?.fontSize || global.rem;
   }
 
   if (style.fontWeight === 0) {
@@ -156,10 +194,10 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   ] as const).forEach(k => {
     const v = style[k];
     if (v.u === Unit.INHERIT && ps) {
-      res[k] = calLength(ps[k], constraints.pbw, rc.rem, res.fontSize);
+      res[k] = calLength(ps[k], constraints.pbw, global.rem, res.fontSize);
     }
     else {
-      res[k] = calLength(style[k], constraints.pbw, rc.rem, res.fontSize);
+      res[k] = calLength(style[k], constraints.pbw, global.rem, res.fontSize);
     }
   });
 
@@ -168,13 +206,28 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
     'paddingRight',
     'paddingBottom',
     'paddingLeft',
+    'minWidth',
+    'maxWidth',
   ] as const).forEach(k => {
     const v = style[k];
     if (v.u === Unit.INHERIT && ps) {
-      res[k] = calLength(ps[k], constraints.pbw, rc.rem, res.fontSize);
+      res[k] = calLength(ps[k], constraints.pbw, global.rem, res.fontSize);
     }
     else {
-      res[k] = Math.max(0, calLength(style[k], constraints.pbw, rc.rem, res.fontSize));
+      res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+    }
+  });
+
+  ([
+    'minHeight',
+    'maxHeight',
+  ] as const).forEach(k => {
+    const v = style[k];
+    if (v.u === Unit.INHERIT && ps) {
+      res[k] = calLength(ps[k], constraints.pbh || 0, global.rem, res.fontSize);
+    }
+    else {
+      res[k] = Math.max(0, calLength(style[k], constraints.pbh || 0, global.rem, res.fontSize));
     }
   });
 
@@ -194,15 +247,15 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
       res[k] = pc?.lineHeight || 24;
     }
     else if (k === 'lineHeight') {
-      res[k] = Math.max(0, calLength(style[k], pc?.lineHeight || 24, rc.rem, res.fontSize));
+      res[k] = Math.max(0, calLength(style[k], pc?.lineHeight || 24, global.rem, res.fontSize));
     }
     else {
-      res[k] = Math.max(0, calLength(style[k], constraints.pbw, rc.rem, res.fontSize));
+      res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
     }
   });
 
   if (style.width.u !== Unit.AUTO) {
-    res.w = Math.max(0, calLength(style.width, constraints.pbw, rc.rem, res.fontSize));
+    res.w = Math.max(0, calLength(style.width, constraints.pbw, global.rem, res.fontSize));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
     }
@@ -210,7 +263,7 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
 
   // 父auto子%，不计算默认0
   if (style.height.u !== Unit.AUTO && (constraints.pbh !== undefined || style.height.u !== Unit.PERCENT)) {
-    res.h = Math.max(0, calLength(style.height, constraints.pbh || 0, rc.rem, res.fontSize));
+    res.h = Math.max(0, calLength(style.height, constraints.pbh || 0, global.rem, res.fontSize));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
     }
@@ -225,9 +278,9 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(style: Style, constraints: Constraints, rc: RootC, pc?: ComputedStyle, ps?: Style, res?: Box) {
+export function block(style: Style, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style, res?: Box) {
   if (!res) {
-    res = preset(style, constraints, 'box', rc, pc, ps) as Box;
+    res = preset(style, constraints, 'box', global, pc, ps) as Box;
     res.type = 'box';
   }
   // 返回递归的供子节点使用
@@ -262,8 +315,8 @@ export function block(style: Style, constraints: Constraints, rc: RootC, pc?: Co
   return { res, c };
 }
 
-export function inline(style: Style, constraints: Constraints, rc: RootC, pc?: ComputedStyle, ps?: Style) {
-  const res = preset(style, constraints, 'inline', rc, pc, ps) as Inline;
+export function inline(style: Style, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
+  const res = preset(style, constraints, 'inline', global, pc, ps) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
   res.marginTop = res.marginBottom = 0;
   // 修改当前的，inline复用
@@ -271,12 +324,12 @@ export function inline(style: Style, constraints: Constraints, rc: RootC, pc?: C
   return { res, c: constraints };
 }
 
-export function text(style: Style, constraints: Constraints, content: string, rc: RootC, pc?: ComputedStyle, ps?: Style) {
+export function text(style: Style, constraints: Constraints, content: string, global: Global, pc?: ComputedStyle, ps?: Style) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(style, constraints, 'text', rc, pc, ps) as Text;
+  const res = preset(style, constraints, 'text', global, pc, ps) as Text;
   // inline的上下margin无效
   res.marginTop = res.marginBottom = 0;
   let cx = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
@@ -374,12 +427,12 @@ export function text(style: Style, constraints: Constraints, content: string, rc
   return { res, c: constraints };
 }
 
-export function oofText(style: Style, constraints: Constraints, content: string, rc: RootC, pc: ComputedStyle, ps: Style) {
+export function oofText(style: Style, constraints: Constraints, content: string, global: Global, pc: ComputedStyle, ps: Style) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(style, constraints, 'text', rc, pc, ps) as Text;
+  const res = preset(style, constraints, 'text', global, pc, ps) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求
   const list = content.split(/[\n\u2028]/);

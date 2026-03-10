@@ -483,7 +483,7 @@ describe('margin-padding-clear', () => {
     });
   });
 
-  it.skip('margin-collapse-005', () => {
+  it('margin-collapse-005', () => {
     const node = genNode({
       children: [
         {
@@ -550,6 +550,7 @@ describe('margin-padding-clear', () => {
         marginBottom: '1%',
         marginLeft: '1%',
         width: 100,
+        borderTopWidth: 1,
       },
       children: [
         {
@@ -567,7 +568,7 @@ describe('margin-padding-clear', () => {
     node.lay(ctx.constraints);
     expect(node.children[0].result).toMatchObject({
       x: 101,
-      y: 101,
+      y: 102,
       marginTop: 1,
       marginRight: 1,
       marginBottom: 1,

@@ -60,11 +60,10 @@ export enum VerticalAlign {
 }
 
 export enum Overflow {
-  AUTO = 0,
-  VISIBLE = 1,
-  HIDDEN = 2,
-  CLIP = 3,
-  SCROLL = 4,
+  VISIBLE = 0,
+  HIDDEN = 1,
+  CLIP = 2,
+  SCROLL = 3,
 }
 
 // export enum WordBreak {
@@ -113,6 +112,8 @@ export type Style = {
   overflow: Overflow;
   minWidth: Length;
   maxWidth: Length;
+  minHeight: Length;
+  maxHeight: Length;
   // wordBreak: WordBreak;
   // overflowWrap: OverflowWrap;
 };
@@ -155,6 +156,8 @@ export type JStyle = {
   overflow: 'auto' | 'visible' | 'hidden' | 'clip' | 'scroll';
   minWidth: CssMinMax;
   maxWidth: CssMinMax;
+  minHeight: CssMinMax;
+  maxHeight: CssMinMax;
   // wordBreak: 'normal' | 'breakAll' | 'keepAll';
   // overflowWrap: 'normal' | 'breakWord';
 };
@@ -189,9 +192,11 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     lineHeight: { v: 0, u: Unit.INHERIT },
     letterSpacing: { v: 0, u: Unit.INHERIT },
     verticalAlign: VerticalAlign.BASELINE,
-    overflow: Overflow.AUTO,
+    overflow: Overflow.VISIBLE,
     minWidth: { v: 0, u: Unit.AUTO },
     maxWidth: { v: 0, u: Unit.AUTO },
+    minHeight: { v: 0, u: Unit.AUTO },
+    maxHeight: { v: 0, u: Unit.AUTO },
     // wordBreak: WordBreak.INHERIT,
     // overflowWrap: OverflowWrap.INHERIT,
   };
@@ -357,6 +362,8 @@ export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
     'letterSpacing',
     'minWidth',
     'maxWidth',
+    'minHeight',
+    'maxHeight',
   ] as const).forEach(k => {
     const v = style[k];
     if (v === undefined) {
