@@ -153,7 +153,7 @@ export type JStyle = {
   lineHeight: CssFontSize;
   letterSpacing: CssFontSize;
   verticalAlign: 'baseline' | 'top' | 'bottom' | 'middle';
-  overflow: 'auto' | 'visible' | 'hidden' | 'clip' | 'scroll';
+  overflow: 'visible' | 'hidden' | 'clip' | 'scroll';
   minWidth: CssMinMax;
   maxWidth: CssMinMax;
   minHeight: CssMinMax;
@@ -437,6 +437,19 @@ export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
         bottom: VerticalAlign.BOTTOM,
         middle: VerticalAlign.MIDDLE,
       }[style.verticalAlign] || VerticalAlign.BASELINE;
+    }
+  }
+  if (style.overflow !== undefined) {
+    if (typeof style.overflow === 'number') {
+      res.overflow = style.overflow;
+    }
+    else {
+      res.overflow = {
+        visible: Overflow.VISIBLE,
+        hidden: Overflow.HIDDEN,
+        clip: Overflow.CLIP,
+        scroll: Overflow.SCROLL,
+      }[style.overflow] || Overflow.VISIBLE;
     }
   }
   return res;
