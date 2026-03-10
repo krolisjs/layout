@@ -438,6 +438,75 @@ describe('margin-padding-clear', () => {
     });
   });
 
+  it('margin-collapse-002', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            marginBottom: 20,
+            height: 10,
+          },
+        },
+        {
+          style: {
+            marginTop: -20,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[1].result).toMatchObject({
+      y: 10,
+      marginTop: -20,
+    });
+  });
+
+  it('margin-collapse-004', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            height: 20,
+          },
+        },
+        {
+          style: {
+            marginTop: -40,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[1].result).toMatchObject({
+      y: -20,
+      marginTop: -40,
+    });
+  });
+
+  it.skip('margin-collapse-005', () => {
+    const node = genNode({
+      children: [
+        {
+          children: [{
+            style: {
+              marginBottom: 2,
+            },
+          }],
+        },
+        {
+          style: {
+            marginTop: 1,
+          },
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[1].result).toMatchObject({
+      y: 2,
+      marginTop: 1,
+    });
+  });
+
   it('margin-left-055', () => {
     const node = genNode({
       style: {
