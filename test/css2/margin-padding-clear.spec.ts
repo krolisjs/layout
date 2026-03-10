@@ -507,6 +507,30 @@ describe('margin-padding-clear', () => {
     });
   });
 
+  it('margin-collapse-008', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            marginTop: 20,
+          },
+          children: [
+            {
+              style: {
+                marginTop: 20,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(ctx.constraints);
+    expect(node.children[0].children[0].result).toMatchObject({
+      y: 20,
+      marginTop: 20,
+    });
+  });
+
   it('margin-left-055', () => {
     const node = genNode({
       style: {

@@ -166,8 +166,21 @@ export abstract class AbstractNode implements ITypeNode {
     ) {
       const d = calMarginCollapse([ms.pos, ms.neg, res.marginTop]);
       // 正正、负负计算，正负preset默认算过忽略
-      if (d > 0 && res.marginTop > 0 || d < 0 && res.marginTop < 0) {
-        res.y += res.marginTop - d;
+      if (d > 0 && res.marginTop > 0) {
+        if (res.marginTop > d) {
+          res.y -= d;
+        }
+        else {
+          res.y -= res.marginTop;
+        }
+      }
+      else if (d < 0 && res.marginTop < 0) {
+        if (res.marginTop < d) {
+          res.y -= d;
+        }
+        else {
+          res.y -= res.marginTop;
+        }
       }
       ms.append(res.marginTop);
     }
