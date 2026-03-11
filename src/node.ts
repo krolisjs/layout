@@ -15,6 +15,7 @@ import {
   block,
   ComputedStyle,
   inline,
+  inlineBlock,
   LayoutMode,
   MarginStruct,
   normalizeConstraints,
@@ -233,6 +234,11 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else if (style.display === Display.INLINE) {
       const o = inline(style, constraints, global, pc, ps);
+      this.result = o.res;
+      c = o.c;
+    }
+    else if (style.display === Display.INLINE_BLOCK) {
+      const o = inlineBlock(style, constraints, global, pc, ps);
       this.result = o.res;
       c = o.c;
     }
@@ -765,7 +771,8 @@ function hasBottomBarrier(style: ComputedStyle) {
 }
 
 function isBFC(style: Style) {
-  return style.overflow !== Overflow.VISIBLE || style.position === Position.ABSOLUTE;
+  return style.overflow !== Overflow.VISIBLE || style.position === Position.ABSOLUTE
+    || [Display.INLINE_BLOCK, Display.INLINE, Display.INLINE_FLEX, Display.INLINE_GRID].includes(style.display);
 }
 
 function canCollapseTop(parent: AbstractNode, child: AbstractNode) {

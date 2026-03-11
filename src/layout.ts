@@ -324,6 +324,11 @@ export function inline(style: Style, constraints: Constraints, global: Global, p
   return { res, c: constraints };
 }
 
+export function inlineBlock(style: Style, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
+  const res = preset(style, constraints, 'box', global, pc, ps) as Box;
+  return { res, c: constraints };
+}
+
 export function text(style: Style, constraints: Constraints, content: string, global: Global, pc?: ComputedStyle, ps?: Style) {
   const measureText = getMeasureText();
   if (!measureText) {
