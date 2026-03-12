@@ -1,13 +1,12 @@
 import { expect } from 'expect';
-import { createTestContext, genNode } from '../env.ts';
-import { Context, FontStyle } from '../../dist/index.js';
-import type { IAllNode } from '../../dist/index.js';
+import { createTestInputConstraints, genNode } from '../env.ts';
+import type { InputConstraints } from '../../dist/index.js';
 
 describe('positioning', () => {
-  let ctx: Context<IAllNode>;
+  let inputConstraints: InputConstraints;
 
   beforeEach(() => {
-    ctx = createTestContext();
+    inputConstraints = createTestInputConstraints();
   });
 
   it('absolute-non-replaced-width-001', () => {
@@ -32,7 +31,7 @@ describe('positioning', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 0,
       y: 0,
@@ -61,7 +60,7 @@ describe('positioning', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 300,
       y: 0,

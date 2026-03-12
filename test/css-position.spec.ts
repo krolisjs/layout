@@ -1,13 +1,13 @@
 import { expect } from 'expect';
-import { createTestContext, genNode } from './env.ts';
+import { createTestInputConstraints, genNode } from './env.ts';
 import { Context, FontStyle } from '../dist/index.js';
 import type { IAllNode } from '../dist/index.js';
 
 describe('css-position', () => {
-  let ctx: Context<IAllNode>;
+  let inputConstraints: InputConstraints;
 
   beforeEach(() => {
-    ctx = createTestContext();
+    inputConstraints = createTestInputConstraints();
   });
 
   it('position-absolute-dynamic-static-position', () => {
@@ -31,7 +31,7 @@ describe('css-position', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 10,
       y: 10,
@@ -64,7 +64,7 @@ describe('css-position', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       x: 0,
       y: 0,
@@ -116,7 +116,7 @@ describe('css-position', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -193,7 +193,7 @@ describe('css-position', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].children[0].result).toMatchObject({
       x: 0,
       y: 0,
@@ -230,7 +230,7 @@ describe('css-position', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].children[0].result).toMatchObject({
       x: 0,
       y: 0,
@@ -254,7 +254,7 @@ describe('css-position', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 0,
       y: 0,

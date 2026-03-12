@@ -1,13 +1,12 @@
 import { expect } from 'expect';
-import { createTestContext, genNode } from '../env.ts';
-import { Context, FontStyle } from '../../dist/index.js';
-import type { IAllNode } from '../../dist/index.js';
+import { createTestInputConstraints, genNode } from '../env.ts';
+import type { InputConstraints } from '../../dist/index.js';
 
 describe('linebox', () => {
-  let ctx: Context<IAllNode>;
+  let inputConstraints: InputConstraints;
 
   beforeEach(() => {
-    ctx = createTestContext();
+    inputConstraints = createTestInputConstraints();
   });
 
   it('border-padding-bleed-001', () => {
@@ -25,7 +24,7 @@ describe('linebox', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -75,7 +74,7 @@ describe('linebox', () => {
         { content: 'Last line' },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -128,7 +127,7 @@ describe('linebox', () => {
         { content: 'Last line' },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 192,

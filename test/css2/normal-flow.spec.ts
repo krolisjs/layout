@@ -1,13 +1,12 @@
 import { expect } from 'expect';
-import { createTestContext, genNode } from '../env.ts';
-import { Context, FontStyle } from '../../dist/index.js';
-import type { IAllNode } from '../../dist/index.js';
+import { createTestInputConstraints, genNode } from '../env.ts';
+import type { InputConstraints } from '../../dist/index.js';
 
 describe('normal-flow', () => {
-  let ctx: Context<IAllNode>;
+  let inputConstraints: InputConstraints;
 
   beforeEach(() => {
-    ctx = createTestContext();
+    inputConstraints = createTestInputConstraints();
   });
 
   it('block-formatting-contexts-001', () => {
@@ -26,7 +25,7 @@ describe('normal-flow', () => {
         children: [{ content: 'Fill Text' }],
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 1,
       y: 1,
@@ -63,7 +62,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -96,7 +95,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     const child = node.children[0];
     expect(child.result).toMatchObject({
       x: 32,
@@ -124,7 +123,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     const child = node.children[0];
     expect(child.result).toMatchObject({
       x: 32,
@@ -151,7 +150,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     const child = node.children[0];
     expect(child.result).toMatchObject({
       x: 32,
@@ -178,7 +177,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 0,
       y: 0,
@@ -194,7 +193,7 @@ describe('normal-flow', () => {
         height: 100,
       },
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -220,7 +219,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     const child = node.children[0];
     expect(child.result).toMatchObject({
       x: 100,
@@ -244,7 +243,7 @@ describe('normal-flow', () => {
         borderLeftWidth: '2em',
       },
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 32,
       y: 0,
@@ -267,7 +266,7 @@ describe('normal-flow', () => {
         paddingLeft: '2em',
       },
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 32,
       y: 0,
@@ -292,7 +291,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -323,7 +322,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -354,7 +353,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -385,7 +384,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -417,7 +416,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -448,7 +447,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -480,7 +479,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -512,7 +511,7 @@ describe('normal-flow', () => {
         },
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -537,7 +536,7 @@ describe('normal-flow', () => {
         width: 0,
       },
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -552,7 +551,7 @@ describe('normal-flow', () => {
         height: 0,
       },
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -581,7 +580,7 @@ describe('normal-flow', () => {
         }],
       }],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,

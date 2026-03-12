@@ -1,13 +1,12 @@
 import { expect } from 'expect';
-import { createTestContext, genNode } from '../env.ts';
-import { Context } from '../../dist/index.js';
-import type { IAllNode } from '../../dist/index.js';
+import { createTestInputConstraints, genNode } from '../env.ts';
+import type { InputConstraints } from '../../dist/index.js';
 
 describe('margin-padding-clear', () => {
-  let ctx: Context<IAllNode>;
+  let inputConstraints: InputConstraints;
 
   beforeEach(() => {
-    ctx = createTestContext();
+    inputConstraints = createTestInputConstraints();
   });
 
   it('margin-001', () => {
@@ -56,7 +55,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result?.h).toBe(0);
     expect(node.children[0].result).toMatchObject({
       x: 10,
@@ -129,7 +128,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result?.h).toBe(0);
     expect(node.children[0].result).toMatchObject({
       x: 10,
@@ -188,7 +187,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result?.h).toBe(0);
     expect(node.children[0].result).toMatchObject({
       x: 10,
@@ -233,7 +232,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result?.h).toBe(0);
     expect(node.children[0].result).toMatchObject({
       x: 25,
@@ -286,7 +285,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 250,
       y: 0,
@@ -349,7 +348,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result?.h).toBe(0);
     expect(node.children[0].result).toMatchObject({
       x: 30,
@@ -377,7 +376,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       x: 0,
       y: 10,
@@ -405,7 +404,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       x: 0,
       y: 106,
@@ -430,7 +429,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       y: 30,
       h: 10,
@@ -454,7 +453,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       y: 10,
       marginTop: -20,
@@ -476,7 +475,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       y: -20,
       marginTop: -40,
@@ -500,7 +499,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       y: 2,
       marginTop: 1,
@@ -524,7 +523,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].children[0].result).toMatchObject({
       y: 20,
       marginTop: 20,
@@ -549,7 +548,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].children[0].result).toMatchObject({
       y: 40,
       marginTop: 20,
@@ -574,7 +573,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].children[0].result).toMatchObject({
       y: 40,
       marginTop: 20,
@@ -599,7 +598,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].children[0].result).toMatchObject({
       y: 40,
       marginTop: 20,
@@ -622,7 +621,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       x: 0,
       y: 20,
@@ -647,7 +646,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       y: 20,
       marginTop: 10,
@@ -676,7 +675,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       y: 20,
       marginTop: 10,
@@ -703,7 +702,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 25,
       marginLeft: 0,
@@ -741,7 +740,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 101,
       y: 102,
@@ -776,7 +775,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
       y: 0,
@@ -818,7 +817,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       y: 2,
       h: 0,
@@ -881,7 +880,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 10,
       y: 10,
@@ -933,7 +932,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 0,
       y: 2,
@@ -962,7 +961,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 5,
       y: 0,
@@ -991,7 +990,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 98,
       paddingLeft: 96,
@@ -1018,7 +1017,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 0,
       borderRightWidth: 5,
@@ -1041,7 +1040,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       x: 0,
       w: 72,
@@ -1063,7 +1062,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[0].result).toMatchObject({
       y: 5,
       borderBottomWidth: 6,
@@ -1089,7 +1088,7 @@ describe('margin-padding-clear', () => {
         },
       ],
     });
-    node.lay(ctx.constraints);
+    node.lay(inputConstraints);
     expect(node.children[1].result).toMatchObject({
       y: 0,
       marginTop: -100,

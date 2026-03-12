@@ -485,6 +485,12 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
   return 0;
 }
 
-export function isFixed(o: Length) {
-  return [Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.CM, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u);
+export function isFixed(o: Length, includePercent = false) {
+  if ([Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.CM, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u)) {
+    return true;
+  }
+  if (includePercent && o.u === Unit.PERCENT) {
+    return true;
+  }
+  return false;
 }

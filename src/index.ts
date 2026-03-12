@@ -1,4 +1,4 @@
-import { Context } from './context';
+import { InlineLayoutContext } from './context';
 import { LayoutMode, normalizeConstraints } from './layout';
 import type {
   Box,
@@ -44,12 +44,12 @@ import type { MeasureText, MeasureTextRes } from './text';
 export {
   AbstractNode,
   BoxSizing,
-  Context,
   calCssLength,
   Display,
   FontStyle,
   getDefaultStyle,
   getMeasureText,
+  InlineLayoutContext,
   LayoutMode,
   Node,
   normalizeConstraints,

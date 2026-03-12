@@ -165,21 +165,3 @@ export function smartMeasure(
   }
   return { num: hypotheticalNum, width, newLine, baseline };
 }
-
-export type TextBox = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  baseline: number;
-  content: string;
-};
-
-export type LineBox = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  baseline: number;
-  list: TextBox[];
-};

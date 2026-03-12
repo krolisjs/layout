@@ -1,8 +1,8 @@
 # @krolis/layout
 
-A high-performance, imperative layout Orchestrator/Engine designed for custom UI frameworks, canvas rendering, and headless layout testing.
+A high-performance layout Engine designed for custom UI frameworks, canvas rendering, and headless layout testing.
 
-一款高性能、指令式布局编排器、引擎，专为自定义 UI 框架、Canvas 渲染和无头布局测试而设计。
+一款高性能布局引擎，专为自定义 UI 框架、Canvas 渲染和无头布局测试而设计。
 
 _Derived from Kronos (Titan of Time) + Belisama (Goddess of Fire & Craft)._
 
@@ -20,8 +20,6 @@ npm install @krolis/layout
 ```
 
 ## Usage
-
-### Simple integration 简单接入
 
 ```ts
 import { AbstractNode, Context, Node, TextNode } from '@krolis/layout';
@@ -47,52 +45,6 @@ root.lay({
 console.log(root.rect); // { x: 0, y: 0, w: 500, h: 100, ... }
 console.log(child.rect); // { x: 0, y: 0, w: 500, h: 50, paddingTop: 50, ... }
 console.log(text.rect); // { x: 2, y: 0, rects: { x: 2, y: 50, ... } }
-```
-
-### Imperative integration 指令式接入
-
-```ts
-import { Context } from '@krolis/layout';
-import type { IAllNode, Result, Style } from '@krolis/layout';
-
-// A context object must be created for each layout cycle 每轮布局需要创建一个context对象
-const ctx = new Context<AbstractNode>({
-  constraints: {
-    aw: 10000, // Available dimensions for the outermost boundary; this definition is ignored if the root node has a fixed size
-    ah: 10000, // 最外层可用尺寸，如果根节点固定尺寸这里定义无效
-  },
-  // Hook, callback when the layout is completed 钩子，在布局完成时回调
-  onConfigured: (node: AbstractNode, res: Result) => {
-    console.log
-  },
-});
-
-// You might already have your own render tree and leaf node structures 你可能有自己的渲染树和叶子结点结构
-class YourNode implements IAllNode {
-  style: Style;
-  children: YourNode[];
-
-  constructor(style: Style, children: YourNode[] = []) {
-    this.style = style;
-    this.children = children;
-  }
-  
-  // Implement the lay() method to traverse leaf nodes in pre-order 实现一个lay()方法，先序遍历叶子节点
-  lay(ctx: Context<IAllNode>) {
-    // First, invoke the begin method 先调用begin()方法
-    ctx.begin(this, this.style);
-    // Followed by a pre-order traversal 再先序遍历
-    this.children.forEach(child => {
-      child.lay(ctx);
-    });
-    // Finally call the end method 最后调用end()方法
-    ctx.end(this);
-  }
-}
-
-// The remaining steps are identical to the simple integration, but without generating redundant layout tree structures
-// 剩下的和简单接入一样，但不产生多余的布局树结构
-
 ```
 
 ## Dev

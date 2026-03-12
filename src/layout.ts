@@ -1,5 +1,4 @@
 import { BoxSizing, calLength, FontStyle, Style, Unit } from './style';
-import type { LineBox, TextBox } from './text';
 import { CJK_REG_EXTENDED, getMeasureText, isEnter, smartMeasure } from './text';
 import { AbstractNode } from './node';
 
@@ -47,10 +46,36 @@ export type Inline = {
 export type Text = {
   type: 'text',
   // 包含所有折行后的矩形，按行序排列
-  rects: LineBox[];
+  rects: LineBox<TextBox>[];
 } & Rect & ComputedStyle;
 
-export type Result = Box | Inline | Text;
+export type InlineBox = {
+  type: 'inlineBox',
+  rects: null,
+} & LineBoxItem & Rect & ComputedStyle;
+
+export type TextBox = LineBoxItem & {
+  content: string;
+};
+
+export type LineBoxItem = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  baseline: number;
+};
+
+export type LineBox<T extends LineBoxItem = LineBoxItem> = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  baseline: number;
+  list: T[];
+};
+
+export type Result = Box | InlineBox | Inline | Text;
 
 export type Global = {
   root: AbstractNode,
@@ -341,7 +366,7 @@ export function text(style: Style, constraints: Constraints, content: string, gl
   let cy = constraints.cy;
   let aw = constraints.aw;
   let maxW = 0;
-  let lineBox: LineBox = {
+  let lineBox: LineBox<TextBox> = {
     x: cx,
     y: cy,
     w: 0,
@@ -349,7 +374,7 @@ export function text(style: Style, constraints: Constraints, content: string, gl
     baseline: 0,
     list: [],
   };
-  const lineBoxes: LineBox[] = [lineBox];
+  const lineBoxes: LineBox<TextBox>[] = [lineBox];
   let i = 0;
   let length = content.length;
   // 使用一种预测字符长度的技术，结合2分查找，减少调用measureText的次数
@@ -504,4 +529,10 @@ export function oofText(style: Style, constraints: Constraints, content: string,
     }
   }
   return { min, max };
+}
+
+export function getMbpH(res: ComputedStyle) {
+  return res.marginLeft + res.marginRight
+    + res.borderLeftWidth + res.borderRightWidth
+    + res.paddingLeft + res.paddingRight;
 }
