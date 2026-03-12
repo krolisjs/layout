@@ -31,6 +31,7 @@ import type {
   Result,
   Text,
 } from './layout';
+import { InlineLayoutContext } from './context';
 
 export enum NodeType {
   Node = 0,
@@ -130,8 +131,9 @@ export abstract class AbstractNode implements ITypeNode {
     const ms = new MarginStruct();
     // 遇到absolute进入测量模式，等其包含块节点end时机开始测量
     const oofMap: WeakMap<AbstractNode, Oof[]> = new WeakMap();
+    const ilc = new InlineLayoutContext();
     // 入口普通模式
-    this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, global, ms);
+    this.layMode(normalizeConstraints(inputConstraints), LayoutMode.NORMAL, oofMap, global, ms, ilc);
   }
 
   /**
@@ -141,11 +143,13 @@ export abstract class AbstractNode implements ITypeNode {
    * @param oofMap 包含块节点记录，等end时开始处理拥有的absolute
    * @param global root的一些单位
    * @param ms marginStruct，处理margin合并
+   * @param ilc InlineLayoutContext，行元素处理每行对齐
    * @param pc parentComputedStyle（Result的一部分），子节点计算继承style需要
    * @param ps parentStyle，子节点继承style需要
    * @param prevFlow 流的兄弟节点，遇到absolute跳过
    */
-  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, global: Global, ms: MarginStruct, pc?: ComputedStyle, ps?: Style, prevFlow?: AbstractNode) {
+  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, global: Global,
+          ms: MarginStruct, ilc: InlineLayoutContext, pc?: ComputedStyle, ps?: Style, prevFlow?: AbstractNode) {
     const b = this.begin(constraints, layoutMode, global, pc, ps, prevFlow);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
@@ -168,6 +172,10 @@ export abstract class AbstractNode implements ITypeNode {
       return false;
     }
     const res = this.result!;
+    // block创建新的上下文管理行元素
+    if (res.type === 'box' || res.type === 'inlineBox') {
+      ilc = new InlineLayoutContext();
+    }
     const style = this.style;
     const prev = this.prev;
     // margin合并检查，先尝试与父级的marginTop折叠，只发生在首个子节点；非首个节点处理相邻prev节点的折叠
@@ -204,7 +212,7 @@ export abstract class AbstractNode implements ITypeNode {
     prevFlow = undefined;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      const t = child.layMode(b.c, b.layoutMode, oofMap, global, ms, res, style, prevFlow);
+      const t = child.layMode(b.c, b.layoutMode, oofMap, global, ms, ilc, res, style, prevFlow);
       if (t) {
         prevFlow = child;
       }
@@ -593,9 +601,10 @@ export abstract class AbstractNode implements ITypeNode {
     this.constraints = c;
     // 继续普通递归
     const ms = new MarginStruct();
+    const ilc = new InlineLayoutContext();
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(c, LayoutMode.NORMAL, oofMap, global, ms, res, style);
+      children[i].layMode(c, LayoutMode.NORMAL, oofMap, global, ms, ilc, res, style);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO)) {

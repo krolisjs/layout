@@ -59,6 +59,25 @@ describe('linebox', () => {
     });
   });
 
+  it('empty-inline-001', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            display: 'inline',
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+    });
+  });
+
   it('inline-box-001', () => {
     const node = genNode({
       style: {

@@ -647,7 +647,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[0].children[0].result).toMatchObject({
       y: 20,
       marginTop: 10,
     });

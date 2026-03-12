@@ -1,7 +1,6 @@
 import { expect } from 'expect';
 import { createTestInputConstraints, genNode } from './env.ts';
-import { Context, FontStyle } from '../dist/index.js';
-import type { IAllNode } from '../dist/index.js';
+import type { InputConstraints } from '../dist/index.js';
 
 describe('css-position', () => {
   let inputConstraints: InputConstraints;
