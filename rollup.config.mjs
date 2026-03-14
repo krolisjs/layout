@@ -24,7 +24,9 @@ export default [
       nodeResolve({ preferBuiltins: false }),
       commonjs(),
       typescript({
+        outputToFilesystem: true,
         declaration: false,
+        declarationDir: undefined,
         target: 'ES2018',
       }),
       json(),
