@@ -119,7 +119,7 @@ export type Style = {
   // overflowWrap: OverflowWrap;
 };
 
-export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` | `${number}rem` | 'inherit';
+export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` | `${number}rem` | 'inherit' | 'normal';
 
 export type CssLength = Omit<CssFontSize, 'inherit'> | 'auto' | `${number}em`;
 
@@ -208,7 +208,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
 };
 
 export function calCssLength(v: CssLength, number2Px = false): Length {
-  if (v === 'auto') {
+  if (v === 'auto' || v === 'normal') {
     return {
       v: 0,
       u: Unit.AUTO,
