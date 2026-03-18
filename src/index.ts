@@ -1,4 +1,4 @@
-import { InlineLayoutContext } from './context';
+import { LineBoxContext } from './context';
 import { LayoutMode, normalizeConstraints } from './layout';
 import type {
   Box,
@@ -38,8 +38,8 @@ import type {
   JStyle,
   Style,
 } from './style';
-import { getMeasureText, setMeasureText } from './text';
-import type { MeasureText, MeasureTextRes } from './text';
+import { getMeasureText, getMetricizeFont, setMeasureText, setMetricizeFont } from './text';
+import type { FontMetrics, MeasureText, MetricizeFont, TextMeasures } from './text';
 
 export {
   AbstractNode,
@@ -49,13 +49,15 @@ export {
   FontStyle,
   getDefaultStyle,
   getMeasureText,
-  InlineLayoutContext,
+  getMetricizeFont,
+  LineBoxContext,
   LayoutMode,
   Node,
   normalizeConstraints,
   normalizeStyle,
   Position,
   setMeasureText,
+  setMetricizeFont,
   TextNode,
   Unit,
 };
@@ -66,6 +68,7 @@ export type {
   CssLength,
   ComputedStyle,
   Constraints,
+  FontMetrics,
   IAllNode,
   INode,
   Inline,
@@ -73,8 +76,9 @@ export type {
   ITypeNode,
   InputConstraints,
   Length,
+  MetricizeFont,
   MeasureText,
-  MeasureTextRes,
+  TextMeasures,
   JStyle,
   Style,
   Text,

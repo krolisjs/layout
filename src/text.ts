@@ -1,6 +1,6 @@
 import { FontStyle } from './style';
 
-export type MeasureTextRes = { width: number, height: number, baseline: number };
+export type TextMeasures = { width: number, height: number };
 
 export type MeasureText = (
   content: string,
@@ -10,7 +10,7 @@ export type MeasureText = (
   fontWeight?: number,
   fontStyle?: FontStyle,
   letterSpacing?: number,
-) => MeasureTextRes;
+) => TextMeasures;
 
 let measureText: MeasureText | null = null;
 
@@ -20,6 +20,24 @@ export function getMeasureText() {
 
 export function setMeasureText(mt: MeasureText) {
   measureText = mt;
+}
+
+export type FontMetrics = {
+  blr: number;
+  car: number;
+  lgr: number;
+}
+
+export type MetricizeFont = (fontFamily: string) => FontMetrics;
+
+let metricizeFont: MetricizeFont | null = null;
+
+export function getMetricizeFont() {
+  return metricizeFont;
+}
+
+export function setMetricizeFont(mf: MetricizeFont) {
+  metricizeFont = mf;
 }
 
 export function isEnter(s: string) {
@@ -46,8 +64,7 @@ export function smartMeasure(
   let i = start,
     j = length,
     width = 0,
-    newLine = false,
-    baseline = fontSize;
+    newLine = false;
   // 没有letterSpacing或者是svg模式可以完美获取TextMetrics
   let hypotheticalNum = Math.round(aw / pw);
   // 不能增长0个字符，至少也要1个
@@ -58,7 +75,7 @@ export function smartMeasure(
   else if (hypotheticalNum > length - start) {
     hypotheticalNum = length - start;
   }
-  let mt: MeasureTextRes;
+  let mt: TextMeasures;
   // 类似2分的一个循环
   while (i < j) {
     mt = measureText(
@@ -71,7 +88,6 @@ export function smartMeasure(
       letterSpacing,
     );
     let mw = mt.width;
-    baseline = mt.baseline;
     if (mw === aw) {
       width = aw;
       newLine = true;
@@ -132,9 +148,8 @@ export function smartMeasure(
         letterSpacing,
       );
       width = mt.width;
-      baseline = mt.baseline;
       newLine = false;
-      return { num: hypotheticalNum, width, newLine, baseline };
+      return { num: hypotheticalNum, width, newLine };
     }
   }
   // 末尾是英文或数字时，本行前面有空格或者CJK，需要把末尾英文数字放到下一行
@@ -153,9 +168,8 @@ export function smartMeasure(
           letterSpacing,
         );
         width = mt.width;
-        baseline = mt.baseline;
         newLine = true;
-        return { num: hypotheticalNum, width, newLine, baseline };
+        return { num: hypotheticalNum, width, newLine };
       }
     }
   }
@@ -163,5 +177,5 @@ export function smartMeasure(
   if (isEnter(content[start + hypotheticalNum])) {
     newLine = false;
   }
-  return { num: hypotheticalNum, width, newLine, baseline };
+  return { num: hypotheticalNum, width, newLine };
 }

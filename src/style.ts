@@ -1,3 +1,5 @@
+import { getMetricizeFont } from './text';
+
 export enum Display {
   NONE = 0,
   BLOCK = 1,
@@ -190,7 +192,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     fontStyle: FontStyle.INHERIT,
     fontWeight: 0,
     fontSize: { v: 0, u: Unit.INHERIT },
-    lineHeight: { v: 0, u: Unit.INHERIT },
+    lineHeight: { v: 0, u: Unit.AUTO },
     letterSpacing: { v: 0, u: Unit.INHERIT },
     verticalAlign: VerticalAlign.BASELINE,
     overflow: Overflow.VISIBLE,
@@ -493,4 +495,20 @@ export function isFixed(o: Length, includePercent = false) {
     return true;
   }
   return false;
+}
+
+export function calNormalLineHeight(fontFamily: string, fontSize: number) {
+  const metricizeFont = getMetricizeFont();
+  if (!metricizeFont) {
+    throw new Error('Text must be passed to the metricizeFont method.');
+  }
+  const m = metricizeFont(fontFamily);
+  return fontSize * m.lgr;
+}
+
+export function calBaseline(fontFamily: string, fontSize: number, lineHeight: number) {
+  const normal = calNormalLineHeight(fontFamily, fontSize);
+  const metricizeFont = getMetricizeFont();
+  const m = metricizeFont!(fontFamily);
+  return (lineHeight - normal) * 0.5 + fontSize * m.blr;
 }
