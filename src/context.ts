@@ -1,4 +1,5 @@
-import { getMbpLeft, getMbpRight, type Inline, type LineBoxItem } from './layout';
+import { getMbpRight } from './layout';
+import type { Inline, LineBoxItem } from './layout';
 import { VerticalAlign } from './style';
 import { AbstractNode } from './node';
 

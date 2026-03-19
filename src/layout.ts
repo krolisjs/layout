@@ -1,9 +1,7 @@
-import { BoxSizing, calBaseline, calLength, calNormalLineHeight, FontStyle, Style, Unit } from './style';
+import { BoxSizing, calLength, calNormalLineHeight, FontStyle, Style, Unit } from './style';
 import {
   CJK_REG_EXTENDED,
   getMeasureText,
-  // getMetricizeFont,
-  isEnter,
   lineBreak,
   smartMeasure,
 } from './text';
@@ -104,10 +102,7 @@ export type Constraints = {
 };
 
 export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
-  & Partial<Omit<Constraints, 'aw' | 'ah'>> & {
-  fontSize?: number;
-  lineHeight?: number;
-};
+  & Partial<Omit<Constraints, 'aw' | 'ah'>>;
 
 export enum LayoutMode {
   NORMAL       = 0b000,

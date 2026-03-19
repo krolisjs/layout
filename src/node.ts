@@ -1,7 +1,6 @@
-import { calNormalLineHeight, type JStyle, type Style } from './style';
+import type { JStyle, Style } from './style';
 import {
   BoxSizing,
-  calBaseline,
   calLength,
   Display,
   getDefaultStyle,
@@ -10,13 +9,13 @@ import {
   Position,
   Unit,
 } from './style';
-import {
-  type Box,
-  type Constraints, getMbpRight,
-  type Global,
-  type Inline,
-  type InputConstraints,
-  type Result,
+import type {
+  Box,
+  Constraints,
+  Global,
+  Inline,
+  InputConstraints,
+  Result,
 } from './layout';
 import {
   block,
@@ -54,6 +53,7 @@ export type IAllNode = INode | ITextNode;
 
 type Oof = {
   node: AbstractNode;
+  parent: AbstractNode;
   cx: number;
   cy: number;
 };
@@ -124,7 +124,10 @@ export abstract class AbstractNode implements ITypeNode {
     if (root !== this) {
       throw new Error('Cannot call lay() on a non-root node.');
     }
-    const rem = inputConstraints.fontSize || 16;
+    let rem = calLength(root.style.fontSize, 1600, 16, 16);
+    if (!rem || rem < 0) {
+      rem = 16;
+    }
     const global: Global = {
       root,
       rem,
@@ -135,21 +138,10 @@ export abstract class AbstractNode implements ITypeNode {
     // 遇到absolute进入测量模式，等其包含块节点end时机开始测量
     const oofMap: WeakMap<AbstractNode, Oof[]> = new WeakMap();
     const constraints = normalizeConstraints(inputConstraints);
-    // 这里有歧义，使用的lbc应该是最近上层block节点的，但入口就是root了没有上层，暂时使用自己
-    // const style = this.style;
-    // const fontSize = calLength(style.fontSize, rem, rem, rem);
-    // let lineHeight: number;
-    // if ([Unit.AUTO, Unit.INHERIT].includes(style.lineHeight.u)) {
-    //   lineHeight = calNormalLineHeight(style.fontFamily, fontSize);
-    // }
-    // else {
-    //   lineHeight = calLength(style.lineHeight, fontSize, rem, rem);
-    // }
     // 虚拟支柱，如果root是个inline的话也能运行
     const lbc = new LineBoxContext(constraints.ox, constraints.oy);
     // 入口普通模式
     this.layMode(constraints, LayoutMode.NORMAL, oofMap, global, ms, lbc);
-    lbc.computeFrags();
   }
 
   /**
@@ -169,18 +161,19 @@ export abstract class AbstractNode implements ITypeNode {
     const b = this.begin(constraints, layoutMode, global, lbc, pc, ps);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
-      const n = this.getContainingBlockNode() || global.root;
+      const n = this.getContainingBlockNode() || { parent: global.root, hook: global.root };
       if (n) {
         let list: Oof[];
-        if (oofMap.has(n)) {
-          list = oofMap.get(n)!;
+        if (oofMap.has(n.hook)) {
+          list = oofMap.get(n.hook)!;
         }
         else {
           list = [];
-          oofMap.set(n, list);
+          oofMap.set(n.hook, list);
         }
         list.push({
           node: this,
+          parent: n.parent,
           cx: constraints.cx,
           cy: constraints.cy,
         });
@@ -353,15 +346,35 @@ export abstract class AbstractNode implements ITypeNode {
         lbc.newLine(constraints.cx, constraints.cy);
         lbc.setMaxW(result.w + getMbpH(result));
       }
+      // 特殊时机，root的inline节点需要在absolute前执行计算
+      if (this === global.root) {
+        lbc.computeFrags();
+      }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
       if (oofMap.has(this)) {
         const list = oofMap.get(this)!;
-        list.forEach((item, i) => {
-          const pbw = result.w + result.paddingLeft + result.paddingRight;
-          const pbh = result.h + result.paddingTop + result.paddingBottom;
+        list.forEach((item) => {
+          const result = item.parent.result!;
+          let x: number, y: number, pbw: number, pbh: number;
+          // inline的包围块特殊逻辑，以首尾行为准
+          if (result.type === 'inline') {
+            const frags = result.frags;
+            const start = frags[0];
+            const end = frags[frags.length - 1];
+            x = start.x;
+            y = start.y;
+            pbw = end.x + end.w - start.x + result.paddingRight + result.paddingLeft;
+            pbh = end.y + end.h - start.y + result.paddingTop + result.paddingBottom;
+          }
+          else {
+            x = result.x;
+            y = result.y;
+            pbw = result.w + result.paddingLeft + result.paddingRight;
+            pbh = result.h + result.paddingTop + result.paddingBottom;
+          }
           const c: Constraints = {
-            ox: result.x - result.paddingLeft,
-            oy: result.y - result.paddingTop,
+            ox: x - result.paddingLeft,
+            oy: y - result.paddingTop,
             aw: pbw,
             ah: pbh,
             pbw,
@@ -635,19 +648,37 @@ export abstract class AbstractNode implements ITypeNode {
     return oofText(t, constraints, t.content, global, pc, ps);
   }
 
-  // 获取absolute的包围块节点
+  // 获取absolute的包围块节点，可能是relative+inline，需要返回钩子节点（所属block）和真正的包围块
   getContainingBlockNode() {
     let parent = this.parent;
     while (parent) {
       const style = parent.style;
-      if ([Position.RELATIVE, Position.ABSOLUTE].includes(style.position)) {
-        return parent;
+      if (style.position === Position.ABSOLUTE) {
+        return { parent, hook: parent };
+      }
+      if (style.position === Position.RELATIVE) {
+        if ([Display.INLINE].includes(style.display)) {
+          let hook = parent.parent;
+          let root = parent;
+          while (hook) {
+            root = hook;
+            const style = hook.style;
+            if (![Display.INLINE].includes(style.display)) {
+              return { parent, hook };
+            }
+            hook = hook.parent;
+          }
+          return { parent, hook: root };
+        }
+        else {
+          return { parent, hook: parent };
+        }
       }
       if (parent.parent) {
         parent = parent.parent;
       }
       else {
-        return parent;
+        return { parent, hook: parent };
       }
     }
   }
