@@ -6,7 +6,7 @@ import type {
   Constraints,
   Inline,
   InputConstraints,
-  Rect,
+  Frag,
   Result,
   Text,
 } from './layout';
@@ -82,6 +82,6 @@ export type {
   JStyle,
   Style,
   Text,
-  Rect,
+  Frag,
   Result,
 };

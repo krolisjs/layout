@@ -590,7 +590,7 @@ describe('normal-flow', () => {
       paddingRight: 0,
       paddingBottom: 8,
       paddingLeft: 0,
-      rects: [
+      frags: [
         {
           x: 0,
           y: 0,
@@ -609,7 +609,7 @@ describe('normal-flow', () => {
       borderRightWidth: 8,
       borderBottomWidth: 8,
       borderLeftWidth: 8,
-      rects: [
+      frags: [
         {
           x: 8,
           y: 0,
@@ -624,24 +624,14 @@ describe('normal-flow', () => {
       y: 0,
       w: 160,
       h: 24,
-      rects: [
+      frags: [
         {
           x: 8,
           y: 0,
           w: 160,
           h: 24,
-          baseline: 23,
-          list: [
-            {
-              x: 8,
-              y: 0,
-              w: 160,
-              h: 24,
-              content: '1234567890',
-              baseline: 23,
-            },
-          ],
-        },
+          content: '1234567890',
+        }
       ],
       type: 'text',
     });

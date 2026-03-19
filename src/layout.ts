@@ -1,8 +1,16 @@
-import { BoxSizing, calLength, FontStyle, Style, Unit } from './style';
-import { CJK_REG_EXTENDED, getMeasureText, isEnter, smartMeasure } from './text';
-import { AbstractNode } from './node';
+import { BoxSizing, calBaseline, calLength, calNormalLineHeight, FontStyle, Style, Unit } from './style';
+import {
+  CJK_REG_EXTENDED,
+  getMeasureText,
+  // getMetricizeFont,
+  isEnter,
+  lineBreak,
+  smartMeasure,
+} from './text';
+import { AbstractNode, Node, TextNode } from './node';
+import type { LineBoxContext } from './context';
 
-export type Rect = { x: number; y: number; w: number; h: number };
+export type Frag = { x: number; y: number; w: number; h: number };
 
 export type ComputedStyle = {
   top: number;
@@ -35,24 +43,24 @@ export type ComputedStyle = {
 
 export type Box = {
   type: 'box',
-  rects: null,
-} & Rect & ComputedStyle;
+  frags: null,
+} & Frag & ComputedStyle;
 
 export type Inline = {
   type: 'inline',
-  rects: Rect[],
-} & Rect & ComputedStyle;
+  frags: Frag[],
+} & Frag & ComputedStyle;
 
 export type Text = {
   type: 'text',
   // 包含所有折行后的矩形，按行序排列
-  rects: LineBox<TextBox>[];
-} & Rect & ComputedStyle;
+  frags: TextBox[];
+} & Frag & ComputedStyle;
 
 export type InlineBox = {
   type: 'inlineBox',
-  rects: null,
-} & LineBoxItem & Rect & ComputedStyle;
+  frags: null,
+} & LineBoxItem & Frag & ComputedStyle;
 
 export type TextBox = LineBoxItem & {
   content: string;
@@ -63,7 +71,7 @@ export type LineBoxItem = {
   y: number;
   w: number;
   h: number;
-  baseline: number;
+  // baseline: number;
 };
 
 export type LineBox<T extends LineBoxItem = LineBoxItem> = {
@@ -96,7 +104,10 @@ export type Constraints = {
 };
 
 export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
-  & Partial<Omit<Constraints, 'aw' | 'ah'>>;
+  & Partial<Omit<Constraints, 'aw' | 'ah'>> & {
+  fontSize?: number;
+  lineHeight?: number;
+};
 
 export enum LayoutMode {
   NORMAL       = 0b000,
@@ -147,10 +158,11 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function preset(style: Style, constraints: Constraints, type: Result['type'], global: Global, pc?: ComputedStyle, ps?: Style) {
+export function preset(node: AbstractNode, constraints: Constraints, type: Result['type'], global: Global, pc?: ComputedStyle, ps?: Style) {
+  const style = node.style;
   const res: any = {
     type,
-    rects: type === 'box' ? null : [],
+    frags: type === 'box' ? null : [],
     x: constraints.cx,
     y: constraints.cy,
     w: 0,
@@ -269,10 +281,15 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
       res[k] = Math.max(0, v * res.fontSize);
     }
     else if (k === 'lineHeight' && u === Unit.INHERIT) {
-      res[k] = pc?.lineHeight || 24;
+      res[k] = pc?.lineHeight || calNormalLineHeight(res.fontFamily, res.fontSize);
     }
     else if (k === 'lineHeight') {
-      res[k] = Math.max(0, calLength(style[k], pc?.lineHeight || 24, global.rem, res.fontSize));
+      if (v <= 0 || u === Unit.AUTO) {
+        res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
+      }
+      else {
+        res[k] = calLength(style[k], pc?.lineHeight || 24, global.rem, res.fontSize);
+      }
     }
     else {
       res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
@@ -303,11 +320,14 @@ export function preset(style: Style, constraints: Constraints, type: Result['typ
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(style: Style, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style, res?: Box) {
+export function block(node: Node, constraints: Constraints, global: Global,
+                      lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style, res?: Box) {
   if (!res) {
-    res = preset(style, constraints, 'box', global, pc, ps) as Box;
+    res = preset(node, constraints, 'box', global, pc, ps) as Box;
     res.type = 'box';
   }
+  node.result = res;
+  const style = node.style;
   // 返回递归的供子节点使用
   const ox = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
   const oy = constraints.cy + res.marginTop + res.paddingTop + res.borderTopWidth;
@@ -337,63 +357,71 @@ export function block(style: Style, constraints: Constraints, global: Global, pc
   // 父级约束x归零
   constraints.cx = constraints.ox;
   constraints.cy = oy + res.h + res.marginBottom + res.paddingBottom + res.borderBottomWidth;
-  return { res, c };
+  return c;
 }
 
-export function inline(style: Style, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
-  const res = preset(style, constraints, 'inline', global, pc, ps) as Inline;
+export function inline(node: Node, constraints: Constraints, global: Global,
+                       lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
+  const res = preset(node, constraints, 'inline', global, pc, ps) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
   res.marginTop = res.marginBottom = 0;
+  node.result = res;
   // 修改当前的，inline复用
   constraints.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+  lbc?.addInline(node, constraints.cx, constraints.cy);
+}
+
+export function inlineBlock(node: Node, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
+  const res = preset(node, constraints, 'box', global, pc, ps) as Box;
   return { res, c: constraints };
 }
 
-export function inlineBlock(style: Style, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
-  const res = preset(style, constraints, 'box', global, pc, ps) as Box;
-  return { res, c: constraints };
-}
-
-export function text(style: Style, constraints: Constraints, content: string, global: Global, pc?: ComputedStyle, ps?: Style) {
+export function text(node: TextNode, constraints: Constraints, global: Global,
+                     lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(style, constraints, 'text', global, pc, ps) as Text;
+  const style = node.style;
+  const res = preset(node, constraints, 'text', global, pc, ps) as Text;
+  node.result = res;
   // inline的上下margin无效
   res.marginTop = res.marginBottom = 0;
   let cx = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
   let cy = constraints.cy;
   let aw = constraints.aw;
   let maxW = 0;
-  let lineBox: LineBox<TextBox> = {
-    x: cx,
-    y: cy,
-    w: 0,
-    h: 0,
-    baseline: 0,
-    list: [],
-  };
-  const lineBoxes: LineBox<TextBox>[] = [lineBox];
+  const frags: TextBox[] = res.frags;
+  const content = node.content;
   let i = 0;
   let length = content.length;
-  // 使用一种预测字符长度的技术，结合2分查找，减少调用measureText的次数
+  // 遇到换行符手动标识
+  let newLine = false;
+  // 循环获取满足宽度下的字符串
   while (i < length) {
-    if (isEnter(content[i])) {
+    if (lineBreak.test(content[i])) {
+      // 连续的换行符，每个产生一个空行
+      if (newLine) {
+        addEmptyLine(cx,cy,res.lineHeight, node, frags, lbc);
+      }
+      // 后续普通的字符自动用新的行y坐标，如果这是最后一个字符，后面逻辑识别生成新行
+      newLine = true;
       i++;
       cx = constraints.ox;
       cy += res.lineHeight;
+      continue;
     }
+    // 置false，前面假如有换行已经设置好换行坐标了，新的内容用这个坐标即可
+    newLine = false;
+    // 使用一种预测字符长度的技术，结合2分查找，减少调用measureText的次数
     const {
       num,
       width,
-      newLine,
-      baseline,
+      breakLine,
     } = smartMeasure(
       measureText,
       content,
       i,
-      length,
       aw,
       style.fontFamily,
       res.fontSize,
@@ -407,62 +435,59 @@ export function text(style: Style, constraints: Constraints, content: string, gl
       y: cy,
       w: width,
       h: res.lineHeight,
-      baseline,
       content: content.slice(i, num),
     };
+    frags.push(textBox);
     i += num;
-    lineBox.w = textBox.x + width - lineBox.x;
-    lineBox.list.push(textBox);
-    maxW = Math.max(maxW, lineBox.w);
-    // 每行按baseline对齐
-    if (newLine || i === length) {
-      let baseline = 0;
-      lineBox.list.forEach(textBox => {
-        baseline = Math.max(baseline, textBox.baseline);
-      });
-      lineBox.baseline = baseline;
-      lineBox.list.forEach(textBox => {
-        const d = baseline - textBox.baseline;
-        textBox.y += d;
-        lineBox.h = Math.max(lineBox.h, textBox.y - lineBox.y + textBox.h);
-      });
-    }
-    if (newLine) {
+    lbc?.addBox(textBox, node);
+    maxW = Math.max(maxW, textBox.w);
+    if (breakLine) {
+      lbc?.endLine();
       cx = constraints.ox;
       cy += res.lineHeight;
       // 新开一行
       if (i < length) {
-        lineBox = {
-          x: cx,
-          y: cy,
-          w: 0,
-          h: 0,
-          baseline: 0,
-          list: [],
-        };
-        lineBoxes.push(lineBox);
+        lbc?.newLine(cx, cy);
       }
     }
     else {
       cx = textBox.x + textBox.w;
     }
   }
+  // 最后一个换行符手动空行
+  if (newLine) {
+    addEmptyLine(cx,cy,res.lineHeight, node, frags, lbc);
+  }
   res.w = maxW;
-  const last = lineBox;
+  const last = frags[frags.length - 1]!;
   res.h = last.y + last.h - constraints.cy;
-  res.rects = lineBoxes;
   // 没有子节点不需要产生新的递归约束，但要修改父级约束当前位置
   constraints.cx = cx;
   constraints.cy = cy;
-  return { res, c: constraints };
 }
 
-export function oofText(style: Style, constraints: Constraints, content: string, global: Global, pc: ComputedStyle, ps: Style) {
+function addEmptyLine(cx: number, cy: number, h: number, node: AbstractNode, frags: TextBox[], lbc?: LineBoxContext) {
+  const empty: TextBox = {
+    x: cx,
+    y: cy,
+    w: 0,
+    h,
+    content: '\n', // 统一标准化
+  };
+  frags.push(empty);
+  if (lbc) {
+    lbc.newLine(cx, cy);
+    lbc.addBox(empty, node);
+    lbc.endLine();
+  }
+}
+
+export function oofText(node: AbstractNode, constraints: Constraints, content: string, global: Global, pc: ComputedStyle, ps: Style) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(style, constraints, 'text', global, pc, ps) as Text;
+  const res = preset(node, constraints, 'text', global, pc, ps) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求
   const list = content.split(/[\n\u2028]/);
@@ -532,7 +557,13 @@ export function oofText(style: Style, constraints: Constraints, content: string,
 }
 
 export function getMbpH(res: ComputedStyle) {
-  return res.marginLeft + res.marginRight
-    + res.borderLeftWidth + res.borderRightWidth
-    + res.paddingLeft + res.paddingRight;
+  return getMbpLeft(res) + getMbpRight(res);
+}
+
+export function getMbpLeft(res: ComputedStyle) {
+  return res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+}
+
+export function getMbpRight(res: ComputedStyle) {
+  return res.marginRight + res.borderRightWidth + res.paddingRight;
 }

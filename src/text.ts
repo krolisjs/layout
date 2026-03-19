@@ -23,9 +23,10 @@ export function setMeasureText(mt: MeasureText) {
 }
 
 export type FontMetrics = {
-  blr: number;
-  car: number;
-  lgr: number;
+  blr: number; // baseline
+  car: number; // contentArea
+  lgr: number; // lineGap
+  xhr?: number; // xHeight，verticalAlign在middle时用，有近似值
 }
 
 export type MetricizeFont = (fontFamily: string) => FontMetrics;
@@ -41,8 +42,23 @@ export function setMetricizeFont(mf: MetricizeFont) {
 }
 
 export function isEnter(s: string) {
-  return s === '\n' || s === '\u2028';
+  return s === '\n' || s === '\u2028' || s === '\u2029';
 }
+
+function regexIndexOf(str: string, regex: RegExp, startPos = 0) {
+  // 确保正则带有 'g' 标志，以便我们可以控制 lastIndex
+  const internalRegex = new RegExp(
+    regex.source,
+    regex.flags.includes('g') ? regex.flags : regex.flags + 'g'
+  );
+
+  internalRegex.lastIndex = startPos;
+  const match = internalRegex.exec(str);
+
+  return match ? match.index : -1;
+}
+
+export const lineBreak = /[\n\r\u2028\u2029]/;
 
 export const CJK_REG_EXTENDED = /[\u4E00-\u9FFF\u3400-\u4DBF\u3040-\u30FF\uAC00-\uD7AF\u3000-\u303F\uFF00-\uFFEF]|\uD840[\uDC00-\uDFFF]|[\uD841-\uD87A][\uDC00-\uDFFF]|\uD87B[\uDC00-\uDEAF]/u;
 
@@ -51,7 +67,6 @@ export function smartMeasure(
   measureText: MeasureText,
   content: string,
   start: number,
-  length: number,
   aw: number,
   fontFamily: string,
   fontSize: number,
@@ -60,11 +75,16 @@ export function smartMeasure(
   fontStyle = FontStyle.NORMAL,
   letterSpacing = 0,
 ) {
+  const length = content.length;
   const pw = fontSize * 0.8 + letterSpacing;
   let i = start,
     j = length,
     width = 0,
-    newLine = false;
+    breakLine = false;
+  const n = regexIndexOf(content, lineBreak, start);
+  if (n > -1) {
+    j = n;
+  }
   // 没有letterSpacing或者是svg模式可以完美获取TextMetrics
   let hypotheticalNum = Math.round(aw / pw);
   // 不能增长0个字符，至少也要1个
@@ -72,8 +92,8 @@ export function smartMeasure(
     hypotheticalNum = 1;
   }
   // 超过内容长度范围也不行
-  else if (hypotheticalNum > length - start) {
-    hypotheticalNum = length - start;
+  else if (hypotheticalNum > j) {
+    hypotheticalNum = j;
   }
   let mt: TextMeasures;
   // 类似2分的一个循环
@@ -90,13 +110,13 @@ export function smartMeasure(
     let mw = mt.width;
     if (mw === aw) {
       width = aw;
-      newLine = true;
+      breakLine = true;
       break;
     }
     // 超出，设置右边界，并根据余量推测减少个数，
     // 因为精度问题，固定宽度或者累加的剩余空间，不用相等判断，而是为原本w宽度加一点点冗余1e-10
     if (mw > aw + 1e-9) {
-      newLine = true;
+      breakLine = true;
       // 限制至少1个
       if (hypotheticalNum === 1) {
         width = mw;
@@ -134,48 +154,26 @@ export function smartMeasure(
       }
     }
   }
-  // 查看是否有换行，防止字符串过长indexOf无效查找
-  for (let i = start, len = start + hypotheticalNum; i < len; i++) {
-    if (isEnter(content[i])) {
-      hypotheticalNum = i - start; // 遇到换行数量变化，不包含换行，强制newLine为false，换行在主循环
-      mt = measureText(
-        content.slice(start, start + hypotheticalNum),
-        fontFamily,
-        fontSize,
-        lineHeight,
-        fontWeight,
-        fontStyle,
-        letterSpacing,
-      );
-      width = mt.width;
-      newLine = false;
-      return { num: hypotheticalNum, width, newLine };
-    }
-  }
   // 末尾是英文或数字时，本行前面有空格或者CJK，需要把末尾英文数字放到下一行
-  if ((start + hypotheticalNum) < length &&
-    /[\w.-]/.test(content[start + hypotheticalNum - 1])) {
-    for (let i = start + hypotheticalNum - 2; i > start; i--) {
-      if (!/[\w.-]/.test(content[i])) {
-        hypotheticalNum = i - start + 1;
-        mt = measureText(
-          content.slice(start, start + hypotheticalNum),
-          fontFamily,
-          fontSize,
-          lineHeight,
-          fontWeight,
-          fontStyle,
-          letterSpacing,
-        );
-        width = mt.width;
-        newLine = true;
-        return { num: hypotheticalNum, width, newLine };
-      }
-    }
-  }
-  // 下一个字符是回车，强制忽略换行，外层循环识别
-  if (isEnter(content[start + hypotheticalNum])) {
-    newLine = false;
-  }
-  return { num: hypotheticalNum, width, newLine };
+  // if ((start + hypotheticalNum) < length &&
+  //   /[\w.-]/.test(content[start + hypotheticalNum - 1])) {
+  //   for (let i = start + hypotheticalNum - 2; i > start; i--) {
+  //     if (!/[\w.-]/.test(content[i])) {
+  //       hypotheticalNum = i - start + 1;
+  //       mt = measureText(
+  //         content.slice(start, start + hypotheticalNum),
+  //         fontFamily,
+  //         fontSize,
+  //         lineHeight,
+  //         fontWeight,
+  //         fontStyle,
+  //         letterSpacing,
+  //       );
+  //       width = mt.width;
+  //       newLine = true;
+  //       return { num: hypotheticalNum, width, newLine };
+  //     }
+  //   }
+  // }
+  return { num: hypotheticalNum, width, breakLine };
 }

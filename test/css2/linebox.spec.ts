@@ -13,14 +13,15 @@ describe('linebox', () => {
     const node = genNode({
       style: { fontSize: 40, lineHeight: 1 },
       children: [
-        { content: 'shuldboverlaPPed\n' },
+        { style: { lineHeight: 1 }, content: 'shuldboverlaPPed\n' },
         {
           style: {
             display: 'inline',
             borderTopWidth: 15,
             paddingTop: 25,
+            lineHeight: 1,
           },
-          children: [ { content: 'Filler text' } ],
+          children: [ { style: { lineHeight: 1 }, content: 'Filler text' } ],
         },
       ],
     });
@@ -29,13 +30,13 @@ describe('linebox', () => {
       x: 0,
       y: 0,
       w: 10000,
-      h: 120,
+      h: 80,
       lineHeight: 40,
       letterSpacing: 0,
     });
     expect(node.children[1].result).toMatchObject({
       x: 0,
-      y: 80,
+      y: 40,
       w: 440,
       h: 40,
       paddingTop: 25,
@@ -48,10 +49,10 @@ describe('linebox', () => {
       borderLeftWidth: 0,
       lineHeight: 40,
       letterSpacing: 0,
-      rects: [
+      frags: [
         {
           x: 0,
-          y: 80,
+          y: 40,
           w: 440,
           h: 40,
         },
@@ -73,6 +74,49 @@ describe('linebox', () => {
     expect(node.children[0].result).toMatchObject({
       x: 0,
       y: 0,
+      w: 0,
+      h: 0,
+    });
+  });
+
+  it('empty-inline-002', () => {
+    const node = genNode({
+      style: {
+        marginTop: 100,
+      },
+      children: [{
+        style: {
+          width: 500,
+          borderTopWidth: 25,
+          borderRightWidth: 25,
+          borderBottomWidth: 25,
+          borderLeftWidth: 25,
+        },
+        children: [
+          {
+            style: {
+              display: 'inline',
+              marginTop: 100,
+              marginRight: 100,
+              marginBottom: 100,
+              marginLeft: 100,
+              paddingTop: 100,
+              paddingRight: 100,
+              paddingBottom: 100,
+              paddingLeft: 100,
+              borderTopWidth: 25,
+              borderRightWidth: 25,
+              borderBottomWidth: 25,
+              borderLeftWidth: 25,
+            },
+          },
+        ],
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].children[0].result).toMatchObject({
+      x: 250,
+      y: 125,
       w: 0,
       h: 0,
     });
@@ -103,7 +147,7 @@ describe('linebox', () => {
       borderRightWidth: 2,
       borderBottomWidth: 2,
       borderLeftWidth: 2,
-      rects: [
+      frags: [
         {
           x: 2,
           y: 0,
@@ -124,7 +168,7 @@ describe('linebox', () => {
       y: 24,
       w: 192,
       h: 24,
-      rects: null,
+      frags: null,
       type: 'box',
     });
   });
@@ -156,7 +200,7 @@ describe('linebox', () => {
       borderRightWidth: 2,
       borderBottomWidth: 2,
       borderLeftWidth: 2,
-      rects: [
+      frags: [
         {
           x: 2,
           y: 192,
@@ -175,6 +219,55 @@ describe('linebox', () => {
       x: 0,
       y: 216,
       w: 192,
+      h: 24,
+    });
+  });
+
+  it('inline-formatting-context-001', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            display: 'inline',
+          },
+          children: [
+            {
+              content: '1234567890',
+            },
+          ],
+        },
+        {
+          style: {
+            display: 'inline',
+          },
+          children: [
+            {
+              content: '1234567890',
+            },
+          ],
+        },
+        {
+          style: {
+            display: 'inline',
+          },
+          children: [
+            {
+              content: '1234567890',
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.result).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 24,
+    });
+    expect(node.children[2].result).toMatchObject({
+      x: 320,
+      y: 0,
+      w: 160,
       h: 24,
     });
   });

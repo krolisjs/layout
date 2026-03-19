@@ -25,6 +25,7 @@ describe('positioning', () => {
           },
           children: [
             {
+              style: { lineHeight: 1 },
               content: 'X',
             },
           ],

@@ -1,5 +1,5 @@
 import type { JStyle } from '../dist/index.js';
-import { AbstractNode, Node, setMeasureText, TextNode } from '../dist/index.js';
+import { AbstractNode, Node, setMeasureText, setMetricizeFont, TextNode } from '../dist/index.js';
 
 type Item = {
   style?: Partial<JStyle>;
@@ -30,11 +30,16 @@ export function genNode(item: Item) {
 
 export function createTestInputConstraints() {
   setMeasureText((content: string, fontFamily: string, fontSize: number, lineHeight: number) => {
-    // 这里的参数类型可以利用 TS 自动推导，不用全写一遍
     return {
       width: fontSize * content.length,
       height: lineHeight,
-      baseline: lineHeight - 1,
+    };
+  });
+  setMetricizeFont((fontFamily: string) => {
+    return {
+      blr: 0.875,
+      car: 1,
+      lgr: 1.5,
     };
   });
   return { aw: 10000, ah: 10000 };
