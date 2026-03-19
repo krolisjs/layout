@@ -131,7 +131,7 @@ describe('css-position', () => {
     expect(node.children[1].result).toMatchObject({
       x: 0,
       y: 0,
-      w: 352,
+      w: 416,
       h: 58,
       frags: [
         { x: 176, y: 0, w: 240, h: 24 },
@@ -153,7 +153,7 @@ describe('css-position', () => {
     expect(node.children[1].children[2].result).toMatchObject({
       x: 176,
       y: 0,
-      w: 240,
+      w: 32,
       h: 58,
     });
     expect(node.children[1].children[3].result).toMatchObject({

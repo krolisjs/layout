@@ -275,7 +275,6 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       // 可能存在prev的inlineBox最后一行对齐
       if (lbc.endLine()) {
-        lbc.computeFrags();
         const current = lbc.current;
         constraints.cx = constraints.ox;
         constraints.cy = current.y + current.h;
@@ -342,12 +341,12 @@ export abstract class AbstractNode implements ITypeNode {
         constraints.cx = constraints.ox;
         constraints.cy = result.y + result.h + result.marginBottom + result.borderBottomWidth + result.paddingBottom;
         // block所属的开始新行，同时应为block可能导致父级inline中断撑开，设置最大宽的
-        lbc.endLine();
         lbc.newLine(constraints.cx, constraints.cy);
         lbc.setMaxW(result.w + getMbpH(result));
       }
       // 特殊时机，root的inline节点需要在absolute前执行计算
-      if (this === global.root) {
+      if (this === global.root && this.style.display === Display.INLINE) {
+        lbc.endLine();
         lbc.computeFrags();
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局

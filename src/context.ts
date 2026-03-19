@@ -82,11 +82,13 @@ export class LineBoxContext {
   addBox(lbi: LineBoxItem, node: AbstractNode) {
     const list = this.current!.list;
     list.push({ lbi, node });
-    // 需要遍历当前inline的占位符，重设它们的宽度
-    const currentInline = this.currentInline;
-    for (let i = 0, len = currentInline.length; i < len; i++) {
-      const lbi2 = currentInline[i].lbi;
-      lbi2.w = lbi.x + lbi.w - lbi2.x;
+    // 需要遍历当前inline的占位符，重设它们的宽度，当前inline节点的最后一行就是
+    const nodeStack = this.nodeStack;
+    for (let i = 0, len = nodeStack.length; i < len; i++) {
+      const result = nodeStack[i].result as Inline;
+      const frags = result.frags;
+      const last = frags[frags.length - 1];
+      last.w = lbi.x + lbi.w - last.x;
     }
     this.hasEnd = false;
   }
@@ -112,6 +114,9 @@ export class LineBoxContext {
     if (!this.hasEnd) {
       const current = this.current;
       const list = current.list;
+      if (!list.length) {
+        return false;
+      }
       const currentInline = this.currentInline;
       const node = this.node;
       // 剪枝优化，无需对齐也就无需获取baseline等字体度量信息，注意可能block没有子inline或内容
@@ -128,7 +133,7 @@ export class LineBoxContext {
     return false;
   }
 
-  // lbc结束时调用，汇总计算inline的尺寸
+  // lbc结束时调用，汇总计算inline的尺寸，也可能是子block导致的换行时调用
   computeFrags() {
     const currentInline = this.currentInline;
     for (let i = 0, len = currentInline.length; i < len; i++) {
@@ -146,7 +151,7 @@ export class LineBoxContext {
           const item = frags[i];
           minX = Math.min(minX, item.x);
           minY = Math.min(minY, item.y);
-          maxX = Math.max(minX, item.x + item.w);
+          maxX = Math.max(maxX, item.x + item.w);
           maxY = Math.max(maxY, item.y + item.h);
         }
         result.x = minX;
