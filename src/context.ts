@@ -1,14 +1,14 @@
-import { getMbpRight } from './layout';
+import { getMbpRight } from './compute';
 import type { Inline, LineBoxItem } from './layout';
 import { VerticalAlign } from './style';
-import { AbstractNode } from './node';
+import type { INode, ITypeNode } from './node';
 
 type ListItem = {
-  node: AbstractNode;
+  node: ITypeNode;
   lbi: LineBoxItem;
 };
 
-type InlineListItem = ListItem & { max?: number };
+type InlineListItem = ListItem & { maxX?: number, maxY?: number };
 
 export class LineBox {
   readonly x: number;
@@ -30,11 +30,11 @@ export class LineBoxContext {
   current: LineBox; // 当前行，即最后一行
   readonly currentInline: InlineListItem[] = [];
   hasEnd = true; // 当前行添加新的区块，需要重新对齐的标识
-  readonly nodeStack: AbstractNode[] = []; // 随着inline父子嵌套递归，记录当前所有inline节点，不包含叶子text节点
-  readonly node?: AbstractNode; // 所属的block节点，强制每行baseline对齐
+  readonly nodeStack: INode[] = []; // 随着inline父子嵌套递归，记录当前所有inline节点，不包含叶子text节点
+  readonly node?: ITypeNode; // 所属的block节点，强制每行baseline对齐
   baseline = -1; // 上述节点的隐式支柱，用到时初始化一次
 
-  constructor(x: number, y: number, node?: AbstractNode) {
+  constructor(x: number, y: number, node?: ITypeNode) {
     // block节点内部最初生成首行，是个空行，等后续子节点添加
     this.current = new LineBox(x, y);
     this.lineBoxes.push(this.current);
@@ -46,10 +46,11 @@ export class LineBoxContext {
    * 同时向当前行添加一个占位，以便真实叶子结点为当前行添加内容时，扩展这些inline行的宽度；
    * 等待换行或者结束时，再进行对齐操作，产生换行时，新的行能知道当前有哪些inline节点还在。
    */
-  addInline(node: AbstractNode, x: number, y: number) {
+  addInline(node: INode, x: number, y: number) {
     const lineHeight = node.result!.lineHeight;
     const lbi = { x, y, w: 0, h: lineHeight };
-    (node.result as Inline).frags.push(lbi);
+    const res = node.result as Inline;
+    res.frags.push(lbi);
     this.currentInline.push({ node, lbi });
     this.nodeStack.push(node);
   }
@@ -79,7 +80,7 @@ export class LineBoxContext {
   }
 
   // 叶子节点调用，如text，真正添加内容
-  addBox(lbi: LineBoxItem, node: AbstractNode) {
+  addBox(lbi: LineBoxItem, node: ITypeNode) {
     const list = this.current!.list;
     list.push({ lbi, node });
     // 需要遍历当前inline的占位符，重设它们的宽度，当前inline节点的最后一行就是
@@ -115,7 +116,7 @@ export class LineBoxContext {
       const current = this.current;
       const list = current.list;
       if (!list.length) {
-        return false;
+        return;
       }
       const currentInline = this.currentInline;
       const node = this.node;
@@ -124,13 +125,13 @@ export class LineBoxContext {
         if (list.length) {
           current.h = list[0].lbi.h;
         }
-        return true;
+        return;
       }
       // TODO 处理支柱和每个inline的对齐
-      return true;
+      // return true;
     }
     this.hasEnd = true;
-    return false;
+    // return false;
   }
 
   // lbc结束时调用，汇总计算inline的尺寸，也可能是子block导致的换行时调用
@@ -160,22 +161,22 @@ export class LineBoxContext {
         result.h = Math.max(result.h, maxY - minY);
       }
       // 处理可能被子block撑开的逻辑，block一定是新行
-      if (item.max !== undefined) {
-        result.w = Math.max(result.w, item.max);
+      if (item.maxX !== undefined) {
+        result.w = Math.max(result.w, item.maxX - result.x);
       }
     }
   }
 
   // inline的子block可能会撑开，记录下来
-  setMaxW(x: number) {
+  setMaxX(x: number) {
     const currentInline = this.currentInline;
     for (let i = 0, len = currentInline.length; i < len; i++) {
       const item = currentInline[i];
-      if (item.max === undefined) {
-        item.max = x;
+      if (item.maxX === undefined) {
+        item.maxX = x;
       }
       else {
-        item.max = Math.max(item.max, x);
+        item.maxX = Math.max(item.maxX, x);
       }
     }
   }
@@ -186,7 +187,7 @@ export class LineBoxContext {
  * 如果全相等不用对齐，因为高度完全一致，任何对齐都没有作用；
  * 不相等需要根据每个节点自身的verticalAlign处理，强制和支柱的baseline进行对齐。
  */
-function getNeedVerticalAlign(list: ListItem[], currentInline: ListItem[], node?: AbstractNode) {
+function getNeedVerticalAlign(list: ListItem[], currentInline: ListItem[], node?: ITypeNode) {
   const ff: Record<string, boolean> = {};
   const fs: Record<number, boolean> = {};
   const lh: Record<number, boolean> = {};

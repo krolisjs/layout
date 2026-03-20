@@ -2,7 +2,6 @@ import { LineBoxContext } from './context';
 import { LayoutMode, normalizeConstraints } from './layout';
 import type {
   Box,
-  ComputedStyle,
   Constraints,
   Inline,
   InputConstraints,
@@ -32,6 +31,7 @@ import {
   normalizeStyle,
 } from './style';
 import type {
+  ComputedStyle,
   CssFontSize,
   CssLength,
   Length,

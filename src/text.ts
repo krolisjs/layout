@@ -41,10 +41,6 @@ export function setMetricizeFont(mf: MetricizeFont) {
   metricizeFont = mf;
 }
 
-export function isEnter(s: string) {
-  return s === '\n' || s === '\u2028' || s === '\u2029';
-}
-
 function regexIndexOf(str: string, regex: RegExp, startPos = 0) {
   // 确保正则带有 'g' 标志，以便我们可以控制 lastIndex
   const internalRegex = new RegExp(

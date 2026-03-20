@@ -1,4 +1,4 @@
-import type { JStyle, Style } from './style';
+import type { ComputedStyle, JStyle, Style } from './style';
 import {
   BoxSizing,
   calLength,
@@ -16,11 +16,10 @@ import type {
   Inline,
   InputConstraints,
   Result,
+  Text,
 } from './layout';
 import {
   block,
-  ComputedStyle,
-  getMbpH,
   inline,
   LayoutMode,
   MarginStruct,
@@ -30,30 +29,50 @@ import {
   text,
 } from './layout';
 import { LineBoxContext } from './context';
+import {
+  getMbpH,
+  getMbpRight,
+} from './compute';
 
 export enum NodeType {
   Node = 0,
   Text = 1,
+  IMG = 2,
 }
 
 export interface ITypeNode {
+  readonly id: number;
   readonly nodeType: NodeType;
+  readonly style: Style;
+  readonly children: ITypeNode[];
+  parent: INode | null;
+  prev: ITypeNode | null;
+  next: ITypeNode | null;
+  result: Result | null;
+  layAbs(constraints: Constraints, oofMap: WeakMap<ITypeNode, Oof[]>, global: Global): void;
 }
 
 export interface INode extends ITypeNode {
   readonly nodeType: NodeType.Node;
+  constraints: Constraints | null;
 }
 
 export interface ITextNode extends ITypeNode {
   readonly nodeType: NodeType.Text;
   content: string;
+  result: Text | null;
 }
 
-export type IAllNode = INode | ITextNode;
+export interface IImgNode extends ITypeNode {
+  readonly nodeType: NodeType.IMG;
+  src: string;
+
+}
+export type IAllNode = INode | ITextNode | IImgNode;
 
 type Oof = {
-  node: AbstractNode;
-  parent: AbstractNode;
+  node: ITypeNode;
+  parent?: INode;
   cx: number;
   cy: number;
 };
@@ -63,12 +82,11 @@ let id = 0;
 export abstract class AbstractNode implements ITypeNode {
   readonly id = id++;
   readonly nodeType: NodeType;
-  style: Style;
+  readonly style: Style;
   readonly children: AbstractNode[] = [];
   parent: Node | null = null;
   prev: AbstractNode | null = null;
   next: AbstractNode | null = null;
-  inputConstraints: InputConstraints | null = null;
   constraints: Constraints | null = null; // block本身产生的约束，传给children
   result: Result | null = null; // 布局结果
   lbc: LineBoxContext | null = null; // block本身产生的行级上下文管理，传给children
@@ -119,7 +137,6 @@ export abstract class AbstractNode implements ITypeNode {
   }
 
   lay(inputConstraints: InputConstraints) {
-    this.inputConstraints = inputConstraints;
     const root = getRoot(this);
     if (root !== this) {
       throw new Error('Cannot call lay() on a non-root node.');
@@ -156,28 +173,26 @@ export abstract class AbstractNode implements ITypeNode {
    * @param ps parentStyle，子节点继承style需要
    // * @param prevFlow 流的兄弟节点，遇到absolute跳过
    */
-  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<AbstractNode, Oof[]>, global: Global,
+  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<ITypeNode, Oof[]>, global: Global,
           ms: MarginStruct, lbc: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
     const b = this.begin(constraints, layoutMode, global, lbc, pc, ps);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
-      const n = this.getContainingBlockNode() || { parent: global.root, hook: global.root };
-      if (n) {
-        let list: Oof[];
-        if (oofMap.has(n.hook)) {
-          list = oofMap.get(n.hook)!;
-        }
-        else {
-          list = [];
-          oofMap.set(n.hook, list);
-        }
-        list.push({
-          node: this,
-          parent: n.parent,
-          cx: constraints.cx,
-          cy: constraints.cy,
-        });
+      const n = this.getContainingBlockNode() || { hook: global.root, parent: undefined };
+      let list: Oof[];
+      if (oofMap.has(n.hook)) {
+        list = oofMap.get(n.hook)!;
       }
+      else {
+        list = [];
+        oofMap.set(n.hook, list);
+      }
+      list.push({
+        node: this,
+        parent: n.parent,
+        cx: constraints.cx,
+        cy: constraints.cy,
+      });
       return;
     }
     const res = this.result!;
@@ -215,7 +230,7 @@ export abstract class AbstractNode implements ITypeNode {
     // block创建新的上下文管理行元素，传给children；inline则继续复用
     let newLbc: LineBoxContext | undefined;
     if (res.type === 'box' || res.type === 'inlineBox') {
-      newLbc = new LineBoxContext(this.constraints.cx, this.constraints.cy, this);
+      newLbc = new LineBoxContext(this.constraints.cx, this.constraints.cy, this as INode);
       this.lbc = newLbc;
     }
     // 先序遍历递归
@@ -274,11 +289,10 @@ export abstract class AbstractNode implements ITypeNode {
     // }
     else {
       // 可能存在prev的inlineBox最后一行对齐
-      if (lbc.endLine()) {
-        const current = lbc.current;
-        constraints.cx = constraints.ox;
-        constraints.cy = current.y + current.h;
-      }
+      lbc.endLine();
+      const current = lbc.current;
+      constraints.cx = constraints.ox;
+      constraints.cy = current.y + current.h;
       const n = this as unknown as Node;
       c = block(n, constraints, global, lbc, pc, ps);
     }
@@ -302,13 +316,11 @@ export abstract class AbstractNode implements ITypeNode {
       else {
         const c = this.constraints!;
         const lbc2 = this.lbc!;
-        // 可能存在的inline子节点当前行结束并对齐
-        if (lbc2.endLine()) {
-          const current = lbc2.current;
-          lbc2.computeFrags();
-          c.cx = c.ox;
-          c.cy = current.y + current.h;
-        }
+        lbc2.endLine();
+        const current = lbc2.current;
+        lbc2.computeFrags();
+        c.cx = c.ox;
+        c.cy = current.y + current.h;
         // 自动高度，以及%高度但父级是auto
         if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
           result.h = c.cy - c.oy;
@@ -342,7 +354,7 @@ export abstract class AbstractNode implements ITypeNode {
         constraints.cy = result.y + result.h + result.marginBottom + result.borderBottomWidth + result.paddingBottom;
         // block所属的开始新行，同时应为block可能导致父级inline中断撑开，设置最大宽的
         lbc.newLine(constraints.cx, constraints.cy);
-        lbc.setMaxW(result.w + getMbpH(result));
+        lbc.setMaxX(result.x + result.w + getMbpRight(result));
       }
       // 特殊时机，root的inline节点需要在absolute前执行计算
       if (this === global.root && this.style.display === Display.INLINE) {
@@ -353,23 +365,31 @@ export abstract class AbstractNode implements ITypeNode {
       if (oofMap.has(this)) {
         const list = oofMap.get(this)!;
         list.forEach((item) => {
-          const result = item.parent.result!;
           let x: number, y: number, pbw: number, pbh: number;
-          // inline的包围块特殊逻辑，以首尾行为准
-          if (result.type === 'inline') {
-            const frags = result.frags;
-            const start = frags[0];
-            const end = frags[frags.length - 1];
-            x = start.x;
-            y = start.y;
-            pbw = end.x + end.w - start.x + result.paddingRight + result.paddingLeft;
-            pbh = end.y + end.h - start.y + result.paddingTop + result.paddingBottom;
+          if (item.parent) {
+            const result = item.parent.result!;
+            // inline的包围块特殊逻辑，以首尾行为准
+            if (result.type === 'inline') {
+              const frags = result.frags;
+              const start = frags[0];
+              const end = frags[frags.length - 1];
+              x = start.x;
+              y = start.y;
+              pbw = end.x + end.w - start.x + result.paddingRight + result.paddingLeft;
+              pbh = end.y + end.h - start.y + result.paddingTop + result.paddingBottom;
+            }
+            else {
+              x = result.x;
+              y = result.y;
+              pbw = result.w + result.paddingLeft + result.paddingRight;
+              pbh = result.h + result.paddingTop + result.paddingBottom;
+            }
           }
+          // 相当于全局的absolute
           else {
-            x = result.x;
-            y = result.y;
-            pbw = result.w + result.paddingLeft + result.paddingRight;
-            pbh = result.h + result.paddingTop + result.paddingBottom;
+            x = y = 0;
+            pbw = global.w;
+            pbh = global.h;
           }
           const c: Constraints = {
             ox: x - result.paddingLeft,
@@ -384,15 +404,6 @@ export abstract class AbstractNode implements ITypeNode {
           // 可用尺寸以当前位置和end距离为准
           c.aw -= c.cx - c.ox;
           c.ah -= c.cy - c.oy;
-          // inline特殊，尺寸以首行和末行为边界
-          if (result.type === 'inline') {
-            const frags = result.frags;
-            if (frags.length) {
-              const first = frags[0];
-              c.ox = first.x - result.paddingLeft;
-              c.oy = first.y - result.paddingTop;
-            }
-          }
           // 获取到测量宽后，走一遍普通布局，inline要视作block
           item.node.layAbs(c, oofMap, global);
         });
@@ -455,9 +466,6 @@ export abstract class AbstractNode implements ITypeNode {
     const parent = this.parent!;
     const pr = parent.result!;
     const ps = parent.style;
-    // 怕beginOof影响cx/cy
-    constraints.cx = cx;
-    constraints.cy = cy;
     // 根据trbl确定最终尺寸
     const {
       boxSizing,
@@ -488,12 +496,13 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       const { min, max } = this.shrink2Fit(constraints, global, res, style);
       res.w = Math.max(min, Math.min(max, constraints.aw));
-      constraints.ah = constraints.aw - (left.u === Unit.AUTO ? cx : res.left) - res.right;
+      // constraints.aw = constraints.aw - (left.u === Unit.AUTO ? cx : res.left) - res.right;
     }
     if (height.u !== Unit.AUTO) {}
     else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
       res.h = constraints.pbh! - res.top - res.bottom - res.marginTop - res.marginBottom;
     }
+    else {}
     // 边距平分
     if (left.u !== Unit.AUTO && right.u !== Unit.AUTO && width.u !== Unit.AUTO) {
       const residual = constraints.aw - (res.left + res.right + res.w);
@@ -656,6 +665,7 @@ export abstract class AbstractNode implements ITypeNode {
         return { parent, hook: parent };
       }
       if (style.position === Position.RELATIVE) {
+        // inline的hook继续往上找非inline
         if ([Display.INLINE].includes(style.display)) {
           let hook = parent.parent;
           let root = parent;
@@ -673,12 +683,7 @@ export abstract class AbstractNode implements ITypeNode {
           return { parent, hook: parent };
         }
       }
-      if (parent.parent) {
-        parent = parent.parent;
-      }
-      else {
-        return { parent, hook: parent };
-      }
+      parent = parent.parent;
     }
   }
 }
@@ -744,6 +749,7 @@ export class Node extends AbstractNode {
 
 export class TextNode extends AbstractNode implements ITextNode {
   declare nodeType: NodeType.Text;
+  declare result: Text;
   content = '';
 
   constructor(content: string, style?: Partial<JStyle | Style>) {
@@ -752,8 +758,8 @@ export class TextNode extends AbstractNode implements ITextNode {
   }
 }
 
-function getRoot(item: AbstractNode) {
-  let parent: AbstractNode | null = item;
+function getRoot(item: ITypeNode) {
+  let parent: ITypeNode | null = item;
   let temp = item;
   while (parent) {
     temp = parent;

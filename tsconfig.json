@@ -13,6 +13,7 @@
     "skipLibCheck": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
     "lib": [
       "dom",
       "webworker",

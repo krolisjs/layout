@@ -1,5 +1,3 @@
-import { getMetricizeFont } from './text';
-
 export enum Display {
   NONE = 0,
   BLOCK = 1,
@@ -487,6 +485,35 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
   return 0;
 }
 
+export type ComputedStyle = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+  marginTop: number;
+  marginRight: number;
+  marginBottom: number;
+  marginLeft: number;
+  paddingTop: number;
+  paddingRight: number;
+  paddingBottom: number;
+  paddingLeft: number;
+  borderTopWidth: number;
+  borderRightWidth: number;
+  borderBottomWidth: number;
+  borderLeftWidth: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  fontStyle: FontStyle;
+  lineHeight: number;
+  letterSpacing: number;
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
+};
+
 export function isFixed(o: Length, includePercent = false) {
   if ([Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.CM, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u)) {
     return true;
@@ -495,20 +522,4 @@ export function isFixed(o: Length, includePercent = false) {
     return true;
   }
   return false;
-}
-
-export function calNormalLineHeight(fontFamily: string, fontSize: number) {
-  const metricizeFont = getMetricizeFont();
-  if (!metricizeFont) {
-    throw new Error('Text must be passed to the metricizeFont method.');
-  }
-  const m = metricizeFont(fontFamily);
-  return fontSize * m.lgr;
-}
-
-export function calBaseline(fontFamily: string, fontSize: number, lineHeight: number) {
-  const normal = calNormalLineHeight(fontFamily, fontSize);
-  const metricizeFont = getMetricizeFont();
-  const m = metricizeFont!(fontFamily);
-  return (lineHeight - normal) * 0.5 + fontSize * m.blr;
 }

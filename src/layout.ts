@@ -1,43 +1,16 @@
-import { BoxSizing, calLength, calNormalLineHeight, FontStyle, Style, Unit } from './style';
+import { BoxSizing, calLength, FontStyle, Unit } from './style';
+import type { ComputedStyle, Style } from './style';
 import {
   CJK_REG_EXTENDED,
   getMeasureText,
   lineBreak,
   smartMeasure,
 } from './text';
-import { AbstractNode, Node, TextNode } from './node';
+import type { INode, ITextNode, ITypeNode } from './node';
 import type { LineBoxContext } from './context';
+import { calNormalLineHeight } from './compute';
 
 export type Frag = { x: number; y: number; w: number; h: number };
-
-export type ComputedStyle = {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-  marginTop: number;
-  marginRight: number;
-  marginBottom: number;
-  marginLeft: number;
-  paddingTop: number;
-  paddingRight: number;
-  paddingBottom: number;
-  paddingLeft: number;
-  borderTopWidth: number;
-  borderRightWidth: number;
-  borderBottomWidth: number;
-  borderLeftWidth: number;
-  fontFamily: string;
-  fontSize: number;
-  fontWeight: number;
-  fontStyle: FontStyle;
-  lineHeight: number;
-  letterSpacing: number;
-  minWidth: number;
-  maxWidth: number;
-  minHeight: number;
-  maxHeight: number;
-};
 
 export type Box = {
   type: 'box',
@@ -84,7 +57,7 @@ export type LineBox<T extends LineBoxItem = LineBoxItem> = {
 export type Result = Box | InlineBox | Inline | Text;
 
 export type Global = {
-  root: AbstractNode,
+  root: ITypeNode,
   rem: number,
   w: number,
   h: number,
@@ -153,7 +126,7 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function preset(node: AbstractNode, constraints: Constraints, type: Result['type'], global: Global, pc?: ComputedStyle, ps?: Style) {
+export function preset(node: ITypeNode, constraints: Constraints, type: Result['type'], global: Global, pc?: ComputedStyle, ps?: Style) {
   const style = node.style;
   const res: any = {
     type,
@@ -315,7 +288,7 @@ export function preset(node: AbstractNode, constraints: Constraints, type: Resul
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(node: Node, constraints: Constraints, global: Global,
+export function block(node: INode, constraints: Constraints, global: Global,
                       lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style, res?: Box) {
   if (!res) {
     res = preset(node, constraints, 'box', global, pc, ps) as Box;
@@ -355,7 +328,7 @@ export function block(node: Node, constraints: Constraints, global: Global,
   return c;
 }
 
-export function inline(node: Node, constraints: Constraints, global: Global,
+export function inline(node: INode, constraints: Constraints, global: Global,
                        lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
   const res = preset(node, constraints, 'inline', global, pc, ps) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
@@ -366,13 +339,13 @@ export function inline(node: Node, constraints: Constraints, global: Global,
   lbc?.addInline(node, constraints.cx, constraints.cy);
 }
 
-export function inlineBlock(node: Node, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
+export function inlineBlock(node: INode, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
   const res = preset(node, constraints, 'box', global, pc, ps) as Box;
   return { res, c: constraints };
 }
 
-export function text(node: TextNode, constraints: Constraints, global: Global,
-                     lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
+export function text(node: ITextNode, constraints: Constraints, global: Global,
+                     lbc: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
@@ -434,15 +407,15 @@ export function text(node: TextNode, constraints: Constraints, global: Global,
     };
     frags.push(textBox);
     i += num;
-    lbc?.addBox(textBox, node);
+    lbc.addBox(textBox, node);
     maxW = Math.max(maxW, textBox.w);
     if (breakLine) {
-      lbc?.endLine();
+      lbc.endLine();
       cx = constraints.ox;
       cy += res.lineHeight;
       // 新开一行
       if (i < length) {
-        lbc?.newLine(cx, cy);
+        lbc.newLine(cx, cy);
       }
     }
     else {
@@ -461,7 +434,7 @@ export function text(node: TextNode, constraints: Constraints, global: Global,
   constraints.cy = cy;
 }
 
-function addEmptyLine(cx: number, cy: number, h: number, node: AbstractNode, frags: TextBox[], lbc?: LineBoxContext) {
+function addEmptyLine(cx: number, cy: number, h: number, node: ITypeNode, frags: TextBox[], lbc?: LineBoxContext) {
   const empty: TextBox = {
     x: cx,
     y: cy,
@@ -477,7 +450,7 @@ function addEmptyLine(cx: number, cy: number, h: number, node: AbstractNode, fra
   }
 }
 
-export function oofText(node: AbstractNode, constraints: Constraints, content: string, global: Global, pc: ComputedStyle, ps: Style) {
+export function oofText(node: ITextNode, constraints: Constraints, content: string, global: Global, pc: ComputedStyle, ps: Style) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
@@ -549,16 +522,4 @@ export function oofText(node: AbstractNode, constraints: Constraints, content: s
     }
   }
   return { min, max };
-}
-
-export function getMbpH(res: ComputedStyle) {
-  return getMbpLeft(res) + getMbpRight(res);
-}
-
-export function getMbpLeft(res: ComputedStyle) {
-  return res.marginLeft + res.borderLeftWidth + res.paddingLeft;
-}
-
-export function getMbpRight(res: ComputedStyle) {
-  return res.marginRight + res.borderRightWidth + res.paddingRight;
 }
