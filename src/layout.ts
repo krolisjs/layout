@@ -12,46 +12,31 @@ import { calNormalLineHeight } from './compute';
 
 export type Frag = { x: number; y: number; w: number; h: number };
 
+type BasicBox = Frag & ComputedStyle;
+
 export type Box = {
   type: 'box',
   frags: null,
-} & Frag & ComputedStyle;
+} & BasicBox;
 
 export type Inline = {
   type: 'inline',
   frags: Frag[],
-} & Frag & ComputedStyle;
+} & BasicBox;
 
 export type Text = {
   type: 'text',
   // 包含所有折行后的矩形，按行序排列
   frags: TextBox[];
-} & Frag & ComputedStyle;
+} & BasicBox;
 
 export type InlineBox = {
   type: 'inlineBox',
   frags: null,
-} & LineBoxItem & Frag & ComputedStyle;
+} & BasicBox;
 
-export type TextBox = LineBoxItem & {
+export type TextBox = Frag & {
   content: string;
-};
-
-export type LineBoxItem = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  // baseline: number;
-};
-
-export type LineBox<T extends LineBoxItem = LineBoxItem> = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  baseline: number;
-  list: T[];
 };
 
 export type Result = Box | InlineBox | Inline | Text;
@@ -370,13 +355,17 @@ export function text(node: ITextNode, constraints: Constraints, global: Global,
     if (lineBreak.test(content[i])) {
       // 连续的换行符，每个产生一个空行
       if (newLine) {
-        addEmptyLine(cx,cy,res.lineHeight, node, frags, lbc);
+        addEmptyLine(cx, cy, res.lineHeight, node, frags, lbc);
+        lbc.endLine();
       }
       // 后续普通的字符自动用新的行y坐标，如果这是最后一个字符，后面逻辑识别生成新行
       newLine = true;
       i++;
       cx = constraints.ox;
       cy += res.lineHeight;
+      if (newLine) {
+        lbc.newLine(cx, cy);
+      }
       continue;
     }
     // 置false，前面假如有换行已经设置好换行坐标了，新的内容用这个坐标即可
@@ -407,7 +396,7 @@ export function text(node: ITextNode, constraints: Constraints, global: Global,
     };
     frags.push(textBox);
     i += num;
-    lbc.addBox(textBox, node);
+    lbc.addText(textBox, node);
     maxW = Math.max(maxW, textBox.w);
     if (breakLine) {
       lbc.endLine();
@@ -424,7 +413,7 @@ export function text(node: ITextNode, constraints: Constraints, global: Global,
   }
   // 最后一个换行符手动空行
   if (newLine) {
-    addEmptyLine(cx,cy,res.lineHeight, node, frags, lbc);
+    addEmptyLine(cx, cy, res.lineHeight, node, frags, lbc);
   }
   res.w = maxW;
   const last = frags[frags.length - 1]!;
@@ -434,7 +423,7 @@ export function text(node: ITextNode, constraints: Constraints, global: Global,
   constraints.cy = cy;
 }
 
-function addEmptyLine(cx: number, cy: number, h: number, node: ITypeNode, frags: TextBox[], lbc?: LineBoxContext) {
+function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags: TextBox[], lbc: LineBoxContext) {
   const empty: TextBox = {
     x: cx,
     y: cy,
@@ -443,11 +432,8 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITypeNode, frags:
     content: '\n', // 统一标准化
   };
   frags.push(empty);
-  if (lbc) {
-    lbc.newLine(cx, cy);
-    lbc.addBox(empty, node);
-    lbc.endLine();
-  }
+  lbc.newLine(cx, cy);
+  lbc.addText(empty, node);
 }
 
 export function oofText(node: ITextNode, constraints: Constraints, content: string, global: Global, pc: ComputedStyle, ps: Style) {

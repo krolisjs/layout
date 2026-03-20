@@ -1,5 +1,7 @@
-import type { ComputedStyle } from './style';
+import { Display, Overflow, Position, Unit } from './style';
+import type { ComputedStyle, Style } from './style';
 import { getMetricizeFont } from './text';
+import type { ITypeNode } from './node';
 
 export function getMbpH(res: ComputedStyle) {
   return getMbpLeft(res) + getMbpRight(res);
@@ -39,4 +41,74 @@ export function calBaseline(fontFamily: string, fontSize: number, lineHeight: nu
   const metricizeFont = getMetricizeFont();
   const m = metricizeFont!(fontFamily);
   return (lineHeight - normal) * 0.5 + fontSize * m.blr;
+}
+
+
+function isBlock(item: ITypeNode) {
+  return [Display.BLOCK, Display.FLEX].includes(item.style.display);
+}
+
+function hasTopBarrier(style: ComputedStyle) {
+  return style.paddingTop > 0 || style.borderTopWidth > 0;
+}
+
+function hasBottomBarrier(style: ComputedStyle) {
+  return style.paddingBottom > 0 || style.borderBottomWidth > 0;
+}
+
+export function isBFC(style: Style) {
+  return style.overflow !== Overflow.VISIBLE || style.position === Position.ABSOLUTE
+    || [Display.INLINE_BLOCK, Display.INLINE, Display.INLINE_FLEX, Display.INLINE_GRID].includes(style.display);
+}
+
+export function canCollapseTop(parent: ITypeNode, child: ITypeNode) {
+  return parent.style.display === Display.BLOCK
+    && isBlock(child)
+    && !isBFC(parent.style)
+    && !isBFC(child.style)
+    && !hasTopBarrier(parent.result!);
+}
+
+export function canCollapseSibling(prev: ITypeNode, next: ITypeNode) {
+  return isBlock(prev) && isBlock(next) && !isBFC(prev.style) && !isBFC(next.style);
+}
+
+export function canCollapseBottom(parent: ITypeNode, child: ITypeNode) {
+  return parent.style.display === Display.BLOCK
+    && isBlock(child)
+    && !isBFC(parent.style)
+    && !isBFC(child.style)
+    && !hasBottomBarrier(parent.result!)
+    && parent.style.height.u === Unit.AUTO;
+}
+
+export function canCollapseSelf(node: ITypeNode) {
+  const style = node.style;
+  if (style.display !== Display.BLOCK || isBFC(style)) {
+    return false;
+  }
+  const res = node.result!;
+  if (hasTopBarrier(res) || hasBottomBarrier(res) || style.height.u !== Unit.AUTO) {
+    return false;
+  }
+  const children = node.children;
+  if (!children.length) {
+    return true;
+  }
+  for (let i = 0, len = children.length; i < len; i++) {
+    if (!canCollapseSelf(children[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function calMarginCollapse(list: number[]) {
+  let max = 0, min = 0;
+  for (let i = 0; i < list.length; i++) {
+    const n = list[i];
+    max = Math.max(max, n);
+    min = Math.min(min, n);
+  }
+  return max + min;
 }

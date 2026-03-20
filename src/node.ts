@@ -5,7 +5,6 @@ import {
   Display,
   getDefaultStyle,
   isFixed,
-  Overflow,
   Position,
   Unit,
 } from './style';
@@ -31,7 +30,11 @@ import {
 import { LineBoxContext } from './context';
 import {
   getMbpH,
-  getMbpRight,
+  canCollapseBottom,
+  canCollapseSelf,
+  canCollapseSibling,
+  canCollapseTop,
+  calMarginCollapse,
 } from './compute';
 
 export enum NodeType {
@@ -289,10 +292,11 @@ export abstract class AbstractNode implements ITypeNode {
     // }
     else {
       // 可能存在prev的inlineBox最后一行对齐
-      lbc.endLine();
-      const current = lbc.current;
-      constraints.cx = constraints.ox;
-      constraints.cy = current.y + current.h;
+      if (lbc.endLine()) {
+        const current = lbc.current;
+        constraints.cx = constraints.ox;
+        constraints.cy = current.y + current.h;
+      }
       const n = this as unknown as Node;
       c = block(n, constraints, global, lbc, pc, ps);
     }
@@ -317,8 +321,8 @@ export abstract class AbstractNode implements ITypeNode {
         const c = this.constraints!;
         const lbc2 = this.lbc!;
         lbc2.endLine();
+        lbc2.end();
         const current = lbc2.current;
-        lbc2.computeFrags();
         c.cx = c.ox;
         c.cy = current.y + current.h;
         // 自动高度，以及%高度但父级是auto
@@ -353,13 +357,14 @@ export abstract class AbstractNode implements ITypeNode {
         constraints.cx = constraints.ox;
         constraints.cy = result.y + result.h + result.marginBottom + result.borderBottomWidth + result.paddingBottom;
         // block所属的开始新行，同时应为block可能导致父级inline中断撑开，设置最大宽的
+        lbc.addBlock(this);
         lbc.newLine(constraints.cx, constraints.cy);
-        lbc.setMaxX(result.x + result.w + getMbpRight(result));
+        // lbc.setMaxX(result.x + result.w + getMbpRight(result));
       }
       // 特殊时机，root的inline节点需要在absolute前执行计算
-      if (this === global.root && this.style.display === Display.INLINE) {
+      if (this === global.root && style.display === Display.INLINE && style.position !== Position.ABSOLUTE) {
         lbc.endLine();
-        lbc.computeFrags();
+        lbc.end();
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
       if (oofMap.has(this)) {
@@ -371,12 +376,20 @@ export abstract class AbstractNode implements ITypeNode {
             // inline的包围块特殊逻辑，以首尾行为准
             if (result.type === 'inline') {
               const frags = result.frags;
-              const start = frags[0];
-              const end = frags[frags.length - 1];
-              x = start.x;
-              y = start.y;
-              pbw = end.x + end.w - start.x + result.paddingRight + result.paddingLeft;
-              pbh = end.y + end.h - start.y + result.paddingTop + result.paddingBottom;
+              if (frags.length) {
+                const start = frags[0];
+                const end = frags[frags.length - 1];
+                x = start.x;
+                y = start.y;
+                pbw = end.x + end.w - start.x + result.paddingRight + result.paddingLeft;
+                pbh = end.y + end.h - start.y + result.paddingTop + result.paddingBottom;
+              }
+              else {
+                x = result.x;
+                y = result.y;
+                pbw = result.w;
+                pbh = result.h;
+              }
             }
             else {
               x = result.x;
@@ -461,7 +474,6 @@ export abstract class AbstractNode implements ITypeNode {
   }
 
   layAbs(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, global: Global) {
-    const { cx, cy } = constraints;
     const style = this.style;
     const parent = this.parent!;
     const pr = parent.result!;
@@ -570,7 +582,7 @@ export abstract class AbstractNode implements ITypeNode {
     this.constraints = c;
     // 继续普通递归
     const ms = new MarginStruct();
-    const lbc = new LineBoxContext(c.cx, c.cy, this);
+    const lbc = new LineBoxContext(c.cx, c.cy, this.nodeType === NodeType.Text ? undefined : this as INode);
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       children[i].layMode(c, LayoutMode.NORMAL, oofMap, global, ms, lbc, res, style);
@@ -766,73 +778,4 @@ function getRoot(item: ITypeNode) {
     parent = parent.parent;
   }
   return temp;
-}
-
-function isBlock(item: AbstractNode) {
-  return [Display.BLOCK, Display.FLEX].includes(item.style.display);
-}
-
-function hasTopBarrier(style: ComputedStyle) {
-  return style.paddingTop > 0 || style.borderTopWidth > 0;
-}
-
-function hasBottomBarrier(style: ComputedStyle) {
-  return style.paddingBottom > 0 || style.borderBottomWidth > 0;
-}
-
-function isBFC(style: Style) {
-  return style.overflow !== Overflow.VISIBLE || style.position === Position.ABSOLUTE
-    || [Display.INLINE_BLOCK, Display.INLINE, Display.INLINE_FLEX, Display.INLINE_GRID].includes(style.display);
-}
-
-function canCollapseTop(parent: AbstractNode, child: AbstractNode) {
-  return parent.style.display === Display.BLOCK
-    && isBlock(child)
-    && !isBFC(parent.style)
-    && !isBFC(child.style)
-    && !hasTopBarrier(parent.result!);
-}
-
-function canCollapseSibling(prev: AbstractNode, next: AbstractNode) {
-  return isBlock(prev) && isBlock(next) && !isBFC(prev.style) && !isBFC(next.style);
-}
-
-function canCollapseBottom(parent: AbstractNode, child: AbstractNode) {
-  return parent.style.display === Display.BLOCK
-    && isBlock(child)
-    && !isBFC(parent.style)
-    && !isBFC(child.style)
-    && !hasBottomBarrier(parent.result!)
-    && parent.style.height.u === Unit.AUTO;
-}
-
-function canCollapseSelf(node: AbstractNode) {
-  const style = node.style;
-  if (style.display !== Display.BLOCK || isBFC(style)) {
-    return false;
-  }
-  const res = node.result!;
-  if (hasTopBarrier(res) || hasBottomBarrier(res) || style.height.u !== Unit.AUTO) {
-    return false;
-  }
-  const children = node.children;
-  if (!children.length) {
-    return true;
-  }
-  for (let i = 0, len = children.length; i < len; i++) {
-    if (!canCollapseSelf(children[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function calMarginCollapse(list: number[]) {
-  let max = 0, min = 0;
-  for (let i = 0; i < list.length; i++) {
-    const n = list[i];
-    max = Math.max(max, n);
-    min = Math.min(min, n);
-  }
-  return max + min;
 }
