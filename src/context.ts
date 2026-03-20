@@ -263,8 +263,8 @@ export class LineBoxContext {
           const r = list[i].result!;
           result.x = Math.min(result.x, r.x);
           result.y = Math.min(result.y, r.y);
-          result.w = Math.max(result.w, r.x + r.w + getMbpRight(result) - result.x);
-          result.h = Math.max(result.h, r.y + r.h + getMbpBottom(result) - result.y);
+          result.w = Math.max(result.w, r.x + r.w + getMbpRight(r) - result.x);
+          result.h = Math.max(result.h, r.y + r.h + getMbpBottom(r) - result.y);
         }
       }
     }
