@@ -190,7 +190,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     fontStyle: FontStyle.INHERIT,
     fontWeight: 0,
     fontSize: { v: 0, u: Unit.INHERIT },
-    lineHeight: { v: 0, u: Unit.AUTO },
+    lineHeight: { v: 0, u: Unit.INHERIT },
     letterSpacing: { v: 0, u: Unit.INHERIT },
     verticalAlign: VerticalAlign.BASELINE,
     overflow: Overflow.VISIBLE,

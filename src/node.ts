@@ -172,13 +172,10 @@ export abstract class AbstractNode implements ITypeNode {
    * @param global root的一些单位
    * @param ms marginStruct，处理margin合并
    * @param lbc LineBoxContext，行元素处理每行对齐
-   * @param pc parentComputedStyle（Result的一部分），子节点计算继承style需要
-   * @param ps parentStyle，子节点继承style需要
-   // * @param prevFlow 流的兄弟节点，遇到absolute跳过
    */
   layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<ITypeNode, Oof[]>, global: Global,
-          ms: MarginStruct, lbc: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
-    const b = this.begin(constraints, layoutMode, global, lbc, pc, ps);
+          ms: MarginStruct, lbc: LineBoxContext) {
+    const b = this.begin(constraints, layoutMode, global, lbc);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
     if (b.layoutMode & LayoutMode.OOF_MEASURE) {
       const n = this.getContainingBlockNode() || { hook: global.root, parent: undefined };
@@ -199,7 +196,6 @@ export abstract class AbstractNode implements ITypeNode {
       return;
     }
     const res = this.result!;
-    const style = this.style;
     const prev = this.prev;
     // margin合并检查，先尝试与父级的marginTop折叠，只发生在首个子节点；非首个节点处理相邻prev节点的折叠
     if ((!prev && (ms.pos || ms.neg) && res.marginTop && this.parent && canCollapseTop(this.parent, this))
@@ -240,7 +236,7 @@ export abstract class AbstractNode implements ITypeNode {
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      child.layMode(b.c, b.layoutMode, oofMap, global, ms, newLbc || lbc, res, style);
+      child.layMode(b.c, b.layoutMode, oofMap, global, ms, newLbc || lbc);
     }
     // 判定是否为“完全穿透”的空盒子
     if (canCollapseSelf(this)) {
@@ -258,8 +254,7 @@ export abstract class AbstractNode implements ITypeNode {
     this.end(constraints, oofMap, global, lbc);
   }
 
-  private begin(constraints: Constraints, layoutMode: LayoutMode, global: Global,
-                lbc: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
+  private begin(constraints: Constraints, layoutMode: LayoutMode, global: Global, lbc: LineBoxContext) {
     const style = this.style;
     let c: Constraints;
     // absolute进入预测量模式
@@ -269,12 +264,12 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else if (this.nodeType === NodeType.Text) {
       const t = this as unknown as TextNode;
-      text(t, constraints, global, lbc, pc, ps);
+      text(t, constraints, global, lbc);
       c = constraints;
     }
     else if (style.display === Display.INLINE) {
       const n = this as unknown as Node;
-      inline(n, constraints, global, lbc, pc, ps);
+      inline(n, constraints, global, lbc);
       c = constraints;
     }
     // else if (style.display === Display.INLINE_BLOCK) {
@@ -298,7 +293,7 @@ export abstract class AbstractNode implements ITypeNode {
         constraints.cy = current.y + current.h;
       }
       const n = this as unknown as Node;
-      c = block(n, constraints, global, lbc, pc, ps);
+      c = block(n, constraints, global, lbc);
     }
     return { layoutMode, c };
   }
@@ -475,9 +470,6 @@ export abstract class AbstractNode implements ITypeNode {
 
   layAbs(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, global: Global) {
     const style = this.style;
-    const parent = this.parent!;
-    const pr = parent.result!;
-    const ps = parent.style;
     // 根据trbl确定最终尺寸
     const {
       boxSizing,
@@ -492,7 +484,7 @@ export abstract class AbstractNode implements ITypeNode {
       width,
       height
     } = style;
-    const res = preset(this, constraints, 'box', global, pr, ps) as Box;
+    const res = preset(this, constraints, 'box', global) as Box;
     this.result = res;
     if (left.u !== Unit.AUTO) {
       res.x = constraints.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
@@ -506,7 +498,7 @@ export abstract class AbstractNode implements ITypeNode {
       res.w = constraints.pbw - res.left - res.right - res.marginLeft - res.marginRight;
     }
     else {
-      const { min, max } = this.shrink2Fit(constraints, global, res, style);
+      const { min, max } = this.shrink2Fit(constraints, global, res);
       res.w = Math.max(min, Math.min(max, constraints.aw));
       // constraints.aw = constraints.aw - (left.u === Unit.AUTO ? cx : res.left) - res.right;
     }
@@ -585,7 +577,7 @@ export abstract class AbstractNode implements ITypeNode {
     const lbc = new LineBoxContext(c.cx, c.cy, this.nodeType === NodeType.Text ? undefined : this as INode);
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(c, LayoutMode.NORMAL, oofMap, global, ms, lbc, res, style);
+      children[i].layMode(c, LayoutMode.NORMAL, oofMap, global, ms, lbc);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO)) {
@@ -594,7 +586,7 @@ export abstract class AbstractNode implements ITypeNode {
     this.end(constraints, oofMap, global, lbc);
   }
 
-  private shrink2Fit(constraints: Constraints, global: Global, pc: ComputedStyle, ps: Style) {
+  private shrink2Fit(constraints: Constraints, global: Global, pc: ComputedStyle) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -603,17 +595,17 @@ export abstract class AbstractNode implements ITypeNode {
       // 测量阶段递归的子节点absolute忽略
       if (style.position !== Position.ABSOLUTE) {
         if (child.nodeType === NodeType.Text) {
-          const o = child.shrink2FitText(constraints, global, pc, ps);
+          const o = child.shrink2FitText(constraints, global);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else if (style.display === Display.INLINE) {
-          const o = child.shrink2FitInline(constraints, global, pc, ps);
+          const o = child.shrink2FitInline(constraints, global);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else {
-          const o = child.shrink2FitBlock(constraints, global, pc, ps);
+          const o = child.shrink2FitBlock(constraints, global, pc);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
@@ -622,24 +614,24 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private shrink2FitBlock(constraints: Constraints, global: Global, pc: ComputedStyle, ps: Style) {
+  private shrink2FitBlock(constraints: Constraints, global: Global, pc: ComputedStyle) {
     let min = 0, max = 0;
     const style = this.style;
     // block如果定宽则直接返回（不考虑%），否则递归
     if (isFixed(style.width)) {
       let w = calLength(style.width, constraints.pbw, global.rem, pc.fontSize);
       if (style.boxSizing === BoxSizing.CONTENT_BOX) {
-        const r = preset(this, constraints, 'box', global, pc, ps) as Box;
+        const r = preset(this, constraints, 'box', global) as Box;
         w += getMbpH(r);
       }
       min = w;
       max = w;
     }
     else {
-      const r = preset(this, constraints, 'box', global, pc, ps) as Box;
+      const r = preset(this, constraints, 'box', global) as Box;
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
-        const o = children[i].shrink2Fit(constraints, global, r, style);
+        const o = children[i].shrink2Fit(constraints, global, r);
         min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }
@@ -650,22 +642,21 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private shrink2FitInline(constraints: Constraints, global: Global, pc: ComputedStyle, ps: Style) {
+  private shrink2FitInline(constraints: Constraints, global: Global) {
     let min = 0, max = 0;
-    const style = this.style;
-    const r = preset(this, constraints, 'inline', global, pc, ps) as Inline;
+    const r = preset(this, constraints, 'inline', global) as Inline;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      const o = children[i].shrink2Fit(constraints, global, r, this.style);
+      const o = children[i].shrink2Fit(constraints, global, r);
       min = Math.max(min, o.min);
       max += o.max;
     }
     return { min, max };
   }
 
-  private shrink2FitText(constraints: Constraints, global: Global, pc: ComputedStyle, ps: Style) {
+  private shrink2FitText(constraints: Constraints, global: Global) {
     const t = this as unknown as TextNode;
-    return oofText(t, constraints, t.content, global, pc, ps);
+    return oofText(t, constraints, t.content, global);
   }
 
   // 获取absolute的包围块节点，可能是relative+inline，需要返回钩子节点（所属block）和真正的包围块

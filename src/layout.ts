@@ -1,5 +1,5 @@
 import { BoxSizing, calLength, FontStyle, Unit } from './style';
-import type { ComputedStyle, Style } from './style';
+import type { ComputedStyle } from './style';
 import {
   CJK_REG_EXTENDED,
   getMeasureText,
@@ -111,7 +111,7 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function preset(node: ITypeNode, constraints: Constraints, type: Result['type'], global: Global, pc?: ComputedStyle, ps?: Style) {
+export function preset(node: ITypeNode, constraints: Constraints, type: Result['type'], global: Global) {
   const style = node.style;
   const res: any = {
     type,
@@ -143,30 +143,51 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
     lineHeight: 24,
     letterSpacing: 0,
   };
+  const parent = node.parent;
 
   if (style.fontFamily === 'inherit') {
-    res.fontFamily = pc?.fontFamily || 'sans-serif';
+    if (parent) {
+      res.fontFamily = parent.result!.fontFamily;
+    }
+    else {
+      res.fontFamily = 'sans-serif';
+    }
   }
   else {
     res.fontFamily = style.fontFamily;
   }
 
   if (style.fontSize.u === Unit.INHERIT) {
-    res.fontSize = pc?.fontSize || global.rem;
+    if (parent) {
+      res.fontSize = parent.result!.fontSize;
+    }
+    else {
+      res.fontSize = global.rem;
+    }
   }
   else {
-    res.fontSize = calLength(style.fontSize, (pc?.fontSize || global.rem) * 100, global.rem, 0) || pc?.fontSize || global.rem;
+    res.fontSize = calLength(style.fontSize, (parent?.result!.fontSize || global.rem) * 100, global.rem, 0) || parent?.result!.fontSize || global.rem;
   }
 
   if (style.fontWeight === 0) {
-    res.fontWeight = pc?.fontWeight || 400;
+    if (parent) {
+      res.fontWeight = parent.result!.fontWeight;
+    }
+    else {
+      res.fontWeight = 400;
+    }
   }
   else {
     res.fontWeight = style.fontWeight;
   }
 
   if (style.fontStyle === FontStyle.INHERIT) {
-    res.fontStyle = pc?.fontStyle || FontStyle.NORMAL;
+    if (parent) {
+      res.fontStyle = parent.result!.fontStyle;
+    }
+    else {
+      res.fontStyle = FontStyle.NORMAL;
+    }
   }
   else {
     res.fontStyle = style.fontStyle;
@@ -183,8 +204,21 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
     'marginLeft',
   ] as const).forEach(k => {
     const v = style[k];
-    if (v.u === Unit.INHERIT && ps) {
-      res[k] = calLength(ps[k], constraints.pbw, global.rem, res.fontSize);
+    if (v.u === Unit.INHERIT && parent) {
+      let p: INode | null = parent;
+      while (p) {
+        const style = p.style;
+        if (style[k].u !== Unit.INHERIT) {
+          if (style[k].u === Unit.PERCENT) {
+            res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+          }
+          else {
+            res[k] = p.result![k];
+          }
+          return;
+        }
+        p = p.parent;
+      }
     }
     else {
       res[k] = calLength(style[k], constraints.pbw, global.rem, res.fontSize);
@@ -200,8 +234,21 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
     'maxWidth',
   ] as const).forEach(k => {
     const v = style[k];
-    if (v.u === Unit.INHERIT && ps) {
-      res[k] = calLength(ps[k], constraints.pbw, global.rem, res.fontSize);
+    if (v.u === Unit.INHERIT && parent) {
+      let p: INode | null = parent;
+      while (p) {
+        const style = p.style;
+        if (style[k].u !== Unit.INHERIT) {
+          if (style[k].u === Unit.PERCENT) {
+            res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+          }
+          else {
+            res[k] = p.result![k];
+          }
+          return;
+        }
+        p = p.parent;
+      }
     }
     else {
       res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
@@ -213,8 +260,21 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
     'maxHeight',
   ] as const).forEach(k => {
     const v = style[k];
-    if (v.u === Unit.INHERIT && ps) {
-      res[k] = calLength(ps[k], constraints.pbh || 0, global.rem, res.fontSize);
+    if (v.u === Unit.INHERIT && parent) {
+      let p: INode | null = parent;
+      while (p) {
+        const style = p.style;
+        if (style[k].u !== Unit.INHERIT) {
+          if (style[k].u === Unit.PERCENT) {
+            res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+          }
+          else {
+            res[k] = p.result![k];
+          }
+          return;
+        }
+        p = p.parent;
+      }
     }
     else {
       res[k] = Math.max(0, calLength(style[k], constraints.pbh || 0, global.rem, res.fontSize));
@@ -234,15 +294,44 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
       res[k] = Math.max(0, v * res.fontSize);
     }
     else if (k === 'lineHeight' && u === Unit.INHERIT) {
-      res[k] = pc?.lineHeight || calNormalLineHeight(res.fontFamily, res.fontSize);
+      if (parent) {
+        let p: INode | null = parent;
+        while (p) {
+          const style = p.style;
+          if (style.lineHeight.u !== Unit.INHERIT) {
+            if (style.lineHeight.u === Unit.NUMBER) {
+              res[k] = Math.max(0, v * res.fontSize);
+            }
+            else if (style.lineHeight.u === Unit.PX) {
+              res[k] = p.result!.lineHeight;
+            }
+            else if (style.lineHeight.u === Unit.PERCENT) {
+              res[k] = p.result!.lineHeight;
+            }
+            else if (style.lineHeight.u === Unit.AUTO) {
+              res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
+            }
+            return;
+          }
+          p = p.parent;
+        }
+        res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
+      }
+      else {
+        res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
+      }
     }
     else if (k === 'lineHeight') {
       if (v <= 0 || u === Unit.AUTO) {
         res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
       }
       else {
-        res[k] = calLength(style[k], pc?.lineHeight || 24, global.rem, res.fontSize);
+        res[k] = calLength(style[k], parent?.result!.lineHeight || 24, global.rem, res.fontSize);
       }
+    }
+    // border没有%
+    else if (u === Unit.INHERIT && parent) {
+      res[k] = parent.result![k];
     }
     else {
       res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
@@ -273,10 +362,9 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(node: INode, constraints: Constraints, global: Global,
-                      lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style, res?: Box) {
+export function block(node: INode, constraints: Constraints, global: Global, lbc: LineBoxContext, res?: Box) {
   if (!res) {
-    res = preset(node, constraints, 'box', global, pc, ps) as Box;
+    res = preset(node, constraints, 'box', global) as Box;
     res.type = 'box';
   }
   node.result = res;
@@ -313,9 +401,8 @@ export function block(node: INode, constraints: Constraints, global: Global,
   return c;
 }
 
-export function inline(node: INode, constraints: Constraints, global: Global,
-                       lbc?: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
-  const res = preset(node, constraints, 'inline', global, pc, ps) as Inline;
+export function inline(node: INode, constraints: Constraints, global: Global, lbc: LineBoxContext) {
+  const res = preset(node, constraints, 'inline', global) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
   res.marginTop = res.marginBottom = 0;
   node.result = res;
@@ -324,19 +411,18 @@ export function inline(node: INode, constraints: Constraints, global: Global,
   lbc?.addInline(node, constraints.cx, constraints.cy);
 }
 
-export function inlineBlock(node: INode, constraints: Constraints, global: Global, pc?: ComputedStyle, ps?: Style) {
-  const res = preset(node, constraints, 'box', global, pc, ps) as Box;
+export function inlineBlock(node: INode, constraints: Constraints, global: Global) {
+  const res = preset(node, constraints, 'box', global) as Box;
   return { res, c: constraints };
 }
 
-export function text(node: ITextNode, constraints: Constraints, global: Global,
-                     lbc: LineBoxContext, pc?: ComputedStyle, ps?: Style) {
+export function text(node: ITextNode, constraints: Constraints, global: Global, lbc: LineBoxContext) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
   const style = node.style;
-  const res = preset(node, constraints, 'text', global, pc, ps) as Text;
+  const res = preset(node, constraints, 'text', global) as Text;
   node.result = res;
   // inline的上下margin无效
   res.marginTop = res.marginBottom = 0;
@@ -436,12 +522,12 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags:
   lbc.addText(empty, node);
 }
 
-export function oofText(node: ITextNode, constraints: Constraints, content: string, global: Global, pc: ComputedStyle, ps: Style) {
+export function oofText(node: ITextNode, constraints: Constraints, content: string, global: Global) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(node, constraints, 'text', global, pc, ps) as Text;
+  const res = preset(node, constraints, 'text', global) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求
   const list = content.split(/[\n\u2028]/);
