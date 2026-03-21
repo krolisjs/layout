@@ -33,16 +33,24 @@ export function calNormalLineHeight(fontFamily: string, fontSize: number) {
     throw new Error('Text must be passed to the metricizeFont method.');
   }
   const m = metricizeFont(fontFamily);
-  return fontSize * m.lgr;
+  return fontSize * (m.ascentRatio + m.descentRatio + (m.lineGapRatio || 0));
 }
 
 export function calBaseline(fontFamily: string, fontSize: number, lineHeight: number) {
   const normal = calNormalLineHeight(fontFamily, fontSize);
   const metricizeFont = getMetricizeFont();
   const m = metricizeFont!(fontFamily);
-  return (lineHeight - normal) * 0.5 + fontSize * m.blr;
+  return (lineHeight - normal) * 0.5 + fontSize * m.ascentRatio;
 }
 
+export function calContentArea(fontFamily: string, fontSize: number) {
+  const metricizeFont = getMetricizeFont();
+  if (!metricizeFont) {
+    throw new Error('Text must be passed to the metricizeFont method.');
+  }
+  const m = metricizeFont(fontFamily);
+  return fontSize * (m.ascentRatio + m.descentRatio);
+}
 
 function isBlock(item: ITypeNode) {
   return [Display.BLOCK, Display.FLEX].includes(item.style.display);

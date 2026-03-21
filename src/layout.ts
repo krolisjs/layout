@@ -530,7 +530,7 @@ export function oofText(node: ITextNode, constraints: Constraints, content: stri
   const res = preset(node, constraints, 'text', global) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求
-  const list = content.split(/[\n\u2028]/);
+  const list = content.split(lineBreak);
   for (let i = 0, len = list.length; i < len; i++) {
     let { width } = measureText(list[i], res.fontFamily, res.fontSize, res.lineHeight, res.fontWeight, res.fontStyle, res.letterSpacing);
     if (!i) {

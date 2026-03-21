@@ -1,4 +1,4 @@
-import { getMbpBottom, getMbpRight } from './compute';
+import { calContentArea, getMbpBottom, getMbpRight } from './compute';
 import type { Inline, Frag, TextBox } from './layout';
 import { VerticalAlign } from './style';
 import type { INode, ITextNode, ITypeNode } from './node';
@@ -15,13 +15,15 @@ type ContentBox = {
   lv: number; // 一行中的内容需要考虑包含层级关系，叶子节点会影响父级inline的本行宽度计算
   frag: TextBox;
   node: ITextNode;
-  blocks: INode[];
-  added: boolean;
+  // lineHeight: number; // 无用，和h相同
+  blocks: INode[]; // 无用，v8隐藏类保持相同优化
+  added: boolean; // 无用
 } | {
   type: ContentBoxType.INLINE;
   lv: number;
   frag: Frag;
   node: INode;
+  // lineHeight: number; //
   blocks: INode[]; // block占位引用
   added: boolean; // 是否被添加到节点result的frags，空inline会先生成一个不添加等行结束判断
 } | {
@@ -29,8 +31,9 @@ type ContentBox = {
   lv: number;
   frag: Frag;
   node: INode;
-  blocks: INode[];
-  added: boolean;
+  // lineHeight: number; // 无用
+  blocks: INode[]; // 无用
+  added: boolean; // 无用
 };
 
 export class LineBox {
@@ -72,8 +75,10 @@ export class LineBoxContext {
    * 产生换行时，新的行能知道当前有哪些父inline节点还在。
    */
   addInline(node: INode, x: number, y: number) {
-    const lineHeight = node.result!.lineHeight;
-    const frag = { x, y, w: 0, h: lineHeight };
+    const { fontSize, fontFamily, lineHeight } = node.result!;
+    // inline的内容区域（背景色）高度和font有关，但整行换行却使用lineHeight来隔开
+    const h = calContentArea(fontFamily, fontSize);
+    const frag = { x, y, w: 0, h, lineHeight };
     this.current.list.push({ type: ContentBoxType.INLINE, lv: this.nodeStack.length, frag, node, blocks: [], added: false });
     this.nodeStack.push(node);
     this.nodeList.push(node);
@@ -87,12 +92,13 @@ export class LineBoxContext {
     for (let i = 0, len = list.length; i < len; i++) {
       const item = list[i];
       const { node, lv } = item;
+      // 找到结束的inline节点和lv，有末尾mbp才有效
       if (node === o) {
         const result = node.result as Inline;
         if (result.marginRight || result.borderRightWidth || result.paddingRight) {
           if (!item.added) {
             item.added = true;
-            result.frags.push(item.frag);
+            result.frags.push(item.frag as Frag);
           }
           const mbp = getMbpRight(result);
           // 父inline一定在前面出现，且lv更小
@@ -153,7 +159,9 @@ export class LineBoxContext {
     const nodeStack = this.nodeStack;
     for (let i = 0, len = nodeStack.length; i < len; i++) {
       const node = nodeStack[i];
-      const frag = { x, y, w: 0, h: node.result!.lineHeight };
+      const { fontSize, fontFamily, lineHeight } = node.result!;
+      const h = calContentArea(fontFamily, fontSize);
+      const frag = { x, y, w: 0, h, lineHeight };
       current.list.push({ type: ContentBoxType.INLINE, lv: i, node, frag, blocks: [], added: false });
     }
   }

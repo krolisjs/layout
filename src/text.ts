@@ -23,10 +23,13 @@ export function setMeasureText(mt: MeasureText) {
 }
 
 export type FontMetrics = {
-  blr: number; // baseline
-  car: number; // contentArea
-  lgr: number; // lineGap
-  xhr?: number; // xHeight，verticalAlign在middle时用，有近似值
+  ascentRatio: number;
+  descentRatio: number;
+  lineGapRatio?: number; // 默认0
+  // blr: number; // baseline
+  // car: number; // contentArea
+  // lhr: number; // lineHeight
+  xHeightRatio?: number; // xHeight，verticalAlign在middle时用，有近似值约等于fontSize
 }
 
 export type MetricizeFont = (fontFamily: string) => FontMetrics;
