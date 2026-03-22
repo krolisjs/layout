@@ -37,9 +37,9 @@ export function createTestInputConstraints() {
   });
   setMetricizeFont((fontFamily: string) => {
     return {
-      blr: 0.875,
-      car: 1,
-      lgr: 1.5,
+      ascentRatio: 0.8,
+      descentRatio: 0.2,
+      lineGapRatio: 0.5,
     };
   });
   return { aw: 10000, ah: 10000 };

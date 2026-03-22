@@ -309,7 +309,11 @@ export class LineBoxContext {
         current.h = maxH;
       }
       else {
-        current.h = list[0].frag.h;
+        let maxH = list[0].frag.h;
+        for (let i = 1; i < list.length; i++) {
+          maxH = Math.max(maxH, list[i].frag.h);
+        }
+        current.h = maxH;
       }
     }
     return hasContent;
@@ -323,8 +327,8 @@ export class LineBoxContext {
       const item = nodeList[i];
       const result = item.result as Inline;
       const frags = result.frags;
-      // inline先获取所有行取最大值
-      if (frags.length) {
+      // inline先获取所有行取最大值，frags可能为null（如inline-block类型为box时）
+      if (frags && frags.length) {
         const first = frags[0];
         let minX = first.x;
         let maxX = first.x + first.w;

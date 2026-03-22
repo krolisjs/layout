@@ -10,7 +10,7 @@ import type { INode, ITextNode, ITypeNode } from './node';
 import type { LineBoxContext } from './context';
 import { calNormalLineHeight } from './compute';
 
-export type Frag = { x: number; y: number; w: number; h: number };
+export type Frag = { x: number; y: number; w: number; h: number; lineHeight?: number };
 
 type BasicBox = Frag & ComputedStyle;
 
