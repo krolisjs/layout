@@ -22,7 +22,7 @@ npm install @krolis/layout
 ## Usage
 
 ```ts
-import { AbstractNode, Context, Node, setMeasureText, TextNode } from '@krolis/layout';
+import { AbstractNode, Context, Node, setMeasureText, setMetricizeFont, TextNode } from '@krolis/layout';
 
 const text = new TextNode('content', {
   borderLeftWidth: 2,
@@ -48,13 +48,13 @@ console.log(text.rect); // { x: 2, y: 0, rects: { x: 2, y: 50, ... } }
 
 /**
  * If text measurement is involved,
- * please call setMeasureText first to set the font metrics method.
- * The measureText method of the Canvas context on the web only returns width and height,
+ * please call setMeasureText/setMetricizeFont first to set the font metrics method.
+ * The measureText method of the Canvas context on the web only returns width,
  * the baseline must be retrieved from font metrics information.
  */
 /**
- * 如果涉及到文字测量，请先调用setMeasureText设置字体度量方法。
- * web上常见的canvas的context的measureText方法仅返回width和height，baseline需要从字体信息中读取。
+ * 如果涉及到文字测量，请先调用setMeasureText/setMetricizeFont设置字体度量方法。
+ * web上常见的canvas的context的measureText方法仅返回width，baseline需要从字体信息中读取。
  */
 setMeasureText((
   content: string,
@@ -64,7 +64,14 @@ setMeasureText((
   fontWeight?: number,
   fontStyle?: FontStyle,
   letterSpacing?: number,
-) => ({ width: number, height: number, baseline: number }));
+) => ({ width: number }));
+
+setMetricizeFont((fontFamily: string) => ({
+  ascentRatio: number,
+  descentRatio: number,
+  lineGapRatio?: number,
+  xHeightRatio?: number,
+}));
 ```
 
 ## Dev
