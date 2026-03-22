@@ -2,7 +2,7 @@
 
 A high-performance layout Engine designed for custom UI frameworks, canvas rendering, and headless layout testing.
 
-一款高性能布局引擎，专为自定义 UI 框架、Canvas 渲染和无头布局测试而设计。
+高性能布局引擎，专为自定义 UI 框架、Canvas 渲染和无头布局测试而设计。
 
 _Derived from Kronos (Titan of Time) + Belisama (Goddess of Fire & Craft)._
 
