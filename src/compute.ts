@@ -65,8 +65,19 @@ function hasBottomBarrier(style: ComputedStyle) {
 }
 
 export function isBFC(style: Style) {
-  return style.overflow !== Overflow.VISIBLE || style.position === Position.ABSOLUTE
-    || [Display.INLINE_BLOCK, Display.INLINE, Display.INLINE_FLEX, Display.INLINE_GRID].includes(style.display);
+  if (style.position === Position.ABSOLUTE) {
+    return true;
+  }
+  if ([Display.INLINE_BLOCK, Display.INLINE_FLEX, Display.INLINE_GRID].includes(style.display)) {
+    return true;
+  }
+  if (style.display === Display.INLINE) {
+    return false;
+  }
+  if (style.overflow !== Overflow.VISIBLE) {
+    return true;
+  }
+  return false;
 }
 
 export function canCollapseTop(parent: ITypeNode, child: ITypeNode) {

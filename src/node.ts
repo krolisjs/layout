@@ -20,6 +20,7 @@ import type {
 import {
   block,
   inline,
+  inlineBlock,
   LayoutMode,
   MarginStruct,
   normalizeConstraints,
@@ -272,19 +273,30 @@ export abstract class AbstractNode implements ITypeNode {
       inline(n, constraints, global, lbc);
       c = constraints;
     }
-    // else if (style.display === Display.INLINE_BLOCK) {
-    //   // if (isFixed(style.width)) {
-    //     const res = preset(style, constraints, 'box', global, pc, ps) as Box;
-    //     const mbp = getMbpH(res);
-    //     // 换行
-    //     if (res.w + mbp > constraints.aw - (constraints.cx - constraints.ox)) {}
-    //     else {
-    //       const o = block(style, constraints, global, pc, ps, res);
-    //       this.result = o.res;
-    //       c = o.c;
-    //     }
-    //   // }
-    // }
+    else if (style.display === Display.INLINE_BLOCK) {
+      const n = this as unknown as Node;
+      const res = preset(n, constraints, 'box', global) as Box;
+      n.result = res;
+      const mbp = getMbpH(res);
+      const remainW = constraints.aw - (constraints.cx - constraints.ox);
+      if (res.w + mbp > remainW && constraints.cx > constraints.ox) {
+        lbc.endLine();
+        constraints.cx = constraints.ox;
+        constraints.cy += res.lineHeight;
+        lbc.newLine(constraints.cx, constraints.cy);
+      }
+      else if (constraints.cx === constraints.ox && res.w + mbp > remainW) {
+        constraints.cx += res.w + mbp;
+        lbc.addInlineBlock(n, constraints.ox, constraints.cy, res.w, res.h, res.lineHeight);
+        c = constraints;
+        return { layoutMode, c };
+      }
+      const x = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+      const y = constraints.cy;
+      constraints.cx += res.w + mbp;
+      lbc.addInlineBlock(n, x, y, res.w, res.h, res.lineHeight);
+      c = constraints;
+    }
     else {
       // 可能存在prev的inlineBox最后一行对齐
       if (lbc.endLine()) {
@@ -310,6 +322,18 @@ export abstract class AbstractNode implements ITypeNode {
       // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
       else if (style.display === Display.INLINE) {
         lbc.popInline();
+      }
+      else if (style.display === Display.INLINE_BLOCK) {
+        const c = this.constraints!;
+        const lbc2 = this.lbc!;
+        lbc2.endLine();
+        lbc2.end();
+        const current = lbc2.current;
+        c.cx = c.ox;
+        c.cy = current.y + current.h;
+        if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
+          result.h = c.cy - c.oy;
+        }
       }
       // 默认block
       else {

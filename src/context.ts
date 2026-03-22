@@ -1,4 +1,4 @@
-import { calContentArea, getMbpBottom, getMbpRight } from './compute';
+import { calBaseline, calContentArea, getMbpBottom, getMbpRight } from './compute';
 import type { Inline, Frag, TextBox } from './layout';
 import { VerticalAlign } from './style';
 import type { INode, ITextNode, ITypeNode } from './node';
@@ -81,6 +81,12 @@ export class LineBoxContext {
     const frag = { x, y, w: 0, h, lineHeight };
     this.current.list.push({ type: ContentBoxType.INLINE, lv: this.nodeStack.length, frag, node, blocks: [], added: false });
     this.nodeStack.push(node);
+    this.nodeList.push(node);
+  }
+
+  addInlineBlock(node: INode, x: number, y: number, w: number, h: number, lineHeight: number) {
+    const frag = { x, y, w, h, lineHeight };
+    this.current.list.push({ type: ContentBoxType.INLINE_BLOCK, lv: this.nodeStack.length, frag, node, blocks: [], added: true });
     this.nodeList.push(node);
   }
 
@@ -197,6 +203,28 @@ export class LineBoxContext {
           (item.node.result as Inline).frags.push(item.frag);
         }
       }
+      for (let i = list.length - 1; i >= 0; i--) {
+        const item = list[i];
+        if (item.type === ContentBoxType.INLINE) {
+          const result = item.node.result as Inline;
+          const mbp = getMbpRight(result);
+          if (mbp > 0) {
+            const frag = item.frag;
+            frag.w += mbp;
+            const lineEndX = frag.x + frag.w;
+            for (let j = 0; j < i; j++) {
+              const prevItem = list[j];
+              if (prevItem.type === ContentBoxType.INLINE) {
+                const prevFrag = prevItem.frag;
+                if (prevFrag.x + prevFrag.w < lineEndX) {
+                  prevFrag.w = lineEndX - prevFrag.x;
+                }
+              }
+            }
+          }
+          break;
+        }
+      }
     }
     // 没内容判断是否首行，inline的首行即便是空也要看开始的mbp，这里面只会有inline了
     else if (lineBoxes.length === 1) {
@@ -227,9 +255,59 @@ export class LineBoxContext {
     // 非空行垂直对齐
     if (hasContent) {
       if (getNeedVerticalAlign(list, this.node)) {
-        // TODO 处理支柱和每个inline的对齐
+        let maxTop = 0;
+        let maxBottom = 0;
+        let baseline = 0;
+        if (this.node) {
+          const res = this.node.result!;
+          baseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+        }
+        for (let i = 0, len = list.length; i < len; i++) {
+          const item = list[i];
+          const res = item.node.result!;
+          let itemH: number;
+          let itemBaseline: number;
+          let align: VerticalAlign;
+          if (item.type === ContentBoxType.INLINE_BLOCK) {
+            itemH = item.frag.h;
+            itemBaseline = itemH * 0.85;
+            align = (res as any).verticalAlign;
+          }
+          else {
+            itemH = item.frag.h;
+            itemBaseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+            align = (res as any).verticalAlign;
+          }
+          switch (align) {
+            case VerticalAlign.TOP:
+              const topDiff = itemH - maxBottom;
+              if (topDiff > 0) {
+                maxBottom = itemH;
+              }
+              item.frag.y = this.current.y;
+              break;
+            case VerticalAlign.BOTTOM:
+              item.frag.y = this.current.y + current.h - itemH;
+              break;
+            case VerticalAlign.MIDDLE:
+              const middleY = baseline - itemH / 2;
+              item.frag.y = this.current.y + middleY;
+              break;
+            case VerticalAlign.BASELINE:
+            default:
+              const baselineY = baseline - itemBaseline;
+              item.frag.y = this.current.y + baselineY;
+              break;
+          }
+        }
+        let maxH = 0;
+        for (let i = 0, len = list.length; i < len; i++) {
+          const item = list[i];
+          const bottom = item.frag.y + item.frag.h;
+          maxH = Math.max(maxH, bottom - this.current.y);
+        }
+        current.h = maxH;
       }
-      // 全部一样取首个就行
       else {
         current.h = list[0].frag.h;
       }
