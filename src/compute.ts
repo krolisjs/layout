@@ -37,10 +37,10 @@ export function calNormalLineHeight(fontFamily: string, fontSize: number) {
 }
 
 export function calBaseline(fontFamily: string, fontSize: number, lineHeight: number) {
-  const normal = calNormalLineHeight(fontFamily, fontSize);
+  const h = calContentArea(fontFamily, fontSize);
   const metricizeFont = getMetricizeFont();
   const m = metricizeFont!(fontFamily);
-  return (lineHeight - normal) * 0.5 + fontSize * m.ascentRatio;
+  return (lineHeight - h) * 0.5 + fontSize * m.ascentRatio;
 }
 
 export function calContentArea(fontFamily: string, fontSize: number) {
@@ -66,7 +66,7 @@ function hasBottomBarrier(style: ComputedStyle) {
 
 export function isBFC(style: Style) {
   return style.overflow !== Overflow.VISIBLE || style.position === Position.ABSOLUTE
-    || [Display.INLINE_BLOCK, Display.INLINE, Display.INLINE_FLEX, Display.INLINE_GRID].includes(style.display);
+    || [Display.INLINE_BLOCK, Display.INLINE_FLEX, Display.INLINE_GRID].includes(style.display);
 }
 
 export function canCollapseTop(parent: ITypeNode, child: ITypeNode) {

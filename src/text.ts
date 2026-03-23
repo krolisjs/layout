@@ -1,6 +1,6 @@
 import { FontStyle } from './style';
 
-export type TextMeasures = { width: number, height: number };
+export type TextMeasures = { width: number };
 
 export type MeasureText = (
   content: string,
@@ -26,9 +26,6 @@ export type FontMetrics = {
   ascentRatio: number;
   descentRatio: number;
   lineGapRatio?: number; // 默认0
-  // blr: number; // baseline
-  // car: number; // contentArea
-  // lhr: number; // lineHeight
   xHeightRatio?: number; // xHeight，verticalAlign在middle时用，有近似值约等于fontSize
 }
 
