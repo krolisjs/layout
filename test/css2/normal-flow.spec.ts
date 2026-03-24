@@ -583,9 +583,9 @@ describe('normal-flow', () => {
     node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
-      y: 0,
+      y: 1,
       w: 176,
-      h: 24,
+      h: 22,
       paddingTop: 8,
       paddingRight: 0,
       paddingBottom: 8,
@@ -593,18 +593,18 @@ describe('normal-flow', () => {
       frags: [
         {
           x: 0,
-          y: 0,
+          y: 1,
           w: 176,
-          h: 24,
+          h: 22,
         },
       ],
       type: 'inline',
     });
     expect(node.children[0].result).toMatchObject({
       x: 8,
-      y: 0,
+      y: 1,
       w: 160,
-      h: 24,
+      h: 22,
       borderTopWidth: 8,
       borderRightWidth: 8,
       borderBottomWidth: 8,
@@ -612,24 +612,24 @@ describe('normal-flow', () => {
       frags: [
         {
           x: 8,
-          y: 0,
+          y: 1,
           w: 160,
-          h: 24,
+          h: 22,
         },
       ],
       type: 'inline',
     });
     expect(node.children[0].children[0].result).toMatchObject({
       x: 8,
-      y: 0,
+      y: 1,
       w: 160,
-      h: 24,
+      h: 22,
       frags: [
         {
           x: 8,
-          y: 0,
+          y: 1,
           w: 160,
-          h: 24,
+          h: 22,
           content: '1234567890',
         }
       ],

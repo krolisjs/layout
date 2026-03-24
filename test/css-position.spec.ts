@@ -118,31 +118,31 @@ describe('css-position', () => {
     node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
-      y: 0,
+      y: 1,
       w: 416,
-      h: 58,
+      h: 56,
     });
     expect(node.children[0].result).toMatchObject({
       x: 0,
-      y: 0,
+      y: 1,
       w: 176,
-      h: 24,
+      h: 22,
     });
     expect(node.children[1].result).toMatchObject({
       x: 0,
-      y: 0,
+      y: 1,
       w: 416,
-      h: 58,
+      h: 56,
       frags: [
-        { x: 176, y: 0, w: 240, h: 24 },
-        { x: 0, y: 34, w: 208, h: 24 },
+        { x: 176, y: 1, w: 240, h: 22 },
+        { x: 0, y: 35, w: 208, h: 22 },
       ],
     });
     expect(node.children[1].children[0].result).toMatchObject({
       x: 176,
-      y: 0,
+      y: 1,
       w: 240,
-      h: 24,
+      h: 22,
     });
     expect(node.children[1].children[1].result).toMatchObject({
       x: 0,
@@ -152,21 +152,21 @@ describe('css-position', () => {
     });
     expect(node.children[1].children[2].result).toMatchObject({
       x: 176,
-      y: 0,
+      y: 1,
       w: 32,
-      h: 58,
+      h: 56,
     });
     expect(node.children[1].children[3].result).toMatchObject({
       x: 0,
-      y: 34,
+      y: 35,
       w: 208,
-      h: 24,
+      h: 22,
     });
     expect(node.children[2].result).toMatchObject({
       x: 208,
-      y: 34,
+      y: 35,
       w: 144,
-      h: 24,
+      h: 22,
     });
   });
 

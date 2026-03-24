@@ -37,10 +37,15 @@ export function calNormalLineHeight(fontFamily: string, fontSize: number) {
 }
 
 export function calBaseline(fontFamily: string, fontSize: number, lineHeight: number) {
-  const h = calContentArea(fontFamily, fontSize);
   const metricizeFont = getMetricizeFont();
   const m = metricizeFont!(fontFamily);
-  return (lineHeight - h) * 0.5 + fontSize * m.ascentRatio;
+  const leading = calLeading(fontFamily, fontSize, lineHeight);
+  return leading * 0.5 + fontSize * m.ascentRatio;
+}
+
+export function calLeading(fontFamily: string, fontSize: number, lineHeight: number) {
+  const h = calContentArea(fontFamily, fontSize);
+  return lineHeight - h;
 }
 
 export function calContentArea(fontFamily: string, fontSize: number) {
@@ -49,7 +54,7 @@ export function calContentArea(fontFamily: string, fontSize: number) {
     throw new Error('Text must be passed to the metricizeFont method.');
   }
   const m = metricizeFont(fontFamily);
-  return fontSize * (m.ascentRatio + m.descentRatio);
+  return fontSize * Math.max(0, m.ascentRatio + m.descentRatio);
 }
 
 function isBlock(item: ITypeNode) {

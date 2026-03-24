@@ -32,14 +32,13 @@ export function createTestInputConstraints() {
   setMeasureText((content: string, fontFamily: string, fontSize: number, lineHeight: number) => {
     return {
       width: fontSize * content.length,
-      height: lineHeight,
     };
   });
   setMetricizeFont((fontFamily: string) => {
     return {
-      blr: 0.875,
-      car: 1,
-      lgr: 1.5,
+      ascentRatio: 0.875,
+      descentRatio: 0.5,
+      lineGapRatio: 0.125,
     };
   });
   return { aw: 10000, ah: 10000 };

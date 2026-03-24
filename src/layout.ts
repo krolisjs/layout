@@ -8,7 +8,7 @@ import {
 } from './text';
 import type { INode, ITextNode, ITypeNode } from './node';
 import type { LineBoxContext } from './context';
-import { calNormalLineHeight } from './compute';
+import { calContentArea, calNormalLineHeight } from './compute';
 
 export type Frag = { x: number; y: number; w: number; h: number };
 
@@ -408,7 +408,7 @@ export function inline(node: INode, constraints: Constraints, global: Global, lb
   node.result = res;
   // 修改当前的，inline复用
   constraints.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-  lbc?.addInline(node, constraints.cx, constraints.cy);
+  lbc.addInline(node, constraints.cx, constraints.cy);
 }
 
 export function inlineBlock(node: INode, constraints: Constraints, global: Global) {
@@ -432,6 +432,9 @@ export function text(node: ITextNode, constraints: Constraints, global: Global, 
   let maxW = 0;
   const frags: TextBox[] = res.frags;
   const content = node.content;
+  // 每个textBox还要额外的计算内容区域高度，设置上下平分leading
+  const h = calContentArea(res.fontFamily, res.fontSize);
+  const leading = (res.lineHeight - h) * 0.5;
   let i = 0;
   let length = content.length;
   // 遇到换行符手动标识
@@ -441,17 +444,18 @@ export function text(node: ITextNode, constraints: Constraints, global: Global, 
     if (lineBreak.test(content[i])) {
       // 连续的换行符，每个产生一个空行
       if (newLine) {
-        addEmptyLine(cx, cy, res.lineHeight, node, frags, lbc);
         lbc.endLine();
+        lbc.newLine(cx, cy);
+        addEmptyLine(cx, cy + leading, h, node, frags, lbc);
       }
-      // 后续普通的字符自动用新的行y坐标，如果这是最后一个字符，后面逻辑识别生成新行
-      newLine = true;
       i++;
       cx = constraints.ox;
       cy += res.lineHeight;
       if (newLine) {
         lbc.newLine(cx, cy);
       }
+      // 后续普通的字符自动用新的行y坐标，如果这是最后一个字符，后面逻辑识别生成新行
+      newLine = true;
       continue;
     }
     // 置false，前面假如有换行已经设置好换行坐标了，新的内容用这个坐标即可
@@ -475,9 +479,9 @@ export function text(node: ITextNode, constraints: Constraints, global: Global, 
     );
     const textBox: TextBox = {
       x: cx,
-      y: cy,
+      y: cy + leading,
       w: width,
-      h: res.lineHeight,
+      h,
       content: content.slice(i, num),
     };
     frags.push(textBox);
@@ -499,8 +503,11 @@ export function text(node: ITextNode, constraints: Constraints, global: Global, 
   }
   // 最后一个换行符手动空行
   if (newLine) {
-    addEmptyLine(cx, cy, res.lineHeight, node, frags, lbc);
+    lbc.endLine();
+    lbc.newLine(cx, cy);
+    addEmptyLine(cx, cy + leading, h, node, frags, lbc);
   }
+  lbc.popText(node);
   res.w = maxW;
   const last = frags[frags.length - 1]!;
   res.h = last.y + last.h - constraints.cy;
@@ -518,7 +525,6 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags:
     content: '\n', // 统一标准化
   };
   frags.push(empty);
-  lbc.newLine(cx, cy);
   lbc.addText(empty, node);
 }
 

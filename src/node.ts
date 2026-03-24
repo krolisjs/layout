@@ -316,7 +316,6 @@ export abstract class AbstractNode implements ITypeNode {
         const c = this.constraints!;
         const lbc2 = this.lbc!;
         lbc2.endLine();
-        lbc2.end();
         const current = lbc2.current;
         c.cx = c.ox;
         c.cy = current.y + current.h;
@@ -354,12 +353,10 @@ export abstract class AbstractNode implements ITypeNode {
         // block所属的开始新行，同时应为block可能导致父级inline中断撑开，设置最大宽的
         lbc.addBlock(this);
         lbc.newLine(constraints.cx, constraints.cy);
-        // lbc.setMaxX(result.x + result.w + getMbpRight(result));
       }
       // 特殊时机，root的inline节点需要在absolute前执行计算
       if (this === global.root && style.display === Display.INLINE && style.position !== Position.ABSOLUTE) {
         lbc.endLine();
-        lbc.end();
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
       if (oofMap.has(this)) {

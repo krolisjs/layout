@@ -36,9 +36,9 @@ describe('linebox', () => {
     });
     expect(node.children[1].result).toMatchObject({
       x: 0,
-      y: 40,
+      y: 32.5,
       w: 440,
-      h: 40,
+      h: 55,
       paddingTop: 25,
       paddingRight: 0,
       paddingBottom: 0,
@@ -52,9 +52,9 @@ describe('linebox', () => {
       frags: [
         {
           x: 0,
-          y: 40,
+          y: 32.5,
           w: 440,
-          h: 40,
+          h: 55,
         },
       ],
     });
@@ -116,9 +116,9 @@ describe('linebox', () => {
     node.lay(inputConstraints);
     expect(node.children[0].children[0].result).toMatchObject({
       x: 250,
-      y: 125,
+      y: 126,
       w: 0,
-      h: 24,
+      h: 22,
     });
   });
 
@@ -140,9 +140,9 @@ describe('linebox', () => {
     node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
-      y: 0,
+      y: 1,
       w: 192,
-      h: 72,
+      h: 70,
       borderTopWidth: 2,
       borderRightWidth: 2,
       borderBottomWidth: 2,
@@ -150,15 +150,15 @@ describe('linebox', () => {
       frags: [
         {
           x: 2,
-          y: 0,
+          y: 1,
           w: 160,
-          h: 24,
+          h: 22,
         },
         {
           x: 0,
-          y: 48,
+          y: 49,
           w: 144,
-          h: 24,
+          h: 22,
         },
       ],
       type: 'inline',
@@ -193,9 +193,9 @@ describe('linebox', () => {
     node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
-      y: 192,
+      y: 193,
       w: 192,
-      h: 72,
+      h: 70,
       borderTopWidth: 2,
       borderRightWidth: 2,
       borderBottomWidth: 2,
@@ -203,15 +203,15 @@ describe('linebox', () => {
       frags: [
         {
           x: 2,
-          y: 192,
+          y: 193,
           w: 160,
-          h: 24,
+          h: 22,
         },
         {
           x: 0,
-          y: 240,
+          y: 241,
           w: 144,
-          h: 24,
+          h: 22,
         },
       ],
     });
@@ -266,9 +266,9 @@ describe('linebox', () => {
     });
     expect(node.children[2].result).toMatchObject({
       x: 320,
-      y: 0,
+      y: 1,
       w: 160,
-      h: 24,
+      h: 22,
     });
   });
 });
