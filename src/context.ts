@@ -353,38 +353,3 @@ export class LineBoxContext {
     return hasContent;
   }
 }
-
-/**
- * 收集block支柱、所有inline节点、叶子内容节点的fontFamily，fontSize，lineHeight，
- * 如果全相等不用对齐，因为高度完全一致，任何对齐都没有作用；
- * 不相等需要根据每个节点自身的verticalAlign处理，强制和支柱的baseline进行对齐。
- */
-function getNeedVerticalAlign(list: ContentBox[], node?: ITypeNode) {
-  const ff: Record<string, boolean> = {};
-  const fs: Record<number, boolean> = {};
-  const lh: Record<number, boolean> = {};
-  let ffc = 0, fsc = 0, lhc = 0;
-  if (node) {
-    const res = node.result!;
-    ff[res.fontFamily] = true;
-    fs[res.fontSize] = true;
-    lh[res.lineHeight] = true;
-    ffc = fsc = lhc = 1;
-  }
-  for (let i = 0, len = list.length; i < len; i++) {
-    const res = list[i].node.result!;
-    if (!ff[res.fontFamily]) {
-      ff[res.fontFamily] = true;
-      ffc++;
-    }
-    if (!fs[res.fontSize]) {
-      fs[res.fontSize] = true;
-      fsc++;
-    }
-    if (!lh[res.lineHeight]) {
-      lh[res.lineHeight] = true;
-      lhc++;
-    }
-  }
-  return ffc > 1 || fsc > 1 || lhc > 1;
-}

@@ -65,7 +65,7 @@ export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
 export enum LayoutMode {
   NORMAL       = 0b000,
   MIN_MAX      = 0b001, // flex测量阶段
-  OOF_MEASURE  = 0b100, // absolute测量阶段
+  OUT_FLOW     = 0b100, // absolute脱离文档流测量阶段
 }
 
 export class MarginStruct {

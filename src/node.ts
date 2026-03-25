@@ -52,7 +52,7 @@ export interface ITypeNode {
   prev: ITypeNode | null;
   next: ITypeNode | null;
   result: Result | null;
-  layAbs(constraints: Constraints, oofMap: WeakMap<ITypeNode, Oof[]>, global: Global): void;
+  layAbs(constraints: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
 }
 
 export interface INode extends ITypeNode {
@@ -73,7 +73,7 @@ export interface IImgNode extends ITypeNode {
 }
 export type IAllNode = INode | ITextNode | IImgNode;
 
-type Oof = {
+type Abs = {
   node: ITypeNode;
   parent?: INode;
   cx: number;
@@ -156,36 +156,41 @@ export abstract class AbstractNode implements ITypeNode {
     };
     const ms = new MarginStruct();
     // 遇到absolute进入测量模式，等其包含块节点end时机开始测量
-    const oofMap: WeakMap<AbstractNode, Oof[]> = new WeakMap();
+    const absMap: WeakMap<AbstractNode, Abs[]> = new WeakMap();
     const constraints = normalizeConstraints(inputConstraints);
     // 虚拟支柱，如果root是个inline的话也能运行
     const lbc = new LineBoxContext(constraints.ox, constraints.oy);
     // 入口普通模式
-    this.layMode(constraints, LayoutMode.NORMAL, oofMap, global, ms, lbc);
+    this.layMode(constraints, LayoutMode.NORMAL, absMap, global, ms, lbc);
   }
 
   /**
    *
    * @param constraints 父级约束
    * @param layoutMode 模式
-   * @param oofMap 包含块节点记录，等end时开始处理拥有的absolute
+   * @param absMap 包含块节点记录，等end时开始处理拥有的absolute
    * @param global root的一些单位
    * @param ms marginStruct，处理margin合并
    * @param lbc LineBoxContext，行元素处理每行对齐
    */
-  layMode(constraints: Constraints, layoutMode: LayoutMode, oofMap: WeakMap<ITypeNode, Oof[]>, global: Global,
+  layMode(constraints: Constraints, layoutMode: LayoutMode, absMap: WeakMap<ITypeNode, Abs[]>, global: Global,
           ms: MarginStruct, lbc: LineBoxContext) {
     const b = this.begin(constraints, layoutMode, global, lbc);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
-    if (b.layoutMode & LayoutMode.OOF_MEASURE) {
+    if (b.layoutMode & LayoutMode.OUT_FLOW) {
+      // 特殊的根节点就是absolute
+      if (this === global.root) {
+        this.layAbs(constraints, absMap, global);
+        return;
+      }
       const n = this.getContainingBlockNode() || { hook: global.root, parent: undefined };
-      let list: Oof[];
-      if (oofMap.has(n.hook)) {
-        list = oofMap.get(n.hook)!;
+      let list: Abs[];
+      if (absMap.has(n.hook)) {
+        list = absMap.get(n.hook)!;
       }
       else {
         list = [];
-        oofMap.set(n.hook, list);
+        absMap.set(n.hook, list);
       }
       list.push({
         node: this,
@@ -236,7 +241,7 @@ export abstract class AbstractNode implements ITypeNode {
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      child.layMode(b.c, b.layoutMode, oofMap, global, ms, newLbc || lbc);
+      child.layMode(b.c, b.layoutMode, absMap, global, ms, newLbc || lbc);
     }
     // 判定是否为“完全穿透”的空盒子
     if (canCollapseSelf(this)) {
@@ -251,7 +256,7 @@ export abstract class AbstractNode implements ITypeNode {
       ms.reset(res.marginBottom);
     }
     // 最后一个子节点的折叠
-    this.end(constraints, oofMap, global, lbc);
+    this.end(constraints, absMap, global, lbc);
   }
 
   private begin(constraints: Constraints, layoutMode: LayoutMode, global: Global, lbc: LineBoxContext) {
@@ -259,7 +264,7 @@ export abstract class AbstractNode implements ITypeNode {
     let c: Constraints;
     // absolute进入预测量模式
     if (style.position === Position.ABSOLUTE) {
-      layoutMode |= LayoutMode.OOF_MEASURE;
+      layoutMode |= LayoutMode.OUT_FLOW;
       c = constraints;
     }
     else if (this.nodeType === NodeType.Text) {
@@ -298,7 +303,7 @@ export abstract class AbstractNode implements ITypeNode {
     return { layoutMode, c };
   }
 
-  private end(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, global: Global, lbc: LineBoxContext) {
+  private end(constraints: Constraints, absMap: WeakMap<AbstractNode, Abs[]>, global: Global, lbc: LineBoxContext) {
     const style = this.style;
     const result = this.result!;
     // 递归结束后处理
@@ -359,8 +364,8 @@ export abstract class AbstractNode implements ITypeNode {
         lbc.endLine();
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
-      if (oofMap.has(this)) {
-        const list = oofMap.get(this)!;
+      if (absMap.has(this)) {
+        const list = absMap.get(this)!;
         list.forEach((item) => {
           let x: number, y: number, pbw: number, pbh: number;
           if (item.parent) {
@@ -410,7 +415,7 @@ export abstract class AbstractNode implements ITypeNode {
           c.aw -= c.cx - c.ox;
           c.ah -= c.cy - c.oy;
           // 获取到测量宽后，走一遍普通布局，inline要视作block
-          item.node.layAbs(c, oofMap, global);
+          (item.node as AbstractNode).layAbs(c, absMap, global);
         });
       }
     }
@@ -465,7 +470,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  layAbs(constraints: Constraints, oofMap: WeakMap<AbstractNode, Oof[]>, global: Global) {
+  layAbs(constraints: Constraints, absMap: WeakMap<AbstractNode, Abs[]>, global: Global) {
     const style = this.style;
     // 根据trbl确定最终尺寸
     const {
@@ -497,7 +502,6 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       const { min, max } = this.shrink2Fit(constraints, global, res);
       res.w = Math.max(min, Math.min(max, constraints.aw));
-      // constraints.aw = constraints.aw - (left.u === Unit.AUTO ? cx : res.left) - res.right;
     }
     if (height.u !== Unit.AUTO) {}
     else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
@@ -574,13 +578,13 @@ export abstract class AbstractNode implements ITypeNode {
     const lbc = new LineBoxContext(c.cx, c.cy, this.nodeType === NodeType.Text ? undefined : this as INode);
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(c, LayoutMode.NORMAL, oofMap, global, ms, lbc);
+      children[i].layMode(c, LayoutMode.NORMAL, absMap, global, ms, lbc);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO)) {
       res.h = c.cy - c.oy;
     }
-    this.end(constraints, oofMap, global, lbc);
+    this.end(constraints, absMap, global, lbc);
   }
 
   private shrink2Fit(constraints: Constraints, global: Global, pc: ComputedStyle) {
