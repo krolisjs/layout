@@ -13,6 +13,7 @@ import type {
   Constraints,
   Global,
   Inline,
+  InlineBox,
   InputConstraints,
   Result,
   Text,
@@ -20,6 +21,7 @@ import type {
 import {
   block,
   inline,
+  inlineBlock,
   LayoutMode,
   MarginStruct,
   normalizeConstraints,
@@ -233,7 +235,7 @@ export abstract class AbstractNode implements ITypeNode {
     this.constraints = b.c;
     // block创建新的上下文管理行元素，传给children；inline则继续复用
     let newLbc: LineBoxContext | undefined;
-    if (res.type === 'box' || res.type === 'inlineBox') {
+    if (['box', 'inlineBox'].includes(res.type)) {
       newLbc = new LineBoxContext(this.constraints.cx, this.constraints.cy, this as INode);
       this.lbc = newLbc;
     }
@@ -278,17 +280,27 @@ export abstract class AbstractNode implements ITypeNode {
       c = constraints;
     }
     // else if (style.display === Display.INLINE_BLOCK) {
-    //   // if (isFixed(style.width)) {
-    //     const res = preset(style, constraints, 'box', global, pc, ps) as Box;
-    //     const mbp = getMbpH(res);
-    //     // 换行
-    //     if (res.w + mbp > constraints.aw - (constraints.cx - constraints.ox)) {}
-    //     else {
-    //       const o = block(style, constraints, global, pc, ps, res);
-    //       this.result = o.res;
-    //       c = o.c;
-    //     }
-    //   // }
+    //   const n = this as unknown as Node;
+    //   // 固定且不换行，不固定都需要用到一个临时的computedStyle
+    //   const temp = preset(n, constraints, 'inlineBox', global) as InlineBox;
+    //   const d = constraints.cx - constraints.ox;
+    //   // 不固定则预测量
+    //   if (!isFixed(style.width)) {
+    //     const { min, max } = this.shrink2Fit(constraints, global, temp);
+    //     const aw = constraints.aw - d;
+    //     temp.w = Math.max(min, Math.min(max, aw));
+    //   }
+    //   // inlineBlock放不下要换行
+    //   if (d && temp.w + getMbpH(temp) < (constraints.aw - d)) {
+    //     lbc.endLine();
+    //     const current = lbc.current;
+    //     constraints.cx = constraints.ox;
+    //     constraints.cy = current.y + current.h;
+    //     c = inlineBlock(n, constraints, global);
+    //   }
+    //   else {
+    //     c = inlineBlock(n, constraints, global, temp);
+    //   }
     // }
     else {
       // 可能存在prev的inlineBox最后一行对齐
@@ -298,7 +310,7 @@ export abstract class AbstractNode implements ITypeNode {
         constraints.cy = current.y + current.h;
       }
       const n = this as unknown as Node;
-      c = block(n, constraints, global, lbc);
+      c = block(n, constraints, global);
     }
     return { layoutMode, c };
   }
@@ -501,7 +513,10 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else {
       const { min, max } = this.shrink2Fit(constraints, global, res);
-      res.w = Math.max(min, Math.min(max, constraints.aw));
+      const l = left.u === Unit.AUTO ? (constraints.cx - constraints.ox) : res.left;
+      const r = right.u === Unit.AUTO ? 0 : res.right;
+      const aw = constraints.aw - l - r;
+      res.w = Math.max(min, Math.min(max, aw));
     }
     if (height.u !== Unit.AUTO) {}
     else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {

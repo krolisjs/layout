@@ -359,14 +359,15 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
     res.y += res.marginTop + res.borderTopWidth + res.paddingTop;
     return res as Box;
   }
+  if (type === 'inlineBox') {
+    res.y += res.marginTop + res.borderTopWidth + res.paddingTop;
+    return res as InlineBox;
+  }
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
-export function block(node: INode, constraints: Constraints, global: Global, lbc: LineBoxContext, res?: Box) {
-  if (!res) {
-    res = preset(node, constraints, 'box', global) as Box;
-    res.type = 'box';
-  }
+// block和inlineBlock复用
+function bib(node: INode, constraints: Constraints, res: Box | InlineBox) {
   node.result = res;
   const style = node.style;
   // 返回递归的供子节点使用
@@ -401,6 +402,13 @@ export function block(node: INode, constraints: Constraints, global: Global, lbc
   return c;
 }
 
+export function block(node: INode, constraints: Constraints, global: Global, res?: Box) {
+  if (!res) {
+    res = preset(node, constraints, 'box', global) as Box;
+  }
+  return bib(node, constraints, res);
+}
+
 export function inline(node: INode, constraints: Constraints, global: Global, lbc: LineBoxContext) {
   const res = preset(node, constraints, 'inline', global) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
@@ -411,9 +419,11 @@ export function inline(node: INode, constraints: Constraints, global: Global, lb
   lbc.addInline(node, constraints.cx, constraints.cy);
 }
 
-export function inlineBlock(node: INode, constraints: Constraints, global: Global) {
-  const res = preset(node, constraints, 'box', global) as Box;
-  return { res, c: constraints };
+export function inlineBlock(node: INode, constraints: Constraints, global: Global, res?: InlineBox) {
+  if (!res) {
+    res = preset(node, constraints, 'inlineBox', global) as InlineBox;
+  }
+  return bib(node, constraints, res);
 }
 
 export function text(node: ITextNode, constraints: Constraints, global: Global, lbc: LineBoxContext) {
