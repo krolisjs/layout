@@ -163,7 +163,7 @@ export abstract class AbstractNode implements ITypeNode {
     // 虚拟支柱，如果root是个inline的话也能运行
     const lbc = new LineBoxContext(constraints.ox, constraints.oy);
     // 入口普通模式
-    this.layMode(constraints, LayoutMode.NORMAL, absMap, global, ms, lbc);
+    this.layFlow(constraints, LayoutMode.NORMAL, absMap, global, ms, lbc);
   }
 
   /**
@@ -175,7 +175,7 @@ export abstract class AbstractNode implements ITypeNode {
    * @param ms marginStruct，处理margin合并
    * @param lbc LineBoxContext，行元素处理每行对齐
    */
-  layMode(constraints: Constraints, layoutMode: LayoutMode, absMap: WeakMap<ITypeNode, Abs[]>, global: Global,
+  layFlow(constraints: Constraints, layoutMode: LayoutMode, absMap: WeakMap<ITypeNode, Abs[]>, global: Global,
           ms: MarginStruct, lbc: LineBoxContext) {
     const b = this.begin(constraints, layoutMode, global, lbc);
     // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
@@ -243,7 +243,7 @@ export abstract class AbstractNode implements ITypeNode {
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      child.layMode(b.c, b.layoutMode, absMap, global, ms, newLbc || lbc);
+      child.layFlow(b.c, b.layoutMode, absMap, global, ms, newLbc || lbc);
     }
     // 判定是否为“完全穿透”的空盒子
     if (canCollapseSelf(this)) {
@@ -279,29 +279,29 @@ export abstract class AbstractNode implements ITypeNode {
       inline(n, constraints, global, lbc);
       c = constraints;
     }
-    // else if (style.display === Display.INLINE_BLOCK) {
-    //   const n = this as unknown as Node;
-    //   // 固定且不换行，不固定都需要用到一个临时的computedStyle
-    //   const temp = preset(n, constraints, 'inlineBox', global) as InlineBox;
-    //   const d = constraints.cx - constraints.ox;
-    //   // 不固定则预测量
-    //   if (!isFixed(style.width)) {
-    //     const { min, max } = this.shrink2Fit(constraints, global, temp);
-    //     const aw = constraints.aw - d;
-    //     temp.w = Math.max(min, Math.min(max, aw));
-    //   }
-    //   // inlineBlock放不下要换行
-    //   if (d && temp.w + getMbpH(temp) < (constraints.aw - d)) {
-    //     lbc.endLine();
-    //     const current = lbc.current;
-    //     constraints.cx = constraints.ox;
-    //     constraints.cy = current.y + current.h;
-    //     c = inlineBlock(n, constraints, global);
-    //   }
-    //   else {
-    //     c = inlineBlock(n, constraints, global, temp);
-    //   }
-    // }
+    else if (style.display === Display.INLINE_BLOCK) {
+      const n = this as unknown as Node;
+      // 固定且不换行，不固定都需要用到一个临时的computedStyle
+      const temp = preset(n, constraints, 'inlineBox', global) as InlineBox;
+      const d = constraints.cx - constraints.ox;
+      // 不固定则预测量
+      if (!isFixed(style.width)) {
+        const { min, max } = this.shrink2Fit(constraints, global, temp);
+        const aw = constraints.aw - d;
+        temp.w = Math.max(min, Math.min(max, aw));
+      }
+      // inlineBlock放不下要换行
+      if (d && temp.w + getMbpH(temp) < (constraints.aw - d)) {
+        lbc.endLine();
+        const current = lbc.current;
+        constraints.cx = constraints.ox;
+        constraints.cy = current.y + current.h;
+        c = inlineBlock(n, constraints, global);
+      }
+      else {
+        c = inlineBlock(n, constraints, global, temp);
+      }
+    }
     else {
       // 可能存在prev的inlineBox最后一行对齐
       if (lbc.endLine()) {
@@ -422,6 +422,8 @@ export abstract class AbstractNode implements ITypeNode {
             pbh,
             cx: item.cx,
             cy: item.cy,
+            fw: false,
+            fh: false,
           };
           // 可用尺寸以当前位置和end距离为准
           c.aw -= c.cx - c.ox;
@@ -586,6 +588,8 @@ export abstract class AbstractNode implements ITypeNode {
       pbh: constraints.ah,
       cx: res.x,
       cy: res.y,
+      fw: false,
+      fh: false,
     };
     this.constraints = c;
     // 继续普通递归
@@ -593,7 +597,7 @@ export abstract class AbstractNode implements ITypeNode {
     const lbc = new LineBoxContext(c.cx, c.cy, this.nodeType === NodeType.Text ? undefined : this as INode);
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layMode(c, LayoutMode.NORMAL, absMap, global, ms, lbc);
+      children[i].layFlow(c, LayoutMode.NORMAL, absMap, global, ms, lbc);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO)) {

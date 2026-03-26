@@ -102,7 +102,7 @@ describe('box-display', () => {
     });
   });
 
-  it.skip('containing-block-003', () => {
+  it('containing-block-003', () => {
     const node = genNode({
       style: {
         display: 'inlineBlock',
@@ -126,12 +126,18 @@ describe('box-display', () => {
       ],
     });
     node.lay(inputConstraints);
+    expect(node.result).toMatchObject({
+      x: 20,
+      y: 20,
+      w: 60,
+      h: 60,
+      frags: null,
+    });
     expect(node.children[0].result).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
       h: 100,
-      frags: null,
     });
   });
 });

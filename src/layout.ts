@@ -57,6 +57,8 @@ export type Constraints = {
   pbh?: number; // 可能出现undefined表示auto
   cx: number; // 当前坐标，flow流用到，absolute时自动位置也会用
   cy: number;
+  fw: boolean; // 是否固定尺寸，决定节点%是否可用，否则视为auto
+  fh: boolean;
 };
 
 export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
@@ -108,6 +110,8 @@ export function normalizeConstraints(ic: InputConstraints) {
     cy: 0,
     pbw: ic.aw,
     pbh: ic.ah,
+    fw: true,
+    fh: true,
   }, ic) as Constraints;
 }
 
@@ -115,7 +119,7 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
   const style = node.style;
   const res: any = {
     type,
-    frags: type === 'box' ? null : [],
+    frags: ['box', 'inlineBox'].includes(type) ? null : [],
     x: constraints.cx,
     y: constraints.cy,
     w: 0,
@@ -382,6 +386,8 @@ function bib(node: INode, constraints: Constraints, res: Box | InlineBox) {
     cy: oy,
     pbw: res.w,
     pbh: res.h,
+    fw: false,
+    fh: false,
   };
   if (style.width.u === Unit.AUTO) {
     c.pbw = c.aw = res.w

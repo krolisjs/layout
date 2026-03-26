@@ -653,32 +653,45 @@ describe('margin-padding-clear', () => {
     });
   });
 
-  it.skip('margin-collapse-014', () => {
+  it('margin-collapse-014', () => {
     const node = genNode({
       style: {
-        width: 5,
+        width: '5em',
+        height: '4em',
       },
       children: [
         {
           style: {
             display: 'inlineBlock',
-            marginTop: 10,
-            width: 5,
+            marginBottom: '1em',
+            width: '5em',
+            height: '1em',
           },
         },
         {
           style: {
             display: 'inlineBlock',
-            marginTop: 10,
-            width: 5,
+            marginTop: '1em',
+            width: '5em',
+            height: '1em',
           },
         },
       ],
     });
     node.lay(inputConstraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 80,
+      h: 16,
+      marginBottom: 16,
+    });
     expect(node.children[1].result).toMatchObject({
-      y: 20,
-      marginTop: 10,
+      x: 0,
+      y: 48,
+      w: 80,
+      h: 16,
+      marginTop: 16,
     });
   });
 
