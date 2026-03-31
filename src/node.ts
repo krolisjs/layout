@@ -1,43 +1,29 @@
-import type { ComputedStyle, JStyle, Style } from './style';
 import {
   BoxSizing,
   calLength,
+  type ComputedStyle,
   Display,
   getDefaultStyle,
   isFixed,
+  type JStyle,
   Position,
-  Unit,
+  type Style,
+  Unit
 } from './style';
-import type {
-  Box,
-  Constraints,
-  Global,
-  Inline,
-  InlineBox,
-  InputConstraints,
-  Result,
-  Text,
-} from './layout';
+import type { Box, Constraints, Global, Inline, InlineBox, InputConstraints, Result, Text, } from './layout';
 import {
   block,
   inline,
   inlineBlock,
-  LayoutMode,
-  MarginStruct,
+  minMaxText,
   normalizeConstraints,
-  oofText,
+  offsetX,
+  offsetY,
   preset,
   text,
 } from './layout';
-import { LineBoxContext } from './context';
-import {
-  getMbpH,
-  canCollapseBottom,
-  canCollapseSelf,
-  canCollapseSibling,
-  canCollapseTop,
-  calMarginCollapse,
-} from './compute';
+import { LineBoxContext, MarginContext } from './context';
+import { getMbpH, hasBottomBarrier, hasTopBarrier, isBFC, } from './compute';
 
 export enum NodeType {
   Node = 0,
@@ -53,13 +39,15 @@ export interface ITypeNode {
   parent: INode | null;
   prev: ITypeNode | null;
   next: ITypeNode | null;
+  constraints: Constraints | null;
   result: Result | null;
-  layAbs(constraints: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
+  lineBoxContext: LineBoxContext | null;
+  collapse: boolean;
+  layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
 }
 
 export interface INode extends ITypeNode {
   readonly nodeType: NodeType.Node;
-  constraints: Constraints | null;
 }
 
 export interface ITextNode extends ITypeNode {
@@ -94,7 +82,9 @@ export abstract class AbstractNode implements ITypeNode {
   next: AbstractNode | null = null;
   constraints: Constraints | null = null; // block本身产生的约束，传给children
   result: Result | null = null; // 布局结果
-  lbc: LineBoxContext | null = null; // block本身产生的行级上下文管理，传给children
+  lineBoxContext: LineBoxContext | null = null; // block本身产生的行级上下文管理，传给children
+  // mc: MarginContext | null = null;
+  collapse = false; // 记录自己是否可以穿透，递归时父节点直接查看子节点防止重复递归
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
     this.nodeType = nodeType;
@@ -141,7 +131,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  lay(inputConstraints: InputConstraints) {
+  lay(ics: InputConstraints) {
     const root = getRoot(this);
     if (root !== this) {
       throw new Error('Cannot call lay() on a non-root node.');
@@ -150,341 +140,431 @@ export abstract class AbstractNode implements ITypeNode {
     if (!rem || rem < 0) {
       rem = 16;
     }
+    // root入口处初始化，可能用不到，比如block会创建自己的lbc，为了方法参数一致性
+    const absMap: WeakMap<AbstractNode, Abs[]> = new WeakMap();
+    const cs = normalizeConstraints(ics);
+    const mc = new MarginContext();
+    const lbc = new LineBoxContext(cs.ox, cs.oy);
     const global: Global = {
       root,
       rem,
-      w: inputConstraints.aw,
-      h: inputConstraints.ah,
+      w: ics.aw,
+      h: ics.ah,
+      cs,
     };
-    const ms = new MarginStruct();
-    // 遇到absolute进入测量模式，等其包含块节点end时机开始测量
-    const absMap: WeakMap<AbstractNode, Abs[]> = new WeakMap();
-    const constraints = normalizeConstraints(inputConstraints);
-    // 虚拟支柱，如果root是个inline的话也能运行
-    const lbc = new LineBoxContext(constraints.ox, constraints.oy);
-    // 入口普通模式
-    this.layFlow(constraints, LayoutMode.NORMAL, absMap, global, ms, lbc);
+    // 入口判断文档流or定位流，因为比较特殊，root没有相对包围块节点
+    if (this.style.position === Position.ABSOLUTE) {
+      this.layAbs(cs, absMap, global);
+    }
+    else {
+      this.layFlow(cs, absMap, global, mc, lbc);
+      if (mc.list.length) {
+        const m = mc.solve();
+        const list = mc.reset();
+        for (let i = 0, len = list.length; i < len; i++) {
+          const node = list[i];
+          const r = node.result!;
+          r.y += m;
+          const c = node.constraints!;
+          c.oy = c.cy += m;
+        }
+      }
+    }
+    this.finish(0, 0, global);
   }
 
   /**
-   *
-   * @param constraints 父级约束
-   * @param layoutMode 模式
-   * @param absMap 包含块节点记录，等end时开始处理拥有的absolute
-   * @param global root的一些单位
-   * @param ms marginStruct，处理margin合并
-   * @param lbc LineBoxContext，行元素处理每行对齐
+   * @param cs 约束空间，目前可用的尺寸、百分比、是否可计算百分比状态和位置
+   * @param absMap abs节点和其相对包含块节点记录，等end时开始处理所拥有的abs节点
+   * @param global root的一些全局单位
+   * @param mc 父节点传下来的处理margin合并的上下文
+   * @param lbc 父节点传下来的处理每行对齐的上下文
+   * 这是一个深度递归先根遍历的过程，处理文档流的主流程，定位流脱离于文档流在规范时期重新发起一个新的定位流递归循环；
+   * 每遇到block产生一个新的Constraints供子节点使用，并且赋值给自身同名属性，再传给参数递归，inline则复用仅更新cx/cy不给自己赋值；
+   * LineBoxContext情况和上面完全相同，遇到block产生新的传给子节点，inline复用同一个上下文；
+   * MarginContext有点类似但比较复杂，仅block会用到，依旧是向下递归传递，但是在遇到阻断情况时（如BFC）会产生结算并重置，防止共享影响。
    */
-  layFlow(constraints: Constraints, layoutMode: LayoutMode, absMap: WeakMap<ITypeNode, Abs[]>, global: Global,
-          ms: MarginStruct, lbc: LineBoxContext) {
-    const b = this.begin(constraints, layoutMode, global, lbc);
-    // 可能进入absolute预测量阶段，在包含块节点end时进行预测量，没有包含块则相对于root的约束
-    if (b.layoutMode & LayoutMode.OUT_FLOW) {
-      // 特殊的根节点就是absolute
-      if (this === global.root) {
-        this.layAbs(constraints, absMap, global);
-        return;
-      }
-      const n = this.getContainingBlockNode() || { hook: global.root, parent: undefined };
-      let list: Abs[];
-      if (absMap.has(n.hook)) {
-        list = absMap.get(n.hook)!;
-      }
-      else {
-        list = [];
-        absMap.set(n.hook, list);
-      }
-      list.push({
-        node: this,
-        parent: n.parent,
-        cx: constraints.cx,
-        cy: constraints.cy,
-      });
-      return;
-    }
-    const res = this.result!;
-    const prev = this.prev;
-    // margin合并检查，先尝试与父级的marginTop折叠，只发生在首个子节点；非首个节点处理相邻prev节点的折叠
-    if ((!prev && (ms.pos || ms.neg) && res.marginTop && this.parent && canCollapseTop(this.parent, this))
-      || (prev && (ms.pos || ms.neg) && res.marginTop && canCollapseSibling(prev, this))
-    ) {
-      const d = calMarginCollapse([ms.pos, ms.neg, res.marginTop]);
-      // 正正、负负计算，正负preset默认算过忽略
-      if (d > 0 && res.marginTop > 0) {
-        if (res.marginTop > d) {
-          res.y -= d;
-        }
-        else {
-          res.y -= res.marginTop;
+  layFlow(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    const { position, display } = this.style;
+    if (position === Position.ABSOLUTE || display !== Display.BLOCK) {
+      if (mc.list.length) {
+        const mt = mc.solve();
+        const list = mc.reset();
+        for (let i = 0, len = list.length; i < len; i++) {
+          const node = list[i];
+          const r = node.result!;
+          r.y += mt;
+          const c = node.constraints!;
+          c.oy = c.cy += mt;
         }
       }
-      else if (d < 0 && res.marginTop < 0) {
-        if (res.marginTop < d) {
-          res.y -= d;
-        }
-        else {
-          res.y -= res.marginTop;
-        }
-      }
-      ms.append(res.marginTop);
     }
+    // absolute脱离文档流
+    if (position === Position.ABSOLUTE) {
+      this.recordAbs(cs, absMap, global);
+    }
+    // 普通文档流
     else {
-      ms.solve();
-      ms.reset(res.marginTop);
-    }
-    this.constraints = b.c;
-    // block创建新的上下文管理行元素，传给children；inline则继续复用
-    let newLbc: LineBoxContext | undefined;
-    if (['box', 'inlineBox'].includes(res.type)) {
-      newLbc = new LineBoxContext(this.constraints.cx, this.constraints.cy, this as INode);
-      this.lbc = newLbc;
-    }
-    // 先序遍历递归
-    const children = this.children;
-    for (let i = 0, len = children.length; i < len; i++) {
-      const child = children[i];
-      child.layFlow(b.c, b.layoutMode, absMap, global, ms, newLbc || lbc);
-    }
-    // 判定是否为“完全穿透”的空盒子
-    if (canCollapseSelf(this)) {
-      ms.append(res.marginBottom);
-    }
-    // 最后一个子节点的底部是否合并
-    else if (children.length && canCollapseBottom(this, children[children.length - 1])) {
-      ms.append(res.marginBottom);
-    }
-    else {
-      ms.solve();
-      ms.reset(res.marginBottom);
-    }
-    // 最后一个子节点的折叠
-    this.end(constraints, absMap, global, lbc);
-  }
-
-  private begin(constraints: Constraints, layoutMode: LayoutMode, global: Global, lbc: LineBoxContext) {
-    const style = this.style;
-    let c: Constraints;
-    // absolute进入预测量模式
-    if (style.position === Position.ABSOLUTE) {
-      layoutMode |= LayoutMode.OUT_FLOW;
-      c = constraints;
-    }
-    else if (this.nodeType === NodeType.Text) {
-      const t = this as unknown as TextNode;
-      text(t, constraints, global, lbc);
-      c = constraints;
-    }
-    else if (style.display === Display.INLINE) {
-      const n = this as unknown as Node;
-      inline(n, constraints, global, lbc);
-      c = constraints;
-    }
-    else if (style.display === Display.INLINE_BLOCK) {
-      const n = this as unknown as Node;
-      // 固定且不换行，不固定都需要用到一个临时的computedStyle
-      const temp = preset(n, constraints, 'inlineBox', global) as InlineBox;
-      const d = constraints.cx - constraints.ox;
-      // 不固定则预测量
-      if (!isFixed(style.width)) {
-        const { min, max } = this.shrink2Fit(constraints, global, temp);
-        const aw = constraints.aw - d;
-        temp.w = Math.max(min, Math.min(max, aw));
+      if (this.nodeType === NodeType.Text) {
+        this.layText(cs, global, mc, lbc);
       }
-      // inlineBlock放不下要换行
-      if (d && temp.w + getMbpH(temp) < (constraints.aw - d)) {
-        lbc.endLine();
-        const current = lbc.current;
-        constraints.cx = constraints.ox;
-        constraints.cy = current.y + current.h;
-        c = inlineBlock(n, constraints, global);
+      else if (display === Display.INLINE) {
+        this.layInline(cs, absMap, global, mc, lbc);
       }
-      else {
-        c = inlineBlock(n, constraints, global, temp);
-      }
-    }
-    else {
-      // 可能存在prev的inlineBox最后一行对齐
-      if (lbc.endLine()) {
-        const current = lbc.current;
-        constraints.cx = constraints.ox;
-        constraints.cy = current.y + current.h;
-      }
-      const n = this as unknown as Node;
-      c = block(n, constraints, global);
-    }
-    return { layoutMode, c };
-  }
-
-  private end(constraints: Constraints, absMap: WeakMap<AbstractNode, Abs[]>, global: Global, lbc: LineBoxContext) {
-    const style = this.style;
-    const result = this.result!;
-    // 递归结束后处理
-    if (this.nodeType === NodeType.Text) {
-    }
-    else {
-      // 不用做任何事情
-      if (style.position === Position.ABSOLUTE) {}
-      // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
-      else if (style.display === Display.INLINE) {
-        lbc.popInline();
+      else if (display === Display.INLINE_BLOCK) {
+        this.layInlineBlock(cs, absMap, global, mc, lbc);
       }
       // 默认block
       else {
-        const c = this.constraints!;
-        const lbc2 = this.lbc!;
-        lbc2.endLine();
-        const current = lbc2.current;
-        c.cx = c.ox;
-        c.cy = current.y + current.h;
-        // 自动高度，以及%高度但父级是auto
-        if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && c.pbh === undefined) {
-          result.h = c.cy - c.oy;
-        }
-        const parent = this.parent;
-        const cp = parent?.constraints;
-        if (cp) {
-          const mbp = result.marginBottom + result.paddingBottom + result.borderBottomWidth;
-          cp.cy = result.y + result.h + mbp;
-        }
-        // margin:auto处理
-        const { boxSizing, marginLeft, marginRight } = style;
-        const pr = parent?.result;
-        const w = pr ? pr.w : global.w;
-        let w2 = result.w;
-        if (boxSizing === BoxSizing.CONTENT_BOX) {
-          w2 += result.borderLeftWidth + result.borderRightWidth + result.paddingLeft + result.paddingRight;
-        }
-        if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
-          if (w2 < w) {
-            const half = (w - w2) * 0.5;
-            result.x += half;
-            result.marginLeft = half;
-            result.marginRight = half;
-          }
-        }
-        else if (marginLeft.u === Unit.AUTO && marginRight.u !== Unit.AUTO && marginRight.v) {
-          result.x -= result.marginRight;
-        }
-        constraints.cx = constraints.ox;
-        constraints.cy = result.y + result.h + result.marginBottom + result.borderBottomWidth + result.paddingBottom;
-        // block所属的开始新行，同时应为block可能导致父级inline中断撑开，设置最大宽的
-        lbc.addBlock(this);
-        lbc.newLine(constraints.cx, constraints.cy);
+        this.layBlock(cs, absMap, global, mc, lbc);
       }
-      // 特殊时机，root的inline节点需要在absolute前执行计算
-      if (this === global.root && style.display === Display.INLINE && style.position !== Position.ABSOLUTE) {
+      // 特殊时机，root是inline节点需要在absolute前执行计算
+      if (this === global.root && display === Display.INLINE) {
         lbc.endLine();
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
-      if (absMap.has(this)) {
-        const list = absMap.get(this)!;
-        list.forEach((item) => {
-          let x: number, y: number, pbw: number, pbh: number;
-          if (item.parent) {
-            const result = item.parent.result!;
-            // inline的包围块特殊逻辑，以首尾行为准
-            if (result.type === 'inline') {
-              const frags = result.frags;
-              if (frags.length) {
-                const start = frags[0];
-                const end = frags[frags.length - 1];
-                x = start.x;
-                y = start.y;
-                pbw = end.x + end.w - start.x + result.paddingRight + result.paddingLeft;
-                pbh = end.y + end.h - start.y + result.paddingTop + result.paddingBottom;
-              }
-              else {
-                x = result.x;
-                y = result.y;
-                pbw = result.w;
-                pbh = result.h;
-              }
-            }
-            else {
-              x = result.x;
-              y = result.y;
-              pbw = result.w + result.paddingLeft + result.paddingRight;
-              pbh = result.h + result.paddingTop + result.paddingBottom;
-            }
-          }
-          // 相当于全局的absolute
-          else {
-            x = y = 0;
-            pbw = global.w;
-            pbh = global.h;
-          }
-          const c: Constraints = {
-            ox: x - result.paddingLeft,
-            oy: y - result.paddingTop,
-            aw: pbw,
-            ah: pbh,
-            pbw,
-            pbh,
-            cx: item.cx,
-            cy: item.cy,
-            fw: false,
-            fh: false,
-          };
-          // 可用尺寸以当前位置和end距离为准
-          c.aw -= c.cx - c.ox;
-          c.ah -= c.cy - c.oy;
-          // 获取到测量宽后，走一遍普通布局，inline要视作block
-          (item.node as AbstractNode).layAbs(c, absMap, global);
-        });
-      }
-    }
-    // root节点开始处理relative的偏移
-    if (!this.parent) {
-      this.finish(0, 0, result.fontSize, global);
+      this.checkAbs(absMap, global);
     }
   }
 
-  finish(x: number, y: number, rem: number, global: Global) {
+  // 将absolute节点记录下来，等到其包围块节点布局结束后有了确定的尺寸再布局
+  private recordAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global) {
+    // 获取相对包围块节点后记录，没有就是相对root
+    const n = this.getContainingBlockNode() || { hook: global.root, parent: undefined };
+    let list: Abs[];
+    if (absMap.has(n.hook)) {
+      list = absMap.get(n.hook)!;
+    }
+    else {
+      list = [];
+      absMap.set(n.hook, list);
+    }
+    list.push({
+      node: this,
+      parent: n.parent,
+      cx: cs.cx,
+      cy: cs.cy,
+    });
+  }
+
+  private checkAbs(absMap: WeakMap<ITypeNode, Abs[]>, global: Global) {
+    if (absMap.has(this)) {
+      const list = absMap.get(this)!;
+      list.forEach((item) => {
+        let x: number, y: number, pbw: number, pbh: number;
+        if (item.parent) {
+          const res = item.parent.result!;
+          // inline的包围块特殊逻辑，以首尾行为准
+          if (res.type === 'inline') {
+            const frags = res.frags;
+            if (frags.length) {
+              const start = frags[0];
+              const end = frags[frags.length - 1];
+              x = start.x;
+              y = start.y;
+              pbw = end.x + end.w - start.x + res.paddingRight + res.paddingLeft;
+              pbh = end.y + end.h - start.y + res.paddingTop + res.paddingBottom;
+            }
+            else {
+              x = res.x;
+              y = res.y;
+              pbw = res.w;
+              pbh = res.h;
+            }
+          }
+          else {
+            x = res.x;
+            y = res.y;
+            pbw = res.w + res.paddingLeft + res.paddingRight;
+            pbh = res.h + res.paddingTop + res.paddingBottom;
+          }
+        }
+        // 相当于全局的absolute
+        else {
+          x = y = 0;
+          pbw = global.w;
+          pbh = global.h;
+        }
+        const res = this.result!;
+        const c: Constraints = {
+          ox: x - res.paddingLeft,
+          oy: y - res.paddingTop,
+          aw: pbw,
+          ah: pbh,
+          pbw,
+          pbh,
+          cx: item.cx,
+          cy: item.cy,
+          fw: false,
+          fh: false,
+        };
+        // 可用尺寸以当前位置和end距离为准
+        c.aw -= c.cx - c.ox;
+        c.ah -= c.cy - c.oy;
+        // 获取到测量宽后，走一遍普通布局，inline要视作block
+        (item.node as AbstractNode).layAbs(c, absMap, global);
+      });
+    }
+  }
+
+  layText(cs: Constraints, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    this.constraints = cs;
+    const t = this as unknown as TextNode;
+    text(t, cs, global, lbc);
+  }
+
+  layBlock(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    this.blockStart(cs, lbc);
+    const n = this as unknown as Node;
+    // block自身的约束、自身的lineBoxContext是新的
+    const scs = block(n, cs, global);
+    this.constraints = scs;
+    const slbc = new LineBoxContext(scs.cx, scs.cy, this as INode);
+    this.lineBoxContext = slbc;
+    const style = this.style;
+    const res = this.result!;
+    /**
+     * block独有的marginTop合并检查，在首个节点（无prev）发生；
+     * 如果节点是有paddingTop、borderTop、BFC则直接中断；
+     * 如果有height也可以中断，但auto且有孩子时无法提前预知孩子是否是可穿透，所以后置判断。
+     * 如果有隔断，节点和marginTop存入上下文记录当中，等待结束时（被隔断）统一计算；
+     * 如果没有隔断，检查当前存入的节点和数据，用规范的正正、负负、正负不同情况计算合并最终值。
+     * 首个block节点（如root，inline中的block）触发时没有prev/parent，
+     * 连续的bfc隔离也不会有合并情况，因此先判断当前存入了多少个节点和数据。
+     */
+    const htb = hasTopBarrier(res);
+    const hbb = hasBottomBarrier(res);
+    const bfc = isBFC(style);
+    if (htb || bfc) {
+      // 先算上自己，隔断是和自己和子节点隔断，如果只有自己一个节点等于直接生效
+      mc.append(res.marginTop, this);
+      const mt = mc.solve();
+      const list = mc.reset();
+      if (mt) {
+        for (let i = 0, len = list.length; i < len; i++) {
+          const node = list[i];
+          const r = node.result!;
+          r.y += mt;
+          // 除了结果，也影响子节点的原点y和当前y，记录的值可能有marginTop/marginBottom，但节点只有连续的marginTop
+          const c = node.constraints!;
+          c.oy = c.cy += mt;
+        }
+        // list中每个节点都会影响所在的约束（parent上的）的cy，但由于节点在自身递归遍历结束时会计算cy，所以这里可以省略
+      }
+    }
+    else {
+      mc.append(res.marginTop, this);
+    }
+    // 先序遍历，同时由于子节点先触发，计算子节点是否可以被折叠后父节点可以直接读取
+    const children = this.children;
+    let collapse = !htb && !hbb && !bfc && style.height.u === Unit.AUTO;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      child.layFlow(scs, absMap, global, mc, slbc);
+      if (collapse && !child.collapse) {
+        collapse = false;
+      }
+    }
+    this.collapse = collapse;
+    this.blockEnd(cs);
+    this.marginAuto(global);
+    // 如果可以穿透，说明自己和递归子节点（如有）全部忽略，记录下来等后续判断
+    if (collapse) {
+      mc.append(res.marginBottom);
+    }
+    // 不可以穿透，处理之前的特殊情况和自己
+    else {
+      // 结算一种特殊情况：叶子结点有高度或者bottom中断但没有top中断，solve才会有值，这个值可能来自parent的top积累或prev的bottom积累
+      if (!children.length) {
+        const m = mc.solve();
+        // 如果叶子节点有top中断，已经被计算且重置，就不会有值了；没有中断且没有margin也没有值不需要处理
+        if (m) {
+          const list = mc.reset();
+          for (let i = 0, len = list.length; i < len; i++) {
+            const node = list[i];
+            const r = node.result!;
+            r.y += m;
+            const c = node.constraints!;
+            c.oy = c.cy += m;
+          }
+          // 这里和开始不同，因为叶子结点已经结算过cy了，所以需要累加下，如果有来自parent的积累，还没结算等其自身结算
+          cs.cy += m;
+        }
+        else {
+          mc.reset();
+        }
+      }
+      // 普通情况下查看自身是否有bottom隔断，有的话追加到cy结算上，没有记录下来
+      if (hbb || bfc) {
+        const m = mc.solve();
+        if (m) {
+          const list = mc.reset();
+          for (let i = 0, len = list.length; i < len; i++) {
+            const node = list[i];
+            const r = node.result!;
+            r.y += m;
+            const c = node.constraints!;
+            c.oy = c.cy += m;
+          }
+          // 这里和开始不同，因为叶子结点已经结算过cy了，所以需要累加下，如果有来自parent的积累，还没结算等其自身结算
+          cs.cy += m;
+        }
+        else {
+          mc.reset();
+        }
+        if (m && (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined)) {
+          res.h += m;
+        }
+        cs.cy += res.marginBottom;
+      }
+      else {
+        mc.append(res.marginBottom);
+      }
+    }
+    // block所属的inline（如有）中断撑开开始新行，记录下来
+    lbc.addBlock(this);
+    lbc.newLine(cs.cx, cs.cy);
+  }
+
+  // flex/grid也是block，开始换行处理是一样的
+  private blockStart(cs: Constraints, lbc: LineBoxContext) {
+    // 可能存在prev是inline，lineBox最后一行对齐
+    if (lbc.endLine()) {
+      const current = lbc.current;
+      cs.cx = cs.ox;
+      cs.cy = current.y + current.h;
+    }
+  }
+
+  // absolute强制block，flex/grid也是block，尾部处理是一样的
+  private blockEnd(cs: Constraints) {
+    const scs = this.constraints!;
+    const lbc = this.lineBoxContext!;
+    if (lbc.endLine()) {
+      const current = lbc.current;
+      scs.cx = scs.ox;
+      scs.cy = current.y + current.h;
+    }
+    const style = this.style;
+    const res = this.result!;
+    // 自动高度，以及%高度但父级是auto
+    if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined) {
+      res.h = Math.max(0, scs.cy - scs.oy);
+    }
+    // 没有包含marginBottom，因为要处理合并
+    cs.cx = cs.ox;
+    cs.cy = res.y + res.h + res.paddingBottom + res.borderBottomWidth;
+  }
+
+  // flex/grid也是block，尾部auto处理是一样的
+  private marginAuto(global: Global) {
+    const { boxSizing, marginLeft, marginRight } = this.style;
+    const res = this.result!;
+    const parent = this.parent;
+    const w = parent ? parent.result!.w : global.w;
+    let w2 = res.w;
+    if (boxSizing === BoxSizing.CONTENT_BOX) {
+      w2 += res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight;
+    }
+    if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
+      if (w2 < w) {
+        const half = (w - w2) * 0.5;
+        res.x += half;
+        res.marginLeft = half;
+        res.marginRight = half;
+      }
+    }
+    else if (marginLeft.u === Unit.AUTO && marginRight.u !== Unit.AUTO && marginRight.v) {
+      res.x -= res.marginRight;
+    }
+  }
+
+  layInline(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    this.constraints = cs;
+    const n = this as unknown as Node;
+    inline(n, cs, global, lbc);
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      child.layFlow(cs, absMap, global, mc, lbc);
+    }
+    // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
+    lbc.popInline();
+  }
+
+  layInlineBlock(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    const style = this.style;
+    const n = this as unknown as Node;
+    // 固定且不换行，不固定都需要用到一个临时的computedStyle
+    const temp = preset(n, cs, 'inlineBox', global) as InlineBox;
+    const d = cs.cx - cs.ox;
+    // 不固定则预测量
+    if (!isFixed(style.width)) {
+      const { min, max } = this.shrink2Fit(cs, global, temp);
+      const aw = cs.aw - d;
+      temp.w = Math.max(min, Math.min(max, aw));
+    }
+    let scs: Constraints;
+    // inlineBlock放不下要换行
+    if (d && temp.w + getMbpH(temp) < (cs.aw - d)) {
+      lbc.endLine();
+      const current = lbc.current;
+      cs.cx = cs.ox;
+      cs.cy = current.y + current.h;
+      scs = inlineBlock(n, cs, global);
+    }
+    else {
+      scs = inlineBlock(n, cs, global, temp);
+    }
+    this.constraints = scs;
+    const slbc = new LineBoxContext(scs.cx, scs.cy, this as INode);
+    this.lineBoxContext = slbc;
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      child.layFlow(scs, absMap, global, mc, slbc);
+    }
+    this.blockEnd(cs);
+  }
+
+  // TODO 性能优化，不整体root再递归一遍，用到的地方end时做
+  finish(x: number, y: number, global: Global) {
     const style = this.style;
     const res = this.result!;
     if (style.position === Position.RELATIVE) {
       const { left, top, right, bottom } = style;
       if (left.u !== Unit.AUTO) {
-        x += calLength(left, res.w, rem, res.fontSize);
+        x += calLength(left, res.w, global.rem, res.fontSize);
       }
       else if (right.u !== Unit.AUTO) {
-        x -= calLength(right, res.w, rem, res.fontSize);
+        x -= calLength(right, res.w, global.rem, res.fontSize);
       }
       if (top.u !== Unit.AUTO) {
+        console.log(this.parent, this.parent?.constraints)
         // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
         if (top.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== undefined) {
-          y += calLength(top, res.h, rem, res.fontSize);
+          y += calLength(top, res.h, global.rem, res.fontSize);
         }
       }
       else if (bottom.u !== Unit.AUTO) {
         if (bottom.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== undefined) {
-          y -= calLength(bottom, res.h, rem, res.fontSize);
+          y -= calLength(bottom, res.h, global.rem, res.fontSize);
         }
       }
     }
-    if (x || y) {
-      res.x += x;
-      res.y += y;
-      if (res.frags) {
-        res.frags.forEach(item => {
-          item.x += x;
-          item.y += y;
-        });
-        if (res.type === 'text') {
-          res.frags.forEach(item => {
-            item.x += x;
-            item.y += y;
-          });
-        }
-      }
+    if (x) {
+      offsetX(res, x);
+    }
+    if (y) {
+      offsetY(res, y);
     }
     const children = this.children;
     for (let i = 0; i < children.length; i++) {
-      children[i].finish(x, y, rem, global);
+      children[i].finish(x, y, global);
     }
   }
 
-  layAbs(constraints: Constraints, absMap: WeakMap<AbstractNode, Abs[]>, global: Global) {
+  layAbs(cs: Constraints, absMap: WeakMap<AbstractNode, Abs[]>, global: Global) {
     const style = this.style;
     // 根据trbl确定最终尺寸
     const {
@@ -500,34 +580,34 @@ export abstract class AbstractNode implements ITypeNode {
       width,
       height
     } = style;
-    const res = preset(this, constraints, 'box', global) as Box;
+    const res = preset(this, cs, 'box', global) as Box;
     this.result = res;
     if (left.u !== Unit.AUTO) {
-      res.x = constraints.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+      res.x = cs.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
     }
     if (top.u !== Unit.AUTO) {
-      res.y = constraints.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
+      res.y = cs.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
     }
     // 尺寸优先级
     if (width.u !== Unit.AUTO) {}
     else if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
-      res.w = constraints.pbw - res.left - res.right - res.marginLeft - res.marginRight;
+      res.w = cs.pbw - res.left - res.right - res.marginLeft - res.marginRight;
     }
     else {
-      const { min, max } = this.shrink2Fit(constraints, global, res);
-      const l = left.u === Unit.AUTO ? (constraints.cx - constraints.ox) : res.left;
+      const { min, max } = this.shrink2Fit(cs, global, res);
+      const l = left.u === Unit.AUTO ? (cs.cx - cs.ox) : res.left;
       const r = right.u === Unit.AUTO ? 0 : res.right;
-      const aw = constraints.aw - l - r;
+      const aw = cs.aw - l - r;
       res.w = Math.max(min, Math.min(max, aw));
     }
     if (height.u !== Unit.AUTO) {}
     else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
-      res.h = constraints.pbh! - res.top - res.bottom - res.marginTop - res.marginBottom;
+      res.h = cs.pbh! - res.top - res.bottom - res.marginTop - res.marginBottom;
     }
     else {}
     // 边距平分
     if (left.u !== Unit.AUTO && right.u !== Unit.AUTO && width.u !== Unit.AUTO) {
-      const residual = constraints.aw - (res.left + res.right + res.w);
+      const residual = cs.aw - (res.left + res.right + res.w);
       if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
         if (residual > 0) {
           const half = residual * 0.5;
@@ -547,7 +627,7 @@ export abstract class AbstractNode implements ITypeNode {
       }
     }
     if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO && height.u !== Unit.AUTO) {
-      const residual = constraints.ah - (res.top + res.bottom + res.h);
+      const residual = cs.ah - (res.top + res.bottom + res.h);
       if (marginTop.u === Unit.AUTO && marginBottom.u === Unit.AUTO) {
         const half = residual * 0.5;
         res.y += half;
@@ -557,56 +637,69 @@ export abstract class AbstractNode implements ITypeNode {
     }
     // 超额约束修正
     if (left.u === Unit.AUTO && right.u === Unit.AUTO) {
-      res.left = constraints.cx - constraints.ox;
-      res.right = constraints.aw - res.left - res.w - res.marginLeft - res.marginRight;
+      res.left = cs.cx - cs.ox;
+      res.right = cs.aw - res.left - res.w - res.marginLeft - res.marginRight;
     }
     else if (left.u === Unit.AUTO) {
-      res.left = constraints.aw - res.right - res.w - res.marginLeft - res.marginRight;
+      res.left = cs.aw - res.right - res.w - res.marginLeft - res.marginRight;
     }
     else {
-      res.right = constraints.aw - res.left - res.w - res.marginLeft - res.marginRight;
+      res.right = cs.aw - res.left - res.w - res.marginLeft - res.marginRight;
     }
-    res.x = constraints.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+    res.x = cs.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
     if (top.u === Unit.AUTO && bottom.u === Unit.AUTO) {
-      res.top = constraints.cy - constraints.oy;
-      res.bottom = constraints.ah - res.top - res.h - res.marginTop - res.marginBottom;
+      res.top = cs.cy - cs.oy;
+      res.bottom = cs.ah - res.top - res.h - res.marginTop - res.marginBottom;
     }
     else if (top.u === Unit.AUTO) {
-      res.top = constraints.ah - res.bottom - res.h - res.marginTop - res.marginBottom;
+      res.top = cs.ah - res.bottom - res.h - res.marginTop - res.marginBottom;
     }
     else {
-      res.right = constraints.ah - res.top - res.h - res.marginLeft - res.marginRight;
+      res.bottom = cs.ah - res.top - res.h - res.marginTop - res.marginBottom;
     }
-    res.y = constraints.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
+    res.y = cs.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
     // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
-    const c: Constraints = {
+    const scs: Constraints = {
       ox: res.x,
       oy: res.y,
       aw: res.w,
-      ah: constraints.ah,
+      ah: cs.ah,
       pbw: res.w,
-      pbh: constraints.ah,
+      pbh: cs.ah,
       cx: res.x,
       cy: res.y,
       fw: false,
       fh: false,
     };
-    this.constraints = c;
+    this.constraints = scs;
     // 继续普通递归
-    const ms = new MarginStruct();
-    const lbc = new LineBoxContext(c.cx, c.cy, this.nodeType === NodeType.Text ? undefined : this as INode);
+    const mc = new MarginContext();
+    const slbc = new LineBoxContext(scs.cx, scs.cy, this.nodeType === NodeType.Text ? undefined : this as INode);
+    this.lineBoxContext = slbc;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layFlow(c, LayoutMode.NORMAL, absMap, global, ms, lbc);
+      children[i].layFlow(scs, absMap, global, mc, slbc);
     }
     // 模拟end
     if (style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO)) {
-      res.h = c.cy - c.oy;
+      res.h = scs.cy - scs.oy;
     }
-    this.end(constraints, absMap, global, lbc);
+    if (mc.list.length) {
+      const mt = mc.solve();
+      const list = mc.reset();
+      for (let i = 0, len = list.length; i < len; i++) {
+        const node = list[i];
+        const r = node.result!;
+        r.y += mt;
+        const c = node.constraints!;
+        c.oy = c.cy += mt;
+      }
+    }
+    // absolute递归包含absolute
+    this.checkAbs(absMap, global);
   }
 
-  private shrink2Fit(constraints: Constraints, global: Global, pc: ComputedStyle) {
+  private shrink2Fit(cs: Constraints, global: Global, pc: ComputedStyle) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -615,17 +708,17 @@ export abstract class AbstractNode implements ITypeNode {
       // 测量阶段递归的子节点absolute忽略
       if (style.position !== Position.ABSOLUTE) {
         if (child.nodeType === NodeType.Text) {
-          const o = child.shrink2FitText(constraints, global);
+          const o = child.shrink2FitText(cs, global);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else if (style.display === Display.INLINE) {
-          const o = child.shrink2FitInline(constraints, global);
+          const o = child.shrink2FitInline(cs, global);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else {
-          const o = child.shrink2FitBlock(constraints, global, pc);
+          const o = child.shrink2FitBlock(cs, global, pc);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
@@ -634,24 +727,24 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private shrink2FitBlock(constraints: Constraints, global: Global, pc: ComputedStyle) {
+  private shrink2FitBlock(cs: Constraints, global: Global, pc: ComputedStyle) {
     let min = 0, max = 0;
     const style = this.style;
     // block如果定宽则直接返回（不考虑%），否则递归
     if (isFixed(style.width)) {
-      let w = calLength(style.width, constraints.pbw, global.rem, pc.fontSize);
+      let w = calLength(style.width, cs.pbw, global.rem, pc.fontSize);
       if (style.boxSizing === BoxSizing.CONTENT_BOX) {
-        const r = preset(this, constraints, 'box', global) as Box;
+        const r = preset(this, cs, 'box', global) as Box;
         w += getMbpH(r);
       }
       min = w;
       max = w;
     }
     else {
-      const r = preset(this, constraints, 'box', global) as Box;
+      const r = preset(this, cs, 'box', global) as Box;
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
-        const o = children[i].shrink2Fit(constraints, global, r);
+        const o = children[i].shrink2Fit(cs, global, r);
         min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }
@@ -662,21 +755,21 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private shrink2FitInline(constraints: Constraints, global: Global) {
+  private shrink2FitInline(cs: Constraints, global: Global) {
     let min = 0, max = 0;
-    const r = preset(this, constraints, 'inline', global) as Inline;
+    const r = preset(this, cs, 'inline', global) as Inline;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      const o = children[i].shrink2Fit(constraints, global, r);
+      const o = children[i].shrink2Fit(cs, global, r);
       min = Math.max(min, o.min);
       max += o.max;
     }
     return { min, max };
   }
 
-  private shrink2FitText(constraints: Constraints, global: Global) {
+  private shrink2FitText(cs: Constraints, global: Global) {
     const t = this as unknown as TextNode;
-    return oofText(t, constraints, t.content, global);
+    return minMaxText(t, cs, t.content, global);
   }
 
   // 获取absolute的包围块节点，可能是relative+inline，需要返回钩子节点（所属block）和真正的包围块

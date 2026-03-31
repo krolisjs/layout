@@ -1,5 +1,5 @@
 import { calBaseline, calContentArea, calLeading, getMbpBottom, getMbpRight } from './compute';
-import type { Frag, Inline, Text, TextBox } from './layout';
+import type { Frag, Inline, Result, Text, TextBox } from './layout';
 import { VerticalAlign } from './style';
 import type { INode, ITextNode, ITypeNode } from './node';
 
@@ -94,13 +94,13 @@ export class LineBoxContext {
       const { node, lv } = item;
       // 找到结束的inline节点和lv，有末尾mbp才有效
       if (node === o) {
-        const result = node.result as Inline;
-        if (result.marginRight || result.borderRightWidth || result.paddingRight) {
+        const res = node.result as Inline;
+        if (res.marginRight || res.borderRightWidth || res.paddingRight) {
           if (!item.added) {
             item.added = true;
-            result.frags.push(item.frag as Frag);
+            res.frags.push(item.frag as Frag);
           }
-          const mbp = getMbpRight(result);
+          const mbp = getMbpRight(res);
           // 父inline一定在前面出现，且lv更小
           for (let j = 0; j < i; j++) {
             const item = list[j];
@@ -120,10 +120,10 @@ export class LineBoxContext {
           const list = inlinePlaceHolder.get(node)!;
           for (let i = 0, len = list.length; i < len; i++) {
             const r = list[i].result!;
-            result.x = Math.min(result.x, r.x);
-            result.y = Math.min(result.y, r.y);
-            result.w = Math.max(result.w, r.x + r.w + getMbpRight(r) - result.x);
-            result.h = Math.max(result.h, r.y + r.h + getMbpBottom(r) - result.y);
+            res.x = Math.min(res.x, r.x);
+            res.y = Math.min(res.y, r.y);
+            res.w = Math.max(res.w, r.x + r.w + getMbpRight(r) - res.x);
+            res.h = Math.max(res.h, r.y + r.h + getMbpBottom(r) - res.y);
           }
         }
         break;
@@ -351,5 +351,53 @@ export class LineBoxContext {
       }
     }
     return hasContent;
+  }
+}
+
+export class MarginContext {
+  pos = 0;
+  neg = 0;
+  list: ITypeNode[] = [];
+
+  append(n: number, node?: ITypeNode) {
+    if (node) {
+      this.list.push(node);
+    }
+    if (n > 0) {
+      this.pos = Math.max(this.pos, n);
+    }
+    else if (n < 0) {
+      this.neg = Math.min(this.neg, n);
+    }
+  }
+
+  solve() {
+    return this.pos + this.neg;
+  }
+
+  reset() {
+    this.pos = this.neg = 0;
+    return this.list.splice(0);
+  }
+
+  mergeTop() {
+    const mt = this.solve();
+    const list = this.reset(); console.log(list.map(item => item.id), mt)
+    for (let i = 0; i < list.length; i++) {
+      const node = list[i];
+      const r = node.result!;
+      // 这里计算差值，由于preset预处理完全没考虑marginTop，因此加上差值就行，且不用改所属约束，block在结束时会自动设置新的cy
+      // const d = mt - r.marginTop;
+      r.y += mt;
+      const cs = node.parent!.constraints!;
+      // cs.cy += mt;
+      // cs.oy += mt;
+      // cs.cy = r.y + r.h + r.paddingBottom + r.borderBottomWidth;
+      console.log('mergeTop', node.id, r.y, r.h, cs.cy);
+      // if (d) {
+      //   r.y += d;
+      // }
+    }
+    return mt;
   }
 }

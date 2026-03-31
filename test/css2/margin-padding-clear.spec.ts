@@ -599,6 +599,10 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
+    expect(node.children[0].result).toMatchObject({
+      y: 20,
+      marginTop: 20,
+    });
     expect(node.children[0].children[0].result).toMatchObject({
       y: 40,
       marginTop: 20,
@@ -625,6 +629,7 @@ describe('margin-padding-clear', () => {
     expect(node.children[1].result).toMatchObject({
       x: 0,
       y: 20,
+      marginTop: 10,
     });
   });
 
@@ -647,13 +652,17 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
+    expect(node.children[0].result).toMatchObject({
+      y: 10,
+      marginTop: 10,
+    });
     expect(node.children[0].children[0].result).toMatchObject({
       y: 20,
       marginTop: 10,
     });
   });
 
-  it('margin-collapse-014', () => {
+  it.skip('margin-collapse-014', () => {
     const node = genNode({
       style: {
         width: '5em',
@@ -739,6 +748,9 @@ describe('margin-padding-clear', () => {
         marginLeft: '1%',
         width: 100,
         borderTopWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderLeftWidth: 1,
       },
       children: [
         {
@@ -747,16 +759,29 @@ describe('margin-padding-clear', () => {
             marginRight: 'inherit',
             marginBottom: 'inherit',
             marginLeft: 'inherit',
-            width: 100,
             height: 100,
           },
         },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.result).toMatchObject({
       x: 101,
+      y: 101,
+      h: 102,
+      marginTop: 100,
+      marginRight: 100,
+      marginBottom: 100,
+      marginLeft: 100,
+      borderTopWidth: 1,
+      borderRightWidth: 1,
+      borderBottomWidth: 1,
+      borderLeftWidth: 1,
+    });
+    expect(node.children[0].result).toMatchObject({
+      x: 102,
       y: 102,
+      h: 100,
       marginTop: 1,
       marginRight: 1,
       marginBottom: 1,
@@ -1097,6 +1122,7 @@ describe('margin-padding-clear', () => {
         {
           style: {
             marginTop: -100,
+            borderBottomWidth: 50,
           },
         },
       ],

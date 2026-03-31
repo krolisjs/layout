@@ -46,6 +46,7 @@ export type Global = {
   rem: number,
   w: number,
   h: number,
+  cs: Constraints,
 };
 
 export type Constraints = {
@@ -70,38 +71,6 @@ export enum LayoutMode {
   OUT_FLOW     = 0b100, // absolute脱离文档流测量阶段
 }
 
-export class MarginStruct {
-  pos = 0;
-  neg = 0;
-
-  append(n: number) {
-    if (n > 0) {
-      this.pos = Math.max(this.pos, n);
-    }
-    else if (n < 0) {
-      this.neg = Math.min(this.neg, n);
-    }
-  }
-
-  solve() {
-    return this.pos + this.neg;
-  }
-
-  reset(n = 0) {
-    if (n > 0) {
-      this.pos = n;
-      this.neg = 0;
-    }
-    else if (n < 0) {
-      this.pos = 0;
-      this.neg = n;
-    }
-    else {
-      this.pos = this.neg = n;
-    }
-  }
-}
-
 export function normalizeConstraints(ic: InputConstraints) {
   return Object.assign({
     ox: 0,
@@ -115,13 +84,13 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function preset(node: ITypeNode, constraints: Constraints, type: Result['type'], global: Global) {
+export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], global: Global) {
   const style = node.style;
   const res: any = {
     type,
     frags: ['box', 'inlineBox'].includes(type) ? null : [],
-    x: constraints.cx,
-    y: constraints.cy,
+    x: cs.cx,
+    y: cs.cy,
     w: 0,
     h: 0,
     top: 0,
@@ -214,7 +183,7 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
         const style = p.style;
         if (style[k].u !== Unit.INHERIT) {
           if (style[k].u === Unit.PERCENT) {
-            res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+            res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
           }
           else {
             res[k] = p.result![k];
@@ -225,7 +194,7 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
       }
     }
     else {
-      res[k] = calLength(style[k], constraints.pbw, global.rem, res.fontSize);
+      res[k] = calLength(style[k], cs.pbw, global.rem, res.fontSize);
     }
   });
 
@@ -244,7 +213,7 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
         const style = p.style;
         if (style[k].u !== Unit.INHERIT) {
           if (style[k].u === Unit.PERCENT) {
-            res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+            res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
           }
           else {
             res[k] = p.result![k];
@@ -255,7 +224,7 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
       }
     }
     else {
-      res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+      res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
     }
   });
 
@@ -270,7 +239,7 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
         const style = p.style;
         if (style[k].u !== Unit.INHERIT) {
           if (style[k].u === Unit.PERCENT) {
-            res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+            res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
           }
           else {
             res[k] = p.result![k];
@@ -281,7 +250,7 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
       }
     }
     else {
-      res[k] = Math.max(0, calLength(style[k], constraints.pbh || 0, global.rem, res.fontSize));
+      res[k] = Math.max(0, calLength(style[k], cs.pbh || 0, global.rem, res.fontSize));
     }
   });
 
@@ -338,20 +307,20 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
       res[k] = parent.result![k];
     }
     else {
-      res[k] = Math.max(0, calLength(style[k], constraints.pbw, global.rem, res.fontSize));
+      res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
     }
   });
 
   if (style.width.u !== Unit.AUTO) {
-    res.w = Math.max(0, calLength(style.width, constraints.pbw, global.rem, res.fontSize));
+    res.w = Math.max(0, calLength(style.width, cs.pbw, global.rem, res.fontSize));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.w = Math.max(0, res.w - (res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight));
     }
   }
 
   // 父auto子%，不计算默认0
-  if (style.height.u !== Unit.AUTO && (constraints.pbh !== undefined || style.height.u !== Unit.PERCENT)) {
-    res.h = Math.max(0, calLength(style.height, constraints.pbh || 0, global.rem, res.fontSize));
+  if (style.height.u !== Unit.AUTO && (cs.pbh !== undefined || style.height.u !== Unit.PERCENT)) {
+    res.h = Math.max(0, calLength(style.height, cs.pbh || 0, global.rem, res.fontSize));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
     }
@@ -359,11 +328,13 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
 
   // 排除mbp后的contentBox的坐标，注意inline不考虑y方向
   res.x += res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+  // box的marginTop先不算，因为有合并计算
   if (type === 'box') {
-    res.y += res.marginTop + res.borderTopWidth + res.paddingTop;
+    res.y += res.borderTopWidth + res.paddingTop;
     return res as Box;
   }
   if (type === 'inlineBox') {
+    // res.y += res.borderTopWidth + res.paddingTop;
     res.y += res.marginTop + res.borderTopWidth + res.paddingTop;
     return res as InlineBox;
   }
@@ -371,13 +342,16 @@ export function preset(node: ITypeNode, constraints: Constraints, type: Result['
 }
 
 // block和inlineBlock复用
-function bib(node: INode, constraints: Constraints, res: Box | InlineBox) {
+function bib(node: INode, cs: Constraints, res: Box | InlineBox) {
   node.result = res;
   const style = node.style;
-  // 返回递归的供子节点使用
-  const ox = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-  const oy = constraints.cy + res.marginTop + res.paddingTop + res.borderTopWidth;
-  const c: Constraints = {
+  // 返回递归的供子节点使用，block因为可能有margin合并，先不计入marginTop
+  const ox = cs.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+  let oy = cs.cy + res.paddingTop + res.borderTopWidth;
+  if (res.type === 'inlineBox') {
+    oy += res.marginTop;
+  }
+  const scs: Constraints = {
     ox,
     oy,
     aw: res.w,
@@ -390,61 +364,54 @@ function bib(node: INode, constraints: Constraints, res: Box | InlineBox) {
     fh: false,
   };
   if (style.width.u === Unit.AUTO) {
-    c.pbw = c.aw = res.w
-      = Math.max(0, constraints.aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
-  }
-  if (style.height.u === Unit.AUTO) {
-    c.ah = constraints.ah;
-    c.pbh = undefined; // auto
+    scs.pbw = scs.aw = res.w
+      = Math.max(0, cs.aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
   }
   // 父级高度auto时，%失效也是auto
-  else if (style.height.u === Unit.PERCENT && constraints.pbh === undefined) {
-    c.ah = constraints.ah;
-    c.pbh = undefined;
+  if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined) {
+    scs.ah = cs.ah;
+    scs.pbh = undefined; // auto
   }
-  // 父级约束x归零
-  constraints.cx = constraints.ox;
-  constraints.cy = oy + res.h + res.marginBottom + res.paddingBottom + res.borderBottomWidth;
-  return c;
+  return scs;
 }
 
-export function block(node: INode, constraints: Constraints, global: Global, res?: Box) {
+export function block(node: INode, cs: Constraints, global: Global, res?: Box) {
   if (!res) {
-    res = preset(node, constraints, 'box', global) as Box;
+    res = preset(node, cs, 'box', global) as Box;
   }
-  return bib(node, constraints, res);
+  return bib(node, cs, res);
 }
 
-export function inline(node: INode, constraints: Constraints, global: Global, lbc: LineBoxContext) {
-  const res = preset(node, constraints, 'inline', global) as Inline;
+export function inline(node: INode, cs: Constraints, global: Global, lbc: LineBoxContext) {
+  const res = preset(node, cs, 'inline', global) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
   res.marginTop = res.marginBottom = 0;
   node.result = res;
   // 修改当前的，inline复用
-  constraints.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-  lbc.addInline(node, constraints.cx, constraints.cy);
+  cs.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+  lbc.addInline(node, cs.cx, cs.cy);
 }
 
-export function inlineBlock(node: INode, constraints: Constraints, global: Global, res?: InlineBox) {
+export function inlineBlock(node: INode, cs: Constraints, global: Global, res?: InlineBox) {
   if (!res) {
-    res = preset(node, constraints, 'inlineBox', global) as InlineBox;
+    res = preset(node, cs, 'inlineBox', global) as InlineBox;
   }
-  return bib(node, constraints, res);
+  return bib(node, cs, res);
 }
 
-export function text(node: ITextNode, constraints: Constraints, global: Global, lbc: LineBoxContext) {
+export function text(node: ITextNode, cs: Constraints, global: Global, lbc: LineBoxContext) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
   const style = node.style;
-  const res = preset(node, constraints, 'text', global) as Text;
+  const res = preset(node, cs, 'text', global) as Text;
   node.result = res;
   // inline的上下margin无效
   res.marginTop = res.marginBottom = 0;
-  let cx = constraints.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
-  let cy = constraints.cy;
-  let aw = constraints.aw;
+  let cx = cs.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+  let cy = cs.cy;
+  let aw = cs.aw;
   let maxW = 0;
   const frags: TextBox[] = res.frags;
   const content = node.content;
@@ -465,7 +432,7 @@ export function text(node: ITextNode, constraints: Constraints, global: Global, 
         addEmptyLine(cx, cy + leading, h, node, frags, lbc);
       }
       i++;
-      cx = constraints.ox;
+      cx = cs.ox;
       cy += res.lineHeight;
       if (newLine) {
         lbc.newLine(cx, cy);
@@ -506,7 +473,7 @@ export function text(node: ITextNode, constraints: Constraints, global: Global, 
     maxW = Math.max(maxW, textBox.w);
     if (breakLine) {
       lbc.endLine();
-      cx = constraints.ox;
+      cx = cs.ox;
       cy += res.lineHeight;
       // 新开一行
       if (i < length) {
@@ -526,10 +493,10 @@ export function text(node: ITextNode, constraints: Constraints, global: Global, 
   lbc.popText(node);
   res.w = maxW;
   const last = frags[frags.length - 1]!;
-  res.h = last.y + last.h - constraints.cy;
+  res.h = last.y + last.h - cs.cy;
   // 没有子节点不需要产生新的递归约束，但要修改父级约束当前位置
-  constraints.cx = cx;
-  constraints.cy = cy;
+  cs.cx = cx;
+  cs.cy = cy;
 }
 
 function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags: TextBox[], lbc: LineBoxContext) {
@@ -544,12 +511,12 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags:
   lbc.addText(empty, node);
 }
 
-export function oofText(node: ITextNode, constraints: Constraints, content: string, global: Global) {
+export function minMaxText(node: ITextNode, cs: Constraints, content: string, global: Global) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
-  const res = preset(node, constraints, 'text', global) as Text;
+  const res = preset(node, cs, 'text', global) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求
   const list = content.split(lineBreak);
@@ -616,4 +583,30 @@ export function oofText(node: ITextNode, constraints: Constraints, content: stri
     }
   }
   return { min, max };
+}
+
+export function offsetX(res: Result, x: number) {
+  if (x === 0) {
+    return;
+  }
+  res.x += x;
+  const frags = res.frags;
+  if (frags && frags.length) {
+    for (let i = 0, len = frags.length; i < len; i++) {
+      frags[i].x += x;
+    }
+  }
+}
+
+export function offsetY(res: Result, y: number) {
+  if (y === 0) {
+    return;
+  }
+  res.y += y;
+  const frags = res.frags;
+  if (frags && frags.length) {
+    for (let i = 0, len = frags.length; i < len; i++) {
+      frags[i].y += y;
+    }
+  }
 }
