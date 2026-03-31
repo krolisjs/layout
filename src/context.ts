@@ -382,7 +382,7 @@ export class MarginContext {
 
   mergeTop() {
     const mt = this.solve();
-    const list = this.reset(); console.log(list.map(item => item.id), mt)
+    const list = this.reset();
     for (let i = 0; i < list.length; i++) {
       const node = list[i];
       const r = node.result!;
@@ -393,7 +393,6 @@ export class MarginContext {
       // cs.cy += mt;
       // cs.oy += mt;
       // cs.cy = r.y + r.h + r.paddingBottom + r.borderBottomWidth;
-      console.log('mergeTop', node.id, r.y, r.h, cs.cy);
       // if (d) {
       //   r.y += d;
       // }

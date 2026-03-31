@@ -540,7 +540,6 @@ export abstract class AbstractNode implements ITypeNode {
         x -= calLength(right, res.w, global.rem, res.fontSize);
       }
       if (top.u !== Unit.AUTO) {
-        console.log(this.parent, this.parent?.constraints)
         // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
         if (top.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== undefined) {
           y += calLength(top, res.h, global.rem, res.fontSize);
