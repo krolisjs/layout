@@ -506,7 +506,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
     let scs: Constraints;
     // inlineBlock放不下要换行
-    if (d && temp.w + getMbpH(temp) < (cs.aw - d)) {
+    if (d && temp.w + getMbpH(temp) < (cs.aw - d) + 1e-9) {
       lbc.endLine();
       const current = lbc.current;
       cs.cx = cs.ox;

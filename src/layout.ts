@@ -492,8 +492,13 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   }
   lbc.popText(node);
   res.w = maxW;
-  const last = frags[frags.length - 1]!;
-  res.h = last.y + last.h - cs.cy;
+  if (frags.length) {
+    const last = frags[frags.length - 1];
+    res.h = last.y + last.h - cs.cy;
+  }
+  else {
+    res.h = res.lineHeight;
+  }
   // 没有子节点不需要产生新的递归约束，但要修改父级约束当前位置
   cs.cx = cx;
   cs.cy = cy;
