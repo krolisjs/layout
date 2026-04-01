@@ -296,7 +296,7 @@ describe('normal-flow', () => {
       x: 0,
       y: 0,
       w: 100,
-      h: 50,
+      h: 100,
       marginBottom: 0,
     });
     expect(node.children[0].result).toMatchObject({
@@ -388,9 +388,9 @@ describe('normal-flow', () => {
     node.lay(inputConstraints);
     expect(node.result).toMatchObject({
       x: 0,
-      y: 50,
+      y: 0,
       w: 100,
-      h: 50,
+      h: 100,
     });
     expect(node.children[0].result).toMatchObject({
       x: 0,

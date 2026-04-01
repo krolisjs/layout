@@ -13,6 +13,7 @@ describe('margin-trim', () => {
     const node = genNode({
       style: {
         overflow: 'hidden',
+        width: 110,
       },
       children: [
         {
@@ -22,7 +23,7 @@ describe('margin-trim', () => {
           children: [
             {
               style: {
-                width: 100,
+                width: 90,
                 height: 50,
                 marginTop: 50,
                 marginBottom: 50,

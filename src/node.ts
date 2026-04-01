@@ -44,6 +44,7 @@ export interface ITypeNode {
   lineBoxContext: LineBoxContext | null;
   collapse: boolean;
   layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
+  hasContent(): boolean; // 是否有内容，比如text有非空字符串，img强制有内容
 }
 
 export interface INode extends ITypeNode {
@@ -131,6 +132,10 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
+  hasContent() {
+    return false;
+  }
+
   lay(ics: InputConstraints) {
     const root = getRoot(this);
     if (root !== this) {
@@ -166,7 +171,8 @@ export abstract class AbstractNode implements ITypeNode {
           const r = node.result!;
           r.y += m;
           const c = node.constraints!;
-          c.oy = c.cy += m;
+          c.cy += m;
+          c.oy += m;
         }
       }
     }
@@ -188,14 +194,17 @@ export abstract class AbstractNode implements ITypeNode {
     const { position, display } = this.style;
     if (position === Position.ABSOLUTE || display !== Display.BLOCK) {
       if (mc.list.length) {
-        const mt = mc.solve();
+        const m = mc.solve();
         const list = mc.reset();
-        for (let i = 0, len = list.length; i < len; i++) {
-          const node = list[i];
-          const r = node.result!;
-          r.y += mt;
-          const c = node.constraints!;
-          c.oy = c.cy += mt;
+        if (m) {
+          for (let i = 0, len = list.length; i < len; i++) {
+            const node = list[i];
+            const r = node.result!;
+            r.y += m;
+            const c = node.constraints!;
+            c.cy += m;
+            c.oy += m;
+          }
         }
       }
     }
@@ -314,6 +323,7 @@ export abstract class AbstractNode implements ITypeNode {
   }
 
   layBlock(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    console.warn('start', this.id, cs.oy, cs.cy)
     this.blockStart(cs, lbc);
     const n = this as unknown as Node;
     // block自身的约束、自身的lineBoxContext是新的
@@ -334,20 +344,21 @@ export abstract class AbstractNode implements ITypeNode {
      */
     const htb = hasTopBarrier(res);
     const hbb = hasBottomBarrier(res);
-    const bfc = isBFC(style);
+    const bfc = isBFC(this);
     if (htb || bfc) {
       // 先算上自己，隔断是和自己和子节点隔断，如果只有自己一个节点等于直接生效
       mc.append(res.marginTop, this);
-      const mt = mc.solve();
+      const m = mc.solve();
       const list = mc.reset();
-      if (mt) {
+      if (m) {
         for (let i = 0, len = list.length; i < len; i++) {
           const node = list[i];
           const r = node.result!;
-          r.y += mt;
+          r.y += m;
           // 除了结果，也影响子节点的原点y和当前y，记录的值可能有marginTop/marginBottom，但节点只有连续的marginTop
           const c = node.constraints!;
-          c.oy = c.cy += mt;
+          c.cy += m;
+          c.oy += m;
         }
         // list中每个节点都会影响所在的约束（parent上的）的cy，但由于节点在自身递归遍历结束时会计算cy，所以这里可以省略
       }
@@ -355,16 +366,21 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       mc.append(res.marginTop, this);
     }
+    const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined;
+    let collapse = !htb && !hbb && !bfc && isAutoH;
+    // text节点特殊，一般有内容，视为不被穿透
+    if (collapse && this.hasContent()) {
+      collapse = false;
+    }
     // 先序遍历，同时由于子节点先触发，计算子节点是否可以被折叠后父节点可以直接读取
     const children = this.children;
-    let collapse = !htb && !hbb && !bfc && style.height.u === Unit.AUTO;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
       child.layFlow(scs, absMap, global, mc, slbc);
       if (collapse && !child.collapse) {
         collapse = false;
       }
-    }
+    } console.warn('mid', this.id, cs.oy, cs.cy)
     this.collapse = collapse;
     this.blockEnd(cs);
     this.marginAuto(global);
@@ -379,16 +395,20 @@ export abstract class AbstractNode implements ITypeNode {
         const m = mc.solve();
         // 如果叶子节点有top中断，已经被计算且重置，就不会有值了；没有中断且没有margin也没有值不需要处理
         if (m) {
-          const list = mc.reset();
+          const list = mc.reset(); console.log(list.slice(0), m)
           for (let i = 0, len = list.length; i < len; i++) {
             const node = list[i];
             const r = node.result!;
             r.y += m;
             const c = node.constraints!;
-            c.oy = c.cy += m;
+            c.cy += m;
+            c.oy += m;
           }
           // 这里和开始不同，因为叶子结点已经结算过cy了，所以需要累加下，如果有来自parent的积累，还没结算等其自身结算
-          cs.cy += m;
+          // list[0]一定是自己，cs就是所属的约束
+          if (list.length === 1) {
+            cs.cy += m;
+          }
         }
         else {
           mc.reset();
@@ -404,23 +424,23 @@ export abstract class AbstractNode implements ITypeNode {
             const r = node.result!;
             r.y += m;
             const c = node.constraints!;
-            c.oy = c.cy += m;
+            c.cy += m;
+            c.oy += m;
           }
-          // 这里和开始不同，因为叶子结点已经结算过cy了，所以需要累加下，如果有来自parent的积累，还没结算等其自身结算
-          cs.cy += m;
+          if (isAutoH) {
+            res.h += m;
+          }
         }
         else {
           mc.reset();
         }
-        if (m && (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined)) {
-          res.h += m;
-        }
-        cs.cy += res.marginBottom;
+        mc.append(res.marginBottom);
       }
       else {
         mc.append(res.marginBottom);
       }
-    }
+      // mc.append(res.marginBottom);
+    }console.warn('end', this.id, cs.oy, cs.cy)
     // block所属的inline（如有）中断撑开开始新行，记录下来
     lbc.addBlock(this);
     lbc.newLine(cs.cx, cs.cy);
@@ -450,6 +470,7 @@ export abstract class AbstractNode implements ITypeNode {
     // 自动高度，以及%高度但父级是auto
     if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined) {
       res.h = Math.max(0, scs.cy - scs.oy);
+      console.log('auto', this.id, scs.cy, scs.oy)
     }
     // 没有包含marginBottom，因为要处理合并
     cs.cx = cs.ox;
@@ -684,14 +705,15 @@ export abstract class AbstractNode implements ITypeNode {
       res.h = scs.cy - scs.oy;
     }
     if (mc.list.length) {
-      const mt = mc.solve();
+      const m = mc.solve();
       const list = mc.reset();
       for (let i = 0, len = list.length; i < len; i++) {
         const node = list[i];
         const r = node.result!;
-        r.y += mt;
+        r.y += m;
         const c = node.constraints!;
-        c.oy = c.cy += mt;
+        c.cy += m;
+        c.oy += m;
       }
     }
     // absolute递归包含absolute
@@ -870,6 +892,10 @@ export class TextNode extends AbstractNode implements ITextNode {
   constructor(content: string, style?: Partial<JStyle | Style>) {
     super(NodeType.Text, style);
     this.content = content;
+  }
+
+  override hasContent() {
+    return !!this.content;
   }
 }
 

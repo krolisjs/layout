@@ -4,6 +4,8 @@
     "module": "ESNext",
     "declaration": true,
     "declarationDir": "dist",
+    "emitDeclarationOnly": false,
+    "noEmit": true,
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tsbuildinfo",
     "removeComments": false,

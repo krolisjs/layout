@@ -12,13 +12,10 @@
   },
   "scripts": {
     "build": "tsc && rollup -c rollup.config.mjs",
-    "dev": "concurrently \"npm:dev:js\" \"npm:dev:types\"",
-    "dev:js": "rollup -c rollup.config.mjs -w",
-    "dev:types": "tsc -w --preserveWatchOutput",
+    "dev": "rollup -c rollup.config.mjs -w",
     "test": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS='--import ts-node/esm --no-warnings' mocha"
   },
-  "peerDependencies": {
-  },
+  "peerDependencies": {},
   "dependencies": {},
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.8",
