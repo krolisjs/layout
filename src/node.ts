@@ -42,7 +42,6 @@ export interface ITypeNode {
   constraints: Constraints | null;
   result: Result | null;
   lineBoxContext: LineBoxContext | null;
-  collapse: boolean;
   layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
   hasContent(): boolean; // 是否有内容，比如text有非空字符串，img强制有内容
 }
@@ -84,8 +83,6 @@ export abstract class AbstractNode implements ITypeNode {
   constraints: Constraints | null = null; // block本身产生的约束，传给children
   result: Result | null = null; // 布局结果
   lineBoxContext: LineBoxContext | null = null; // block本身产生的行级上下文管理，传给children
-  // mc: MarginContext | null = null;
-  collapse = false; // 记录自己是否可以穿透，递归时父节点直接查看子节点防止重复递归
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
     this.nodeType = nodeType;
@@ -323,7 +320,6 @@ export abstract class AbstractNode implements ITypeNode {
   }
 
   layBlock(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
-    console.warn('start', this.id, cs.oy, cs.cy)
     this.blockStart(cs, lbc);
     const n = this as unknown as Node;
     // block自身的约束、自身的lineBoxContext是新的
@@ -367,7 +363,7 @@ export abstract class AbstractNode implements ITypeNode {
       mc.append(res.marginTop, this);
     }
     const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined;
-    let collapse = !htb && !hbb && !bfc && isAutoH;
+    let collapse = !hbb && !bfc && isAutoH;
     // text节点特殊，一般有内容，视为不被穿透
     if (collapse && this.hasContent()) {
       collapse = false;
@@ -377,70 +373,42 @@ export abstract class AbstractNode implements ITypeNode {
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
       child.layFlow(scs, absMap, global, mc, slbc);
-      if (collapse && !child.collapse) {
-        collapse = false;
-      }
-    } console.warn('mid', this.id, cs.oy, cs.cy)
-    this.collapse = collapse;
+    }
     this.blockEnd(cs);
     this.marginAuto(global);
-    // 如果可以穿透，说明自己和递归子节点（如有）全部忽略，记录下来等后续判断
+    // 如果可以穿透，说明上下合并，记录下来等后续判断
     if (collapse) {
       mc.append(res.marginBottom);
     }
-    // 不可以穿透，处理之前的特殊情况和自己
+    // 不可以穿透，处理之前累计的top合并和偏移
     else {
-      // 结算一种特殊情况：叶子结点有高度或者bottom中断但没有top中断，solve才会有值，这个值可能来自parent的top积累或prev的bottom积累
-      if (!children.length) {
-        const m = mc.solve();
-        // 如果叶子节点有top中断，已经被计算且重置，就不会有值了；没有中断且没有margin也没有值不需要处理
-        if (m) {
-          const list = mc.reset(); console.log(list.slice(0), m)
-          for (let i = 0, len = list.length; i < len; i++) {
-            const node = list[i];
-            const r = node.result!;
-            r.y += m;
-            const c = node.constraints!;
-            c.cy += m;
-            c.oy += m;
-          }
-          // 这里和开始不同，因为叶子结点已经结算过cy了，所以需要累加下，如果有来自parent的积累，还没结算等其自身结算
-          // list[0]一定是自己，cs就是所属的约束
-          if (list.length === 1) {
-            cs.cy += m;
-          }
+      const m = mc.solve();
+      if (m) {
+        const list = mc.reset();
+        for (let i = 0, len = list.length; i < len; i++) {
+          const node = list[i];
+          const r = node.result!;
+          r.y += m;
+          const c = node.constraints!;
+          c.cy += m;
+          c.oy += m;
         }
-        else {
-          mc.reset();
+        /**
+         * 这里和开始不同，如果是唯一的叶子结点，因为blockEnd已经结算过cy了，所以要加上偏移，list[0]一定是自己，cs就是所属的约束；
+         * 如果是叶子节点但有多个，即list不唯一，那么在刚刚的处理中倒数第2个一定是父节点，它的cs已经处理过了
+         */
+        if (!children.length && list.length === 1) {
+          cs.cy += m;
         }
-      }
-      // 普通情况下查看自身是否有bottom隔断，有的话追加到cy结算上，没有记录下来
-      if (hbb || bfc) {
-        const m = mc.solve();
-        if (m) {
-          const list = mc.reset();
-          for (let i = 0, len = list.length; i < len; i++) {
-            const node = list[i];
-            const r = node.result!;
-            r.y += m;
-            const c = node.constraints!;
-            c.cy += m;
-            c.oy += m;
-          }
-          if (isAutoH) {
-            res.h += m;
-          }
+        if (isAutoH) {
+          res.h += m;
         }
-        else {
-          mc.reset();
-        }
-        mc.append(res.marginBottom);
       }
       else {
-        mc.append(res.marginBottom);
+        mc.reset();
       }
-      // mc.append(res.marginBottom);
-    }console.warn('end', this.id, cs.oy, cs.cy)
+      mc.append(res.marginBottom);
+    }
     // block所属的inline（如有）中断撑开开始新行，记录下来
     lbc.addBlock(this);
     lbc.newLine(cs.cx, cs.cy);
@@ -470,7 +438,6 @@ export abstract class AbstractNode implements ITypeNode {
     // 自动高度，以及%高度但父级是auto
     if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined) {
       res.h = Math.max(0, scs.cy - scs.oy);
-      console.log('auto', this.id, scs.cy, scs.oy)
     }
     // 没有包含marginBottom，因为要处理合并
     cs.cx = cs.ox;
@@ -701,11 +668,12 @@ export abstract class AbstractNode implements ITypeNode {
       children[i].layFlow(scs, absMap, global, mc, slbc);
     }
     // 模拟end
-    if (style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO)) {
+    const isAutoH = style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO);
+    if (isAutoH) {
       res.h = scs.cy - scs.oy;
     }
-    if (mc.list.length) {
-      const m = mc.solve();
+    const m = mc.solve();
+    if (m) {
       const list = mc.reset();
       for (let i = 0, len = list.length; i < len; i++) {
         const node = list[i];
@@ -714,6 +682,9 @@ export abstract class AbstractNode implements ITypeNode {
         const c = node.constraints!;
         c.cy += m;
         c.oy += m;
+      }
+      if (isAutoH) {
+        res.h += m;
       }
     }
     // absolute递归包含absolute

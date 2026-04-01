@@ -12,7 +12,6 @@ describe('margin-trim', () => {
   it('block-container-block-001', () => {
     const node = genNode({
       style: {
-        overflow: 'hidden',
         width: 110,
       },
       children: [
