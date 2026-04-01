@@ -377,26 +377,22 @@ export class MarginContext {
 
   reset() {
     this.pos = this.neg = 0;
-    return this.list.splice(0);
+    this.list.splice(0);
   }
 
   mergeTop() {
-    const mt = this.solve();
-    const list = this.reset();
-    for (let i = 0; i < list.length; i++) {
-      const node = list[i];
-      const r = node.result!;
-      // 这里计算差值，由于preset预处理完全没考虑marginTop，因此加上差值就行，且不用改所属约束，block在结束时会自动设置新的cy
-      // const d = mt - r.marginTop;
-      r.y += mt;
-      const cs = node.parent!.constraints!;
-      // cs.cy += mt;
-      // cs.oy += mt;
-      // cs.cy = r.y + r.h + r.paddingBottom + r.borderBottomWidth;
-      // if (d) {
-      //   r.y += d;
-      // }
+    const m = this.solve();
+    if (m) {
+      const list = this.list;
+      for (let i = 0, len = list.length; i < len; i++) {
+        const node = list[i];
+        const r = node.result!;
+        r.y += m;
+        const c = node.constraints!;
+        c.cy += m;
+        c.oy += m;
+      }
     }
-    return mt;
+    return m;
   }
 }

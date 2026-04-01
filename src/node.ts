@@ -160,18 +160,8 @@ export abstract class AbstractNode implements ITypeNode {
     }
     else {
       this.layFlow(cs, absMap, global, mc, lbc);
-      if (mc.list.length) {
-        const m = mc.solve();
-        const list = mc.reset();
-        for (let i = 0, len = list.length; i < len; i++) {
-          const node = list[i];
-          const r = node.result!;
-          r.y += m;
-          const c = node.constraints!;
-          c.cy += m;
-          c.oy += m;
-        }
-      }
+      mc.mergeTop();
+      mc.reset();
     }
     this.finish(0, 0, global);
   }
@@ -190,20 +180,8 @@ export abstract class AbstractNode implements ITypeNode {
   layFlow(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
     const { position, display } = this.style;
     if (position === Position.ABSOLUTE || display !== Display.BLOCK) {
-      if (mc.list.length) {
-        const m = mc.solve();
-        const list = mc.reset();
-        if (m) {
-          for (let i = 0, len = list.length; i < len; i++) {
-            const node = list[i];
-            const r = node.result!;
-            r.y += m;
-            const c = node.constraints!;
-            c.cy += m;
-            c.oy += m;
-          }
-        }
-      }
+      mc.mergeTop();
+      mc.reset();
     }
     // absolute脱离文档流
     if (position === Position.ABSOLUTE) {
@@ -344,20 +322,8 @@ export abstract class AbstractNode implements ITypeNode {
     if (htb || bfc) {
       // 先算上自己，隔断是和自己和子节点隔断，如果只有自己一个节点等于直接生效
       mc.append(res.marginTop, this);
-      const m = mc.solve();
-      const list = mc.reset();
-      if (m) {
-        for (let i = 0, len = list.length; i < len; i++) {
-          const node = list[i];
-          const r = node.result!;
-          r.y += m;
-          // 除了结果，也影响子节点的原点y和当前y，记录的值可能有marginTop/marginBottom，但节点只有连续的marginTop
-          const c = node.constraints!;
-          c.cy += m;
-          c.oy += m;
-        }
-        // list中每个节点都会影响所在的约束（parent上的）的cy，但由于节点在自身递归遍历结束时会计算cy，所以这里可以省略
-      }
+      mc.mergeTop();
+      mc.reset();
     }
     else {
       mc.append(res.marginTop, this);
@@ -382,31 +348,20 @@ export abstract class AbstractNode implements ITypeNode {
     }
     // 不可以穿透，处理之前累计的top合并和偏移
     else {
-      const m = mc.solve();
+      const m = mc.mergeTop();
       if (m) {
-        const list = mc.reset();
-        for (let i = 0, len = list.length; i < len; i++) {
-          const node = list[i];
-          const r = node.result!;
-          r.y += m;
-          const c = node.constraints!;
-          c.cy += m;
-          c.oy += m;
-        }
         /**
          * 这里和开始不同，如果是唯一的叶子结点，因为blockEnd已经结算过cy了，所以要加上偏移，list[0]一定是自己，cs就是所属的约束；
          * 如果是叶子节点但有多个，即list不唯一，那么在刚刚的处理中倒数第2个一定是父节点，它的cs已经处理过了
          */
-        if (!children.length && list.length === 1) {
+        if (!children.length && mc.list.length === 1) {
           cs.cy += m;
         }
         if (isAutoH) {
           res.h += m;
         }
       }
-      else {
-        mc.reset();
-      }
+      mc.reset();
       mc.append(res.marginBottom);
     }
     // block所属的inline（如有）中断撑开开始新行，记录下来
@@ -672,21 +627,11 @@ export abstract class AbstractNode implements ITypeNode {
     if (isAutoH) {
       res.h = scs.cy - scs.oy;
     }
-    const m = mc.solve();
-    if (m) {
-      const list = mc.reset();
-      for (let i = 0, len = list.length; i < len; i++) {
-        const node = list[i];
-        const r = node.result!;
-        r.y += m;
-        const c = node.constraints!;
-        c.cy += m;
-        c.oy += m;
-      }
-      if (isAutoH) {
-        res.h += m;
-      }
+    const m = mc.mergeTop();
+    if (isAutoH) {
+      res.h += m;
     }
+    mc.reset();
     // absolute递归包含absolute
     this.checkAbs(absMap, global);
   }

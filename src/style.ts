@@ -123,7 +123,7 @@ export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` 
 
 export type CssLength = Omit<CssFontSize, 'inherit'> | 'auto' | `${number}em`;
 
-export type CssMinMax = CssLength | 'minContent' | 'maxContent';
+export type CssMinMax = CssLength | 'minContent' | 'maxContent' | 'fitContent';
 
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
@@ -141,8 +141,8 @@ export type JStyle = {
   right: CssLength;
   bottom: CssLength;
   left: CssLength;
-  width: CssLength;
-  height: CssLength;
+  width: CssMinMax;
+  height: CssMinMax;
   borderTopWidth: CssLength;
   borderRightWidth: CssLength;
   borderBottomWidth: CssLength;
