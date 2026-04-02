@@ -313,11 +313,9 @@ export abstract class AbstractNode implements ITypeNode {
      * 如果有height也可以中断，但auto且有孩子时无法提前预知孩子是否是可穿透，所以后置判断。
      * 如果有隔断，节点和marginTop存入上下文记录当中，等待结束时（被隔断）统一计算；
      * 如果没有隔断，检查当前存入的节点和数据，用规范的正正、负负、正负不同情况计算合并最终值。
-     * 首个block节点（如root，inline中的block）触发时没有prev/parent，
      * 连续的bfc隔离也不会有合并情况，因此先判断当前存入了多少个节点和数据。
      */
     const htb = hasTopBarrier(res);
-    const hbb = hasBottomBarrier(res);
     const bfc = isBFC(this);
     if (htb || bfc) {
       // 先算上自己，隔断是和自己和子节点隔断，如果只有自己一个节点等于直接生效
@@ -328,12 +326,6 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       mc.append(res.marginTop, this);
     }
-    const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined;
-    let collapse = !hbb && !bfc && isAutoH;
-    // text节点特殊，一般有内容，视为不被穿透
-    if (collapse && this.hasContent()) {
-      collapse = false;
-    }
     // 先序遍历，同时由于子节点先触发，计算子节点是否可以被折叠后父节点可以直接读取
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -342,6 +334,14 @@ export abstract class AbstractNode implements ITypeNode {
     }
     this.blockEnd(cs);
     this.marginAuto(global);
+    // 是否有下隔断和定高隔断
+    const hbb = hasBottomBarrier(res);
+    const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined;
+    let collapse = !hbb && !bfc && isAutoH;
+    // text节点特殊，一般有内容，视为不被穿透
+    if (collapse && this.hasContent()) {
+      collapse = false;
+    }
     // 如果可以穿透，说明上下合并，记录下来等后续判断
     if (collapse) {
       mc.append(res.marginBottom);

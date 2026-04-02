@@ -123,7 +123,7 @@ export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` 
 
 export type CssLength = Omit<CssFontSize, 'inherit'> | 'auto' | `${number}em`;
 
-export type CssMinMax = CssLength | 'minContent' | 'maxContent' | 'fitContent';
+export type CssLengthMMF = CssLength | 'minContent' | 'maxContent' | 'fitContent';
 
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
@@ -141,8 +141,8 @@ export type JStyle = {
   right: CssLength;
   bottom: CssLength;
   left: CssLength;
-  width: CssMinMax;
-  height: CssMinMax;
+  width: CssLengthMMF;
+  height: CssLengthMMF;
   borderTopWidth: CssLength;
   borderRightWidth: CssLength;
   borderBottomWidth: CssLength;
@@ -155,10 +155,10 @@ export type JStyle = {
   letterSpacing: CssFontSize;
   verticalAlign: 'baseline' | 'top' | 'bottom' | 'middle';
   overflow: 'visible' | 'hidden' | 'clip' | 'scroll' | 'auto';
-  minWidth: CssMinMax;
-  maxWidth: CssMinMax;
-  minHeight: CssMinMax;
-  maxHeight: CssMinMax;
+  minWidth: CssLengthMMF;
+  maxWidth: CssLengthMMF;
+  minHeight: CssLengthMMF;
+  maxHeight: CssLengthMMF;
   // wordBreak: 'normal' | 'breakAll' | 'keepAll';
   // overflowWrap: 'normal' | 'breakWord';
 };
