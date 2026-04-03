@@ -1,9 +1,10 @@
 import { LineBoxContext } from './context';
 import { LayoutMode, normalizeConstraints } from './layout';
 import type {
-  Box,
+  Block,
   Constraints,
   Inline,
+  InlineBlock,
   InputConstraints,
   Frag,
   Result,
@@ -63,7 +64,7 @@ export {
 };
 
 export type {
-  Box,
+  Block,
   CssFontSize,
   CssLength,
   ComputedStyle,
@@ -72,6 +73,7 @@ export type {
   IAllNode,
   INode,
   Inline,
+  InlineBlock,
   ITextNode,
   ITypeNode,
   InputConstraints,

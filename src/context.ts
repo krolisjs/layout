@@ -1,5 +1,5 @@
 import { calBaseline, calContentArea, calLeading, getMbpBottom, getMbpRight } from './compute';
-import type { Frag, Inline, Result, Text, TextBox } from './layout';
+import type { Frag, Inline, Text, TextBox } from './layout';
 import { VerticalAlign } from './style';
 import type { INode, ITextNode, ITypeNode } from './node';
 
@@ -19,13 +19,13 @@ type ContentBox = {
 } | {
   type: ContentBoxType.INLINE;
   lv: number;
-  frag: Frag;
+  frag: Frag; // 可能不被添加到result.frags里，仅占位参与行高计算（空节点时），有内容或有左右边距才会
   node: INode;
-  added: boolean; // 是否被添加到节点result的frags，空inline会先生成一个不添加等行结束判断
+  added: boolean; // 防重添加到节点result的frags，空inline会生成一个不添加只占位参与行高计算
 } | {
   type: ContentBoxType.INLINE_BLOCK;
   lv: number;
-  frag: Frag;
+  frag: null; // 无用
   node: INode;
   added: boolean; // 无用
 };
@@ -35,6 +35,7 @@ export class LineBox {
   readonly y: number;
   h: number;
   readonly list: ContentBox[] = [];
+  begin = true; // 无真实内容标识，第一个内容节点（如text）看到无需考虑尺寸换行一定会进入，同时置false
 
   constructor(x: number, y: number, h = 0) {
     this.x = x;
@@ -50,10 +51,10 @@ export class LineBoxContext {
   readonly lineBoxes: LineBox[] = [];
   current: LineBox; // 当前行，即最后一行
   readonly struct: INode | null = null; // 所属的block节点支柱，强制每行baseline对齐，根节点inline的话就没有
-  structBaseline: number | null = null;
-  readonly inlinePlaceHolder: WeakMap<INode, ITypeNode[]> = new WeakMap(); // inline节点包含的block占位记录
-  readonly nodeStack: INode[] = []; // 随着inline父子嵌套递归，记录当前所有inline节点，不包含叶子text节点
-  readonly endList: ITypeNode[] = []; // inline/text节点结束时记录，在每行end时这些结束的节点要计算自身尺寸
+  structBaseline: number | null = null; // 缓存支柱的计算值
+  readonly inlineMap: WeakMap<INode, ITypeNode[]> = new WeakMap(); // inline节点包含的block占位记录
+  readonly inlineStack: INode[] = []; // 随着inline父子嵌套递归，记录当前所有inline节点，不包含叶子text节点
+  readonly endList: ITypeNode[] = []; // inline/text节点结束时记录，在每行end时这些结束的节点要计算自身尺寸，end前因为对齐可能会变
 
   constructor(x: number, y: number, struct?: INode) {
     // 最初生成首行，是个空行，等后续子节点添加
@@ -63,65 +64,85 @@ export class LineBoxContext {
   }
 
   /**
-   * inline(Block)节点begin时调用，递归嵌套的inline节点可能有多个，形成一个stack记录；
-   * 同时向当前行添加一个占位，以便真实叶子结点为当前行添加内容时，扩展这些inline行的宽度；
-   * 等待换行或者结束时，看占位符情况决定是否加入节点的frags结果中，同时进行vertical对齐操作；
+   * inline节点begin时调用，递归嵌套的inline节点可能有多个，形成一个stack记录；
+   * 同时向当前行添加一个占位frag，以便真实叶子结点（如text）为当前行添加内容时，扩展这些frag的宽度，同时取消占位记录进frags；
+   * 如果是0宽没有真实叶子结点调用，只参与行高计算，不计入自身的frags；
    * 产生换行时，新的行能知道当前有哪些父inline节点还在。
    */
   addInline(node: INode, x: number, y: number) {
-    this.addInlineFrag(node, x, y, this.nodeStack.length);
-    this.nodeStack.push(node);
+    this.addInlineFrag(node, x, y, this.inlineStack.length);
+    this.inlineStack.push(node);
   }
 
   private addInlineFrag(node: INode, x: number, y: number, lv: number) {
     const { fontSize, fontFamily, lineHeight } = node.result!;
+    let contentArea = node.contentArea;
     // inline的内容区域（背景色）高度和font有关，但整行换行却使用lineHeight来隔开
-    const h = calContentArea(fontFamily, fontSize);
-    const leading = lineHeight - h;
-    const frag = { x, y: y + leading * 0.5, w: 0, h };
-    this.current.list.push({ type: ContentBoxType.INLINE, lv, frag, node, added: false });
+    if (contentArea === null) {
+      contentArea = node.contentArea = calContentArea(fontFamily, fontSize);
+    }
+    const leading = lineHeight - contentArea;
+    const frag = { x, y: y + leading * 0.5, w: 0, h: contentArea };
+    // added: false说明暂时未被添加，只参与行高计算，防止空inline，等叶子内容节点坐实它；
+    // 但开始mbp行首强制添加，因为歧义，节点能看到占位了，哪怕是0宽
+    let added = this.current.begin;
+    if (added) {
+      const res = node.result!;
+      if (!res.marginLeft && !res.borderLeftWidth && !res.paddingLeft) {
+        added = false;
+      }
+    }
+    this.current.list.push({ type: ContentBoxType.INLINE, lv, frag, node, added });
+    if (added) {
+      (node.result as Inline).frags.push(frag);
+    }
   }
 
   // inline节点end时调用，后续再换行便和此节点无关了，需要计算末尾mbp
   popInline() {
-    const inlinePlaceHolder = this.inlinePlaceHolder;
-    const nodeStack = this.nodeStack;
-    const o = nodeStack.pop()!;
-    this.endList.push(o);
+    const inlineMap = this.inlineMap;
+    const inlineStack = this.inlineStack;
+    const o = inlineStack.pop()!;
+    this.endList.push(o); // 等行结束时机计算尺寸
     const list = this.current.list;
     for (let i = 0, len = list.length; i < len; i++) {
       const item = list[i];
       const { node, lv } = item;
-      // 找到结束的inline节点和lv，有末尾mbp才有效
+      // 找到结束的inline节点和lv，有末尾mbp计算
       if (node === o) {
         const res = node.result as Inline;
+        // 这里的判断分开，因为合起来可能为0（负margin）
         if (res.marginRight || res.borderRightWidth || res.paddingRight) {
-          if (!item.added) {
-            item.added = true;
-            res.frags.push(item.frag as Frag);
-          }
+          // if (!item.added) {
+          //   item.added = true;
+          //   res.frags.push(item.frag as Frag);
+          // }
           const mbp = getMbpRight(res);
-          // 父inline一定在前面出现，且lv更小
-          for (let j = 0; j < i; j++) {
-            const item = list[j];
-            if (item.type === ContentBoxType.INLINE && item.lv < lv) {
-              if (!item.added) {
-                item.added = true;
+          if (mbp) {
+            // 父inline一定在前面出现，且lv更小
+            for (let j = 0; j < i; j++) {
+              const item = list[j];
+              if (item.type === ContentBoxType.INLINE && item.lv < lv) {
                 const frag = item.frag;
-                if (mbp) {
-                  frag.w += mbp;
-                }
-                (item.node.result as Inline).frags.push(frag);
+                frag.w += mbp;
+                // 末尾mbp一定跟着不会另起一行，无需判断added
+                // 很特殊，可能子inline是个空的，但有mbp后会撑开，父节点的0宽frag有实质性意义了，需要添加
+                // if (!item.added) {
+                //   item.added = true;
+                //   (item.node.result as Inline).frags.push(frag);
+                // }
               }
             }
           }
         }
-        if (inlinePlaceHolder.has(o)) {
-          const list = inlinePlaceHolder.get(node)!;
+        // 如果包含block，需要将block考虑进来计算极值
+        if (inlineMap.has(o)) {
+          const list = inlineMap.get(node)!;
           for (let i = 0, len = list.length; i < len; i++) {
             const r = list[i].result!;
             res.x = Math.min(res.x, r.x);
             res.y = Math.min(res.y, r.y);
+            // block是需要考虑mbp的
             res.w = Math.max(res.w, r.x + r.w + getMbpRight(r) - res.x);
             res.h = Math.max(res.h, r.y + r.h + getMbpBottom(r) - res.y);
           }
@@ -133,34 +154,64 @@ export class LineBoxContext {
 
   // 叶子节点调用，如text，真正添加内容
   addText(frag: TextBox, node: ITextNode) {
-    const list = this.current!.list;
-    const lv = this.nodeStack.length;
+    const current = this.current!;
+    current.begin = false; // 不再是行首
+    const list = current.list;
+    const lv = this.inlineStack.length;
     list.push({ type: ContentBoxType.TEXT, lv, frag, node, added: true });
     // 所属的inline都要扩展本行的宽度，用lv判断
     for (let i = list.length - 2; i >= 0; i--) {
       const item = list[i];
       if (item.type === ContentBoxType.INLINE && item.lv < lv) {
+        const res = item.node.result as Inline;
+        // 修改inline的frag的宽，标记并添加到节点的result，除非开始mbp强制添加，其它都是这里
         item.frag.w = frag.x + frag.w - item.frag.x;
+        if (!item.added) {
+          item.added = true;
+          res.frags.push(item.frag);
+        }
       }
     }
   }
 
+  // 记录等本行结束时结算text的尺寸
   popText(node: ITextNode) {
     this.endList.push(node);
   }
 
-  addBlock(node: ITypeNode) {
-    const inlinePlaceHolder = this.inlinePlaceHolder;
-    const nodeStack = this.nodeStack;
-    for (let i = 0, len = nodeStack.length; i < len; i++) {
-      const inline = this.nodeStack[i];
+  addInlineBlock(node: INode) {
+    const current = this.current!;
+    current.begin = false; // 不再是行首
+    const list = current.list;
+    const lv = this.inlineStack.length;
+    this.current.list.push({ type: ContentBoxType.INLINE_BLOCK, lv, node, frag: null, added: true });
+    // 这个和addText有点像
+    for (let i = list.length - 2; i >= 0; i--) {
+      const item = list[i];
+      if (item.type === ContentBoxType.INLINE && item.lv < lv) {
+        const res = item.node.result as Inline;
+        item.frag.w = res.x + res.w + getMbpRight(res) - item.frag.x;
+        if (!item.added) {
+          item.added = true;
+          res.frags.push(item.frag);
+        }
+      }
+    }
+  }
+
+  // 一行中添加block是个奇怪行为，它会隔断，并且对所属的inline产生最终尺寸特殊极值计算
+  addBlock(node: INode) {
+    const inlineMap = this.inlineMap;
+    const inlineStack = this.inlineStack;
+    for (let i = 0, len = inlineStack.length; i < len; i++) {
+      const inline = this.inlineStack[i];
       let list: ITypeNode[];
-      if (inlinePlaceHolder.has(inline)) {
-        list = inlinePlaceHolder.get(inline)!;
+      if (inlineMap.has(inline)) {
+        list = inlineMap.get(inline)!;
       }
       else {
         list = [];
-        inlinePlaceHolder.set(inline, list);
+        inlineMap.set(inline, list);
       }
       list.push(node);
     }
@@ -170,153 +221,134 @@ export class LineBoxContext {
   newLine(x: number, y: number) {
     const current = this.current = new LineBox(x, y);
     this.lineBoxes.push(current);
-    const nodeStack = this.nodeStack;
-    for (let i = 0, len = nodeStack.length; i < len; i++) {
-      this.addInlineFrag(nodeStack[i], x, y, i);
+    const inlineStack = this.inlineStack;
+    for (let i = 0, len = inlineStack.length; i < len; i++) {
+      this.addInlineFrag(inlineStack[i], x, y, i);
     }
   }
 
-  // lineBox结束时，比如遇到换行，或者block内部末尾调用，用以对齐verticalAlign
+  // 一行放不下内容的情况（比如text）要起新行，在endLine之前调用，行末尾如果是空inline，将其占位符删除
+  // 这会发生在拥有开始mbp的inline包含无法放下text的情况，另起一行，那么刚添加的inline需要删掉不参与计算。
+  prepareNextLine() {
+    const list = this.current.list;
+    // 理论一定有，要求是inline且未added
+    const last = list[list.length - 1]!;
+    if (last.type !== ContentBoxType.INLINE || last.added) {
+      return;
+    }
+    // 删除掉，因为要放在下一行，同时向前查找这个inline的空父inline，因为可能嵌套
+    list.pop();
+    const lv = last.lv;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const item = list[i];
+      if (item.type !== ContentBoxType.INLINE || item.added || item.lv >= lv) {
+        return;
+      }
+      list.pop();
+    }
+  }
+
+  /**
+   * lineBox结束时，比如遇到换行，或者block内部末尾调用，用以对齐verticalAlign，
+   * 在特定情况下，nextNewline参数会传true，比如放不下必须新开一行，能够提前知道这不是尾行。
+   */
   endLine() {
-    const lineBoxes = this.lineBoxes;
     const current = this.current;
     const list = current.list;
+    // 找到无效的inline的frag去除，防止空行inline
+    for (let i = list.length - 1; i >= 0; i--) {
+      const item = list[i];
+      // 没被added去除，防止空行inline
+      if (item.type === ContentBoxType.INLINE && !item.added) {
+        list.splice(i, 1);
+      }
+    }
     // 空block情况
     if (!list.length) {
       return false;
-    }
-    let hasContent = false;
-    // 根据是否有叶子结点（text/inlineBlock），是否有首尾行且水平mbp判断
-    for (let i = 0, len = list.length; i < len; i++) {
-      const item = list[i];
-      if ([ContentBoxType.TEXT, ContentBoxType.INLINE_BLOCK].includes(item.type)) {
-        hasContent = true;
-        break;
-      }
-      // 有处理过末尾mbp会被added，提前跳出判断
-      else if (item.added) {
-        hasContent = true;
-        break;
-      }
-    }
-    // 有内容将inline的未添加的行内frag加到result里
-    if (hasContent) {
-      for (let i = 0, len = list.length; i < len; i++) {
-        const item = list[i];
-        if (item.type === ContentBoxType.INLINE && !item.added) {
-          item.added = true;
-          (item.node.result as Inline).frags.push(item.frag);
-        }
-      }
-    }
-    // 没内容判断是否首行，inline的首行即便是空也要看开始的mbp，这里面只会有inline了
-    else if (lineBoxes.length === 1) {
-      for (let i = 0, len = list.length; i < len; i++) {
-        const item = list[i];
-        if (item.type === ContentBoxType.INLINE) {
-          const result = item.node.result as Inline;
-          if (result.marginLeft || result.borderLeftWidth || result.paddingLeft) {
-            hasContent = true;
-            break;
-          }
-        }
-      }
-      // 只要一行里有一个有mbp，整行的inline都是个0宽的
-      if (hasContent) {
-        for (let i = 0, len = list.length; i < len; i++) {
-          const item = list[i];
-          if (item.type === ContentBoxType.INLINE) {
-            const result = item.node.result as Inline;
-            if (!item.added) {
-              item.added = true;
-              result.frags.push(item.frag);
-            }
-          }
-        }
-      }
     }
     /**
      * 对齐算法，css中支柱一定存在，但这里如果root是inline则可能不存在
      * 有支柱先求出支柱的baseline
      */
-    if (hasContent) {
-      let maxUpper: number | undefined = undefined;
-      let maxLower: number | undefined = undefined; // 均是正直相对高度
-      let hBase = 0;
-      const struct = this.struct;
-      let structBaseline = this.structBaseline;
-      // 缓存只求一次，多行情况下支柱不用重复计算
-      if (struct && structBaseline === null) {
-        const res = struct.result!;
-        structBaseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-        this.structBaseline = structBaseline;
-      }
-      if (structBaseline !== null) {
-        maxUpper = structBaseline;
-        const res = struct!.result!;
-        maxLower = res.lineHeight - maxUpper;
-        hBase = res.lineHeight;
-      }
-      // 求出基线极值和初步行高度
-      for (let i = 0, len = list.length; i < len; i++) {
-        const { type, node } = list[i];
-        const style = node.style;
-        const res = node.result!;
-        if (style.verticalAlign === VerticalAlign.BASELINE && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
-          const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-          if (maxUpper === undefined) {
-            maxUpper = b;
-          }
-          else {
-            maxUpper = Math.max(maxUpper, b);
-          }
-          if (maxLower === undefined) {
-            maxLower = res.lineHeight - b;
-          }
-          else {
-            maxLower = Math.max(maxLower, res.lineHeight - b);
-          }
+    let maxUpper: number | undefined = undefined;
+    let maxLower: number | undefined = undefined; // 均是正值，相对高度
+    let hBase = 0;
+    const struct = this.struct;
+    let structBaseline = this.structBaseline;
+    // 缓存只求一次，多行情况下支柱不用重复计算
+    if (struct && structBaseline === null) {
+      const res = struct.result!;
+      structBaseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+      this.structBaseline = structBaseline;
+    }
+    if (structBaseline !== null) {
+      maxUpper = structBaseline;
+      const res = struct!.result!;
+      maxLower = res.lineHeight - maxUpper;
+      hBase = res.lineHeight;
+    }
+    // 求出基线极值和初步行高度
+    for (let i = 0, len = list.length; i < len; i++) {
+      const { type, node } = list[i];
+      const style = node.style;
+      const res = node.result!;
+      if (style.verticalAlign === VerticalAlign.BASELINE && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
+        const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+        if (maxUpper === undefined) {
+          maxUpper = b;
+        }
+        else {
+          maxUpper = Math.max(maxUpper, b);
+        }
+        if (maxLower === undefined) {
+          maxLower = res.lineHeight - b;
+        }
+        else {
+          maxLower = Math.max(maxLower, res.lineHeight - b);
         }
       }
-      if (maxUpper !== undefined && maxLower !== undefined) {
-        hBase = Math.max(hBase, maxUpper + maxLower);
-      }
-      // 再看top/bottom对齐的
-      for (let i = 0, len = list.length; i < len; i++) {
-        const { type, node } = list[i];
-        const style = node.style;
-        const res = node.result!;
-        if (style.verticalAlign === VerticalAlign.TOP && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
-          const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-          // 特殊的没有支柱且没有baseline的情况，只要判断hBase就可以了，另外2个会被条件包含
-          if (hBase === undefined) {
-            maxUpper = b;
-            maxLower = res.lineHeight - b;
-            hBase = res.lineHeight;
-          }
-          else if (res.lineHeight > hBase) {
-            maxLower = Math.max(maxLower!, res.lineHeight - b);
-          }
+    }
+    if (maxUpper !== undefined && maxLower !== undefined) {
+      hBase = Math.max(hBase, maxUpper + maxLower);
+    }
+    // 再看top/bottom对齐的
+    for (let i = 0, len = list.length; i < len; i++) {
+      const { type, node } = list[i];
+      const style = node.style;
+      const res = node.result!;
+      if (style.verticalAlign === VerticalAlign.TOP && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
+        const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+        // 特殊的没有支柱且没有baseline的情况，只要判断hBase就可以了，另外2个会被条件包含
+        if (hBase === undefined) {
+          maxUpper = b;
+          maxLower = res.lineHeight - b;
+          hBase = res.lineHeight;
         }
-        else if (style.verticalAlign === VerticalAlign.TOP && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
-          const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-          if (hBase === undefined) {
-            maxUpper = b;
-            maxLower = res.lineHeight - b;
-            hBase = res.lineHeight;
-          }
-          else if (res.lineHeight > hBase) {
-            maxUpper = Math.max(maxUpper!, b);
-          }
+        else if (res.lineHeight > hBase) {
+          maxLower = Math.max(maxLower!, res.lineHeight - b);
         }
       }
-      if (maxUpper !== undefined && maxLower !== undefined) {
-        hBase = Math.max(hBase, maxUpper + maxLower);
+      else if (style.verticalAlign === VerticalAlign.TOP && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
+        const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+        if (hBase === undefined) {
+          maxUpper = b;
+          maxLower = res.lineHeight - b;
+          hBase = res.lineHeight;
+        }
+        else if (res.lineHeight > hBase) {
+          maxUpper = Math.max(maxUpper!, b);
+        }
       }
-      current.h = hBase;
-      // 遍历所有的设置
-      for (let i = 0, len = list.length; i < len; i++) {
-        const { node, frag } = list[i];
+    }
+    if (maxUpper !== undefined && maxLower !== undefined) {
+      hBase = Math.max(hBase, maxUpper + maxLower);
+    }
+    current.h = hBase;
+    // 遍历所有的设置
+    for (let i = 0, len = list.length; i < len; i++) {
+      const { node, frag, type } = list[i];
+      if (type === ContentBoxType.INLINE || type === ContentBoxType.TEXT) {
         const style = node.style;
         const res = node.result!;
         if (style.verticalAlign === VerticalAlign.TOP) {
@@ -350,7 +382,7 @@ export class LineBoxContext {
         }
       }
     }
-    return hasContent;
+    return true;
   }
 }
 

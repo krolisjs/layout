@@ -14,8 +14,8 @@ export type Frag = { x: number; y: number; w: number; h: number };
 
 type BasicBox = Frag & ComputedStyle;
 
-export type Box = {
-  type: 'box',
+export type Block = {
+  type: 'block',
   frags: null,
 } & BasicBox;
 
@@ -30,8 +30,8 @@ export type Text = {
   frags: TextBox[];
 } & BasicBox;
 
-export type InlineBox = {
-  type: 'inlineBox',
+export type InlineBlock = {
+  type: 'inlineBlock',
   frags: null,
 } & BasicBox;
 
@@ -39,7 +39,7 @@ export type TextBox = Frag & {
   content: string;
 };
 
-export type Result = Box | InlineBox | Inline | Text;
+export type Result = Block | InlineBlock | Inline | Text;
 
 export type Global = {
   root: ITypeNode,
@@ -55,7 +55,7 @@ export type Constraints = {
   aw: number; // 可用尺寸
   ah: number;
   pbw: number; // 百分比基于尺寸
-  pbh?: number; // 可能出现undefined表示auto
+  pbh: number | null; // 可能出现null表示无法使用%计算，退化为auto
   cx: number; // 当前坐标，flow流用到，absolute时自动位置也会用
   cy: number;
   fw: boolean; // 是否固定尺寸，决定节点%是否可用，否则视为auto
@@ -88,7 +88,7 @@ export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], g
   const style = node.style;
   const res: any = {
     type,
-    frags: ['box', 'inlineBox'].includes(type) ? null : [],
+    frags: ['block', 'inlineBlock'].includes(type) ? null : [],
     x: cs.cx,
     y: cs.cy,
     w: 0,
@@ -319,7 +319,7 @@ export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], g
   }
 
   // 父auto子%，不计算默认0
-  if (style.height.u !== Unit.AUTO && (cs.pbh !== undefined || style.height.u !== Unit.PERCENT)) {
+  if (style.height.u !== Unit.AUTO && (cs.pbh !== null || style.height.u !== Unit.PERCENT)) {
     res.h = Math.max(0, calLength(style.height, cs.pbh || 0, global.rem, res.fontSize));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.h = Math.max(0, res.h - (res.borderTopWidth + res.borderBottomWidth + res.paddingTop + res.paddingBottom));
@@ -329,26 +329,25 @@ export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], g
   // 排除mbp后的contentBox的坐标，注意inline不考虑y方向
   res.x += res.marginLeft + res.borderLeftWidth + res.paddingLeft;
   // box的marginTop先不算，因为有合并计算
-  if (type === 'box') {
+  if (type === 'block') {
     res.y += res.borderTopWidth + res.paddingTop;
-    return res as Box;
+    return res as Block;
   }
-  if (type === 'inlineBox') {
-    // res.y += res.borderTopWidth + res.paddingTop;
+  if (type === 'inlineBlock') {
     res.y += res.marginTop + res.borderTopWidth + res.paddingTop;
-    return res as InlineBox;
+    return res as InlineBlock;
   }
   return type === 'inline' ? (res as Inline) : (res as Text);
 }
 
 // block和inlineBlock复用
-function bib(node: INode, cs: Constraints, res: Box | InlineBox) {
+function bib(node: INode, cs: Constraints, res: Block | InlineBlock) {
   node.result = res;
   const style = node.style;
   // 返回递归的供子节点使用，block因为可能有margin合并，先不计入marginTop
   const ox = cs.cx + res.marginLeft + res.paddingLeft + res.borderLeftWidth;
   let oy = cs.cy + res.paddingTop + res.borderTopWidth;
-  if (res.type === 'inlineBox') {
+  if (res.type === 'inlineBlock') {
     oy += res.marginTop;
   }
   const scs: Constraints = {
@@ -368,16 +367,16 @@ function bib(node: INode, cs: Constraints, res: Box | InlineBox) {
       = Math.max(0, cs.aw - (res.marginLeft + res.marginRight + res.paddingLeft + res.paddingRight + res.borderLeftWidth + res.borderRightWidth));
   }
   // 父级高度auto时，%失效也是auto
-  if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined) {
+  if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null) {
     scs.ah = cs.ah;
-    scs.pbh = undefined; // auto
+    scs.pbh = null; // auto
   }
   return scs;
 }
 
-export function block(node: INode, cs: Constraints, global: Global, res?: Box) {
+export function block(node: INode, cs: Constraints, global: Global, res?: Block) {
   if (!res) {
-    res = preset(node, cs, 'box', global) as Box;
+    res = preset(node, cs, 'block', global) as Block;
   }
   return bib(node, cs, res);
 }
@@ -389,17 +388,22 @@ export function inline(node: INode, cs: Constraints, global: Global, lbc: LineBo
   node.result = res;
   // 修改当前的，inline复用
   cs.cx += res.marginLeft + res.paddingLeft + res.borderLeftWidth;
+  // 就算有左mbp，可能放不下也不管，因为可能是空节点（递归空也是），等后续判断
   lbc.addInline(node, cs.cx, cs.cy);
 }
 
-export function inlineBlock(node: INode, cs: Constraints, global: Global, res?: InlineBox) {
+export function inlineBlock(node: INode, cs: Constraints, global: Global, res?: InlineBlock) {
   if (!res) {
-    res = preset(node, cs, 'inlineBox', global) as InlineBox;
+    res = preset(node, cs, 'inlineBlock', global) as InlineBlock;
   }
   return bib(node, cs, res);
 }
 
 export function text(node: ITextNode, cs: Constraints, global: Global, lbc: LineBoxContext) {
+  // 忽略空文字节点
+  if (!node.content) {
+    return;
+  }
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
@@ -416,20 +420,44 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   const frags: TextBox[] = res.frags;
   const content = node.content;
   // 每个textBox还要额外的计算内容区域高度，设置上下平分leading
-  const h = calContentArea(res.fontFamily, res.fontSize);
-  const leading = (res.lineHeight - h) * 0.5;
-  let i = 0;
-  let length = content.length;
+  let contentArea = node.contentArea;
+  if (contentArea === null) {
+    contentArea = node.contentArea = calContentArea(res.fontFamily, res.fontSize);
+  }
+  const leading = (res.lineHeight - contentArea) * 0.5;
+  // 不在行首时要检查换行，有可能本行一个字符都排不下
+  if (!lbc.current.begin) {
+    const c = node.content[0];
+    const m = measureText(
+      c,
+      style.fontFamily,
+      res.fontSize,
+      res.lineHeight,
+      style.fontWeight,
+      style.fontStyle,
+      res.letterSpacing,
+    );
+    const w = m.width;
+    if (cs.cx + w - cs.ox > cs.aw) {
+      lbc.prepareNextLine();
+      lbc.endLine(); // 这里传个标识符绝对有下一行新的，这样刚开始的inline父节点会变到下一行
+      cx = cs.ox;
+      cy += res.lineHeight;
+      lbc.newLine(cx, cy);
+    }
+  }
   // 遇到换行符手动标识
   let newLine = false;
   // 循环获取满足宽度下的字符串
+  let i = 0;
+  let length = content.length;
   while (i < length) {
     if (lineBreak.test(content[i])) {
       // 连续的换行符，每个产生一个空行
       if (newLine) {
         lbc.endLine();
         lbc.newLine(cx, cy);
-        addEmptyLine(cx, cy + leading, h, node, frags, lbc);
+        addEmptyLine(cx, cy + leading, contentArea, node, frags, lbc);
       }
       i++;
       cx = cs.ox;
@@ -447,7 +475,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     const {
       num,
       width,
-      breakLine,
+      breakLine, // 长度不足需要换行，不考虑\n
     } = smartMeasure(
       measureText,
       content,
@@ -464,7 +492,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       x: cx,
       y: cy + leading,
       w: width,
-      h,
+      h: contentArea,
       content: content.slice(i, num),
     };
     frags.push(textBox);
@@ -488,7 +516,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   if (newLine) {
     lbc.endLine();
     lbc.newLine(cx, cy);
-    addEmptyLine(cx, cy + leading, h, node, frags, lbc);
+    addEmptyLine(cx, cy + leading, contentArea, node, frags, lbc);
   }
   lbc.popText(node);
   res.w = maxW;

@@ -10,7 +10,7 @@ import {
   type Style,
   Unit
 } from './style';
-import type { Box, Constraints, Global, Inline, InlineBox, InputConstraints, Result, Text, } from './layout';
+import type { Block, Constraints, Global, Inline, InlineBlock, InputConstraints, Result, Text, } from './layout';
 import {
   block,
   inline,
@@ -41,6 +41,7 @@ export interface ITypeNode {
   next: ITypeNode | null;
   constraints: Constraints | null;
   result: Result | null;
+  contentArea: number | null;
   lineBoxContext: LineBoxContext | null;
   layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
   hasContent(): boolean; // 是否有内容，比如text有非空字符串，img强制有内容
@@ -82,6 +83,7 @@ export abstract class AbstractNode implements ITypeNode {
   next: AbstractNode | null = null;
   constraints: Constraints | null = null; // block本身产生的约束，传给children
   result: Result | null = null; // 布局结果
+  contentArea: number | null = null; // inline时内容高度缓存
   lineBoxContext: LineBoxContext | null = null; // block本身产生的行级上下文管理，传给children
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
@@ -129,6 +131,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
+  // 文本节点、img等覆盖调用
   hasContent() {
     return false;
   }
@@ -336,7 +339,7 @@ export abstract class AbstractNode implements ITypeNode {
     this.marginAuto(global);
     // 是否有下隔断和定高隔断
     const hbb = hasBottomBarrier(res);
-    const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined;
+    const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null;
     let collapse = !hbb && !bfc && isAutoH;
     // text节点特殊，一般有内容，视为不被穿透
     if (collapse && this.hasContent()) {
@@ -365,7 +368,7 @@ export abstract class AbstractNode implements ITypeNode {
       mc.append(res.marginBottom);
     }
     // block所属的inline（如有）中断撑开开始新行，记录下来
-    lbc.addBlock(this);
+    lbc.addBlock(this as INode);
     lbc.newLine(cs.cx, cs.cy);
   }
 
@@ -391,7 +394,7 @@ export abstract class AbstractNode implements ITypeNode {
     const style = this.style;
     const res = this.result!;
     // 自动高度，以及%高度但父级是auto
-    if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === undefined) {
+    if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null) {
       res.h = Math.max(0, scs.cy - scs.oy);
     }
     // 没有包含marginBottom，因为要处理合并
@@ -439,7 +442,7 @@ export abstract class AbstractNode implements ITypeNode {
     const style = this.style;
     const n = this as unknown as Node;
     // 固定且不换行，不固定都需要用到一个临时的computedStyle
-    const temp = preset(n, cs, 'inlineBox', global) as InlineBox;
+    const temp = preset(n, cs, 'inlineBlock', global) as InlineBlock;
     const d = cs.cx - cs.ox;
     // 不固定则预测量
     if (!isFixed(style.width)) {
@@ -448,8 +451,9 @@ export abstract class AbstractNode implements ITypeNode {
       temp.w = Math.max(min, Math.min(max, aw));
     }
     let scs: Constraints;
-    // inlineBlock放不下要换行
-    if (d && temp.w + getMbpH(temp) < (cs.aw - d) + 1e-9) {
+    // inlineBlock放不下要换行，追加个精度冗余
+    if (!lbc.current.begin && d && temp.w + getMbpH(temp) < (cs.aw - d) + 1e-9) {
+      lbc.prepareNextLine();
       lbc.endLine();
       const current = lbc.current;
       cs.cx = cs.ox;
@@ -468,6 +472,7 @@ export abstract class AbstractNode implements ITypeNode {
       child.layFlow(scs, absMap, global, mc, slbc);
     }
     this.blockEnd(cs);
+    lbc.addInlineBlock(this as INode);
   }
 
   // TODO 性能优化，不整体root再递归一遍，用到的地方end时做
@@ -484,12 +489,12 @@ export abstract class AbstractNode implements ITypeNode {
       }
       if (top.u !== Unit.AUTO) {
         // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
-        if (top.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== undefined) {
+        if (top.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== null) {
           y += calLength(top, res.h, global.rem, res.fontSize);
         }
       }
       else if (bottom.u !== Unit.AUTO) {
-        if (bottom.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== undefined) {
+        if (bottom.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== null) {
           y -= calLength(bottom, res.h, global.rem, res.fontSize);
         }
       }
@@ -506,7 +511,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  layAbs(cs: Constraints, absMap: WeakMap<AbstractNode, Abs[]>, global: Global) {
+  layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global) {
     const style = this.style;
     // 根据trbl确定最终尺寸
     const {
@@ -522,7 +527,7 @@ export abstract class AbstractNode implements ITypeNode {
       width,
       height
     } = style;
-    const res = preset(this, cs, 'box', global) as Box;
+    const res = preset(this, cs, 'block', global) as Block;
     this.result = res;
     if (left.u !== Unit.AUTO) {
       res.x = cs.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
@@ -671,14 +676,14 @@ export abstract class AbstractNode implements ITypeNode {
     if (isFixed(style.width)) {
       let w = calLength(style.width, cs.pbw, global.rem, pc.fontSize);
       if (style.boxSizing === BoxSizing.CONTENT_BOX) {
-        const r = preset(this, cs, 'box', global) as Box;
+        const r = preset(this, cs, 'block', global) as Block;
         w += getMbpH(r);
       }
       min = w;
       max = w;
     }
     else {
-      const r = preset(this, cs, 'box', global) as Box;
+      const r = preset(this, cs, 'block', global) as Block;
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
         const o = children[i].shrink2Fit(cs, global, r);

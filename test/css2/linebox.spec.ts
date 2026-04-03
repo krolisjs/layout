@@ -169,7 +169,7 @@ describe('linebox', () => {
       w: 192,
       h: 24,
       frags: null,
-      type: 'box',
+      type: 'block',
     });
   });
 
