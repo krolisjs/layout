@@ -340,7 +340,11 @@ export abstract class AbstractNode implements ITypeNode {
     const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null;
     const isEmptyH = isAutoH || style.height.v <= 0;
     let collapse = !htb && !hbb && !bfc && isEmptyH;
-    // 先序遍历，同时由于子节点先触发，计算子节点是否可以被折叠后父节点可以直接读取
+    // text节点特殊，一般有内容，视为不被穿透
+    if (collapse && this.hasContent()) {
+      collapse = false;
+    }
+    // 先序遍历，同时由于子节点先触发，计算子节点是否空块可以被穿透，父节点后面可以直接读取
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
@@ -352,10 +356,6 @@ export abstract class AbstractNode implements ITypeNode {
     this.collapse = collapse;
     this.blockEnd(cs);
     this.marginAuto(global);
-    // text节点特殊，一般有内容，视为不被穿透
-    if (collapse && this.hasContent()) {
-      collapse = false;
-    }
     // 如果可以穿透，说明上下合并，记录下来等后续判断
     if (collapse) {
       mc.append(res.marginBottom);
