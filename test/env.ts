@@ -35,6 +35,13 @@ export function createTestInputConstraints() {
     };
   });
   setMetricizeFont((fontFamily: string) => {
+    if (fontFamily === 'Ahem') {
+      return {
+        ascentRatio: 0.8,
+        descentRatio: 0.2,
+        lineGapRatio: 0,
+      };
+    }
     return {
       ascentRatio: 0.875,
       descentRatio: 0.5,

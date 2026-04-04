@@ -1,15 +1,14 @@
 import {
   BoxSizing,
   calLength,
-  type ComputedStyle,
   Display,
   getDefaultStyle,
   isFixed,
-  type JStyle,
+  Overflow,
   Position,
-  type Style,
-  Unit
+  Unit,
 } from './style';
+import type { ComputedStyle, JStyle, Style } from './style';
 import type { Block, Constraints, Global, Inline, InlineBlock, InputConstraints, Result, Text, } from './layout';
 import {
   block,
@@ -23,7 +22,7 @@ import {
   text,
 } from './layout';
 import { LineBoxContext, MarginContext } from './context';
-import { getMbpH, hasBottomBarrier, hasTopBarrier, isBFC, } from './compute';
+import { calBaseline, getMbpBottom, getMbpH, hasBottomBarrier, hasTopBarrier, isBFC } from './compute';
 
 export enum NodeType {
   Node = 0,
@@ -42,7 +41,9 @@ export interface ITypeNode {
   constraints: Constraints | null;
   result: Result | null;
   contentArea: number | null;
+  collapse: boolean;
   lineBoxContext: LineBoxContext | null;
+  layFlow(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext): void;
   layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
   hasContent(): boolean; // 是否有内容，比如text有非空字符串，img强制有内容
 }
@@ -83,6 +84,7 @@ export abstract class AbstractNode implements ITypeNode {
   next: AbstractNode | null = null;
   constraints: Constraints | null = null; // block本身产生的约束，传给children
   result: Result | null = null; // 布局结果
+  collapse = false; // 垂直是否可以被穿透导致margin合并
   contentArea: number | null = null; // inline时内容高度缓存
   lineBoxContext: LineBoxContext | null = null; // block本身产生的行级上下文管理，传给children
 
@@ -146,7 +148,7 @@ export abstract class AbstractNode implements ITypeNode {
       rem = 16;
     }
     // root入口处初始化，可能用不到，比如block会创建自己的lbc，为了方法参数一致性
-    const absMap: WeakMap<AbstractNode, Abs[]> = new WeakMap();
+    const absMap: WeakMap<ITypeNode, Abs[]> = new WeakMap();
     const cs = normalizeConstraints(ics);
     const mc = new MarginContext();
     const lbc = new LineBoxContext(cs.ox, cs.oy);
@@ -319,6 +321,7 @@ export abstract class AbstractNode implements ITypeNode {
      * 连续的bfc隔离也不会有合并情况，因此先判断当前存入了多少个节点和数据。
      */
     const htb = hasTopBarrier(res);
+    const hbb = hasBottomBarrier(res);
     const bfc = isBFC(this);
     if (htb || bfc) {
       // 先算上自己，隔断是和自己和子节点隔断，如果只有自己一个节点等于直接生效
@@ -329,18 +332,26 @@ export abstract class AbstractNode implements ITypeNode {
     else {
       mc.append(res.marginTop, this);
     }
+    /**
+     * 空高节点且没有隔断视作空块可以被穿透，同时要满足所有子节点也是可以穿透的；
+     * 子节点先遍历拿到自身状态，赋值给collapse属性，父节点可以直接获得无需递归；
+     * 注意幽灵情况，即父节点height显示为0，但是子节点是有内容的，此时不能穿透。
+     */
+    const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null;
+    const isEmptyH = isAutoH || style.height.v <= 0;
+    let collapse = !htb && !hbb && !bfc && isEmptyH;
     // 先序遍历，同时由于子节点先触发，计算子节点是否可以被折叠后父节点可以直接读取
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
       child.layFlow(scs, absMap, global, mc, slbc);
+      if (collapse && !child.collapse) {
+        collapse = false;
+      }
     }
+    this.collapse = collapse;
     this.blockEnd(cs);
     this.marginAuto(global);
-    // 是否有下隔断和定高隔断
-    const hbb = hasBottomBarrier(res);
-    const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null;
-    let collapse = !hbb && !bfc && isAutoH;
     // text节点特殊，一般有内容，视为不被穿透
     if (collapse && this.hasContent()) {
       collapse = false;
@@ -349,24 +360,28 @@ export abstract class AbstractNode implements ITypeNode {
     if (collapse) {
       mc.append(res.marginBottom);
     }
-    // 不可以穿透，处理之前累计的top合并和偏移
+    // 不可以穿透，要分是有下隔断或BFC，还是非空高
     else {
-      const m = mc.mergeTop();
-      if (m) {
-        /**
-         * 这里和开始不同，如果是唯一的叶子结点，因为blockEnd已经结算过cy了，所以要加上偏移，list[0]一定是自己，cs就是所属的约束；
-         * 如果是叶子节点但有多个，即list不唯一，那么在刚刚的处理中倒数第2个一定是父节点，它的cs已经处理过了
-         */
-        if (!children.length && mc.list.length === 1) {
-          cs.cy += m;
+      // 有下隔断或BFC，以及之前遗留的都要处理，非空高的话要检测list是否有遗留，否则不要处理透传marginBottom
+      if (mc.list.length || hbb || bfc) {
+        const m = mc.mergeTop();
+        if (m) {
+          /**
+           * 这里和开始不同，如果是唯一的叶子结点，因为blockEnd已经结算过cy了，所以要加上偏移，list[0]一定是自己，cs就是所属的约束；
+           * 如果是叶子节点但有多个，即list不唯一，那么在刚刚的处理中倒数第2个一定是父节点，它的cs已经处理过了
+           */
+          if (!children.length && mc.list.length === 1) {
+            cs.cy += m;
+          }
+          if (isAutoH) {
+            res.h += m;
+          }
         }
-        if (isAutoH) {
-          res.h += m;
-        }
+        mc.reset();
       }
-      mc.reset();
       mc.append(res.marginBottom);
     }
+
     // block所属的inline（如有）中断撑开开始新行，记录下来
     lbc.addBlock(this as INode);
     lbc.newLine(cs.cx, cs.cy);
@@ -441,23 +456,24 @@ export abstract class AbstractNode implements ITypeNode {
   layInlineBlock(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
     const style = this.style;
     const n = this as unknown as Node;
-    // 固定且不换行，不固定都需要用到一个临时的computedStyle
+    // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
     const temp = preset(n, cs, 'inlineBlock', global) as InlineBlock;
-    const d = cs.cx - cs.ox;
+    const used = cs.cx - cs.ox;
     // 不固定则预测量
     if (!isFixed(style.width)) {
       const { min, max } = this.shrink2Fit(cs, global, temp);
-      const aw = cs.aw - d;
+      const aw = cs.aw - used;
       temp.w = Math.max(min, Math.min(max, aw));
     }
     let scs: Constraints;
     // inlineBlock放不下要换行，追加个精度冗余
-    if (!lbc.current.begin && d && temp.w + getMbpH(temp) < (cs.aw - d) + 1e-9) {
+    if (!lbc.current.begin && temp.w + getMbpH(temp) > (cs.aw - used) + 1e-9) {
       lbc.prepareNextLine();
       lbc.endLine();
       const current = lbc.current;
       cs.cx = cs.ox;
       cs.cy = current.y + current.h;
+      lbc.newLine(cs.cx, cs.cy);
       scs = inlineBlock(n, cs, global);
     }
     else {
@@ -471,7 +487,11 @@ export abstract class AbstractNode implements ITypeNode {
       const child = children[i];
       child.layFlow(scs, absMap, global, mc, slbc);
     }
+    // 和block不同，inlineBlock不会直接新起一行，因此重设下
+    const { cx, cy } = cs;
     this.blockEnd(cs);
+    cs.cx = cx + temp.w;
+    cs.cy = cy;
     lbc.addInlineBlock(this as INode);
   }
 
@@ -743,6 +763,23 @@ export abstract class AbstractNode implements ITypeNode {
       }
       parent = parent.parent;
     }
+  }
+
+  // inlineBlock获取基线，其内部可能递归包含block/text等
+  getElementBaseline() {
+    const { children, style } = this;
+    const res = this.result!;
+    if (style.overflow !== Overflow.VISIBLE || !children.length) {
+      return res.h + getMbpBottom(res);
+    }
+    for (let i = children.length - 1; i >= 0; i++) {}
+    // const last = children[children.length - 1];
+    // if (last.nodeType === NodeType.Text) {
+    //   return calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+    // }
+    // else {
+    //   if (style.display )
+    // }
   }
 }
 

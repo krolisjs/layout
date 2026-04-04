@@ -670,7 +670,7 @@ describe('margin-padding-clear', () => {
           style: {
             display: 'inlineBlock',
             marginBottom: '1em',
-            width: '5em',
+            width: '4em',
             height: '1em',
           },
         },
@@ -678,7 +678,7 @@ describe('margin-padding-clear', () => {
           style: {
             display: 'inlineBlock',
             marginTop: '1em',
-            width: '5em',
+            width: '4em',
             height: '1em',
           },
         },
@@ -698,6 +698,137 @@ describe('margin-padding-clear', () => {
       w: 80,
       h: 16,
       marginTop: 16,
+    });
+  });
+
+  it('margin-collapse-016', () => {
+    const node = genNode({
+      style: {
+        width: '5em',
+        height: '4em',
+      },
+      children: [
+        {
+          style: {
+            marginBottom: '2em',
+            width: '4em',
+            height: '1em',
+          },
+        },
+        {
+          style: {
+            marginTop: '2em',
+            marginBottom: '2em',
+          },
+        },
+        {
+          style: {
+            marginTop: '2em',
+            width: '4em',
+            height: '1em',
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[1].result).toMatchObject({
+      x: 0,
+      y: 48,
+      h: 0,
+      marginTop: 32,
+      marginBottom: 32,
+    });
+    expect(node.children[2].result).toMatchObject({
+      x: 0,
+      y: 48,
+      h: 16,
+      marginTop: 32,
+    });
+  });
+
+  it('margin-collapse-017', () => {
+    const node = genNode({
+      style: {
+        borderBottomWidth: 3,
+      },
+      children: [
+        {
+          style: {
+            marginTop: 60,
+            width: '4em',
+            height: 20,
+          },
+          children: [
+            {
+              style: {
+                marginTop: 60,
+                width: '4em',
+                height: 20,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      y: 60,
+      h: 20,
+      marginTop: 60,
+    });
+    expect(node.children[0].children[0].result).toMatchObject({
+      x: 0,
+      y: 60,
+      h: 20,
+      marginTop: 60,
+    });
+  });
+
+  it('margin-collapse-019', () => {
+    const node = genNode({
+      style: {
+        borderTopWidth: '1em',
+        width: '5em',
+      },
+      children: [
+        {
+          style: {
+            width: '4em',
+            height: '1em',
+          },
+          children: [
+            {
+              style: {
+                marginTop: '2em',
+                marginBottom: '2em',
+                width: '3em',
+                height: 0,
+              },
+            },
+            {
+              style: {
+                marginTop: '2em',
+                width: '3em',
+                height: '1em',
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      y: 48,
+      h: 16,
+      marginTop: 0,
+    });
+    expect(node.children[0].children[1].result).toMatchObject({
+      x: 0,
+      y: 48,
+      h: 16,
+      marginTop: 32,
     });
   });
 

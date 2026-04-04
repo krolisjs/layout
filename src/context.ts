@@ -288,7 +288,7 @@ export class LineBoxContext {
       maxLower = res.lineHeight - maxUpper;
       hBase = res.lineHeight;
     }
-    // 求出基线极值和初步行高度
+    // 求出基线极值和初步的行高
     for (let i = 0, len = list.length; i < len; i++) {
       const { type, node } = list[i];
       const style = node.style;
@@ -329,7 +329,7 @@ export class LineBoxContext {
           maxLower = Math.max(maxLower!, res.lineHeight - b);
         }
       }
-      else if (style.verticalAlign === VerticalAlign.TOP && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
+      else if (style.verticalAlign === VerticalAlign.BOTTOM && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
         const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
         if (hBase === undefined) {
           maxUpper = b;
@@ -412,6 +412,7 @@ export class MarginContext {
     this.list.splice(0);
   }
 
+  // 仅处理挂起的节点，统计累计了多少margin，为这些节点做y偏移，同时影响自身的约束，这些节点一定是递归连续的
   mergeTop() {
     const m = this.solve();
     if (m) {
