@@ -263,10 +263,11 @@ export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], g
     'letterSpacing',
   ] as const).forEach(k => {
     const { v, u } = style[k];
-    if (k === 'lineHeight' && u === Unit.NUMBER) {
-      res[k] = Math.max(0, v * res.fontSize);
+    if (k === 'lineHeight' && u === Unit.NUMBER && v >= 0) {
+      res[k] = v * res.fontSize;
     }
-    else if (k === 'lineHeight' && u === Unit.INHERIT) {
+    // lineHeight<0非法，视为继承，root视为auto
+    else if (k === 'lineHeight' && (u === Unit.INHERIT || u === Unit.NUMBER)) {
       if (parent) {
         let p: INode | null = parent;
         while (p) {
@@ -295,7 +296,7 @@ export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], g
       }
     }
     else if (k === 'lineHeight') {
-      if (v <= 0 || u === Unit.AUTO) {
+      if (v < 0 || u === Unit.AUTO) {
         res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
       }
       else {

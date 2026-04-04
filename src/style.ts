@@ -523,7 +523,3 @@ export function isFixed(o: Length, includePercent = false) {
   }
   return false;
 }
-
-export function isBlock(style: Style) {
-  return [Display.BLOCK, Display.FLEX].includes(style.display);
-}
