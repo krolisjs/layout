@@ -659,27 +659,30 @@ describe('margin-padding-clear', () => {
     });
   });
 
-  it.skip('margin-collapse-014', () => {
+  it('margin-collapse-014', () => {
     const node = genNode({
       style: {
         width: '5em',
-        height: '4em',
+        height: 80,
+        fontFamily: 'Ahem',
+        fontSize: 20,
+        lineHeight: 0,
       },
       children: [
         {
           style: {
             display: 'inlineBlock',
-            marginBottom: '1em',
+            marginBottom: 20,
             width: '4em',
-            height: '1em',
+            height: 20,
           },
         },
         {
           style: {
             display: 'inlineBlock',
-            marginTop: '1em',
+            marginTop: 20,
             width: '4em',
-            height: '1em',
+            height: 20,
           },
         },
       ],
@@ -689,15 +692,71 @@ describe('margin-padding-clear', () => {
       x: 0,
       y: 0,
       w: 80,
-      h: 16,
-      marginBottom: 16,
+      h: 20,
+      marginBottom: 20,
     });
     expect(node.children[1].result).toMatchObject({
       x: 0,
-      y: 48,
+      y: 60,
       w: 80,
-      h: 16,
-      marginTop: 16,
+      h: 20,
+      marginTop: 20,
+    });
+  });
+
+  it('margin-collapse-015', () => {
+    const node = genNode({
+      style: {
+        width: '5em',
+        height: 80,
+        fontFamily: 'Ahem',
+        fontSize: 20,
+        lineHeight: 0,
+      },
+      children: [
+        {
+          style: {
+            display: 'inlineBlock',
+            marginBottom: 20,
+            width: '4em',
+          },
+          children: [
+            {
+              style: {
+                display: 'inlineBlock',
+                marginBottom: 20,
+                width: '3em',
+                height: 20,
+              },
+            },
+          ],
+        },
+        {
+          style: {
+            display: 'inlineBlock',
+            width: '4em',
+            height: 20,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].result).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 40,
+      marginBottom: 20,
+    });
+    expect(node.children[0].children[0].result).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 20,
+      marginBottom: 20,
+    });
+    expect(node.children[1].result).toMatchObject({
+      x: 0,
+      y: 60,
+      h: 20,
     });
   });
 

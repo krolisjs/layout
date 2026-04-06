@@ -1,4 +1,4 @@
-import { calBaseline, calContentArea, calLeading, getMbpBottom, getMbpRight } from './compute';
+import { calBaseline, calContentArea, calLeading, getMbpBottom, getMbpRight, getMbpV } from './compute';
 import type { Constraints, Frag, Inline, Text, TextBox } from './layout';
 import { VerticalAlign } from './style';
 import type { IElementNode, INode, ITextNode } from './node';
@@ -254,7 +254,7 @@ export class LineBoxContext {
         list.splice(i, 1);
       }
     }
-    // 空block情况
+    // 空block情况，以及block等刚开始检查prev遗留的情况
     if (!list.length) {
       return false;
     }
@@ -262,8 +262,8 @@ export class LineBoxContext {
      * 对齐算法，css中支柱一定存在，但这里如果root是inline则可能不存在
      * 有支柱先求出支柱的baseline
      */
-    let maxUpper: number | undefined = undefined;
-    let maxLower: number | undefined = undefined; // 均是正值，相对高度
+    let maxUpper: number | null = null;
+    let maxLower: number | null = null; // 均是正值，相对高度
     let hBase = 0;
     const struct = this.struct;
     let structBaseline = this.structBaseline;
@@ -284,23 +284,37 @@ export class LineBoxContext {
       const { type, node } = list[i];
       const style = node.style;
       const res = node.result!;
-      if (style.verticalAlign === VerticalAlign.BASELINE && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
-        const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-        if (maxUpper === undefined) {
+      if (style.verticalAlign === VerticalAlign.BASELINE) {
+        let b: number;
+        if (ContentBoxType.INLINE_BLOCK === type) {
+          b = node.getBaseline();
+          const n = res.h + getMbpV(res) - b;
+          if (maxLower === null) {
+            maxLower = n;
+          }
+          else {
+            maxLower = Math.max(maxLower, n);
+          }
+        }
+        else {
+          b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+          if (maxLower === null) {
+            maxLower = res.lineHeight - b;
+          }
+          else {
+            maxLower = Math.max(maxLower, res.lineHeight - b);
+          }
+        }
+        // 没有支柱的特殊情况
+        if (maxUpper === null) {
           maxUpper = b;
         }
         else {
           maxUpper = Math.max(maxUpper, b);
         }
-        if (maxLower === undefined) {
-          maxLower = res.lineHeight - b;
-        }
-        else {
-          maxLower = Math.max(maxLower, res.lineHeight - b);
-        }
       }
     }
-    if (maxUpper !== undefined && maxLower !== undefined) {
+    if (maxUpper !== null && maxLower !== null) {
       hBase = Math.max(hBase, maxUpper + maxLower);
     }
     // 再看top/bottom对齐的
@@ -308,10 +322,16 @@ export class LineBoxContext {
       const { type, node } = list[i];
       const style = node.style;
       const res = node.result!;
-      if (style.verticalAlign === VerticalAlign.TOP && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
-        const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+      if (style.verticalAlign === VerticalAlign.TOP) {
+        let b: number;
+        if (ContentBoxType.INLINE_BLOCK === type) {
+          b = node.getBaseline();
+        }
+        else {
+          b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+        }
         // 特殊的没有支柱且没有baseline的情况，只要判断hBase就可以了，另外2个会被条件包含
-        if (hBase === undefined) {
+        if (hBase === null) {
           maxUpper = b;
           maxLower = res.lineHeight - b;
           hBase = res.lineHeight;
@@ -320,9 +340,15 @@ export class LineBoxContext {
           maxLower = Math.max(maxLower!, res.lineHeight - b);
         }
       }
-      else if (style.verticalAlign === VerticalAlign.BOTTOM && [ContentBoxType.TEXT, ContentBoxType.INLINE].includes(type)) {
-        const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-        if (hBase === undefined) {
+      else if (style.verticalAlign === VerticalAlign.BOTTOM) {
+        let b: number;
+        if (ContentBoxType.INLINE_BLOCK === type) {
+          b = node.getBaseline();
+        }
+        else {
+          b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+        }
+        if (hBase === null) {
           maxUpper = b;
           maxLower = res.lineHeight - b;
           hBase = res.lineHeight;
@@ -332,25 +358,36 @@ export class LineBoxContext {
         }
       }
     }
-    if (maxUpper !== undefined && maxLower !== undefined) {
+    if (maxUpper !== null && maxLower !== null) {
       hBase = Math.max(hBase, maxUpper + maxLower);
     }
     current.h = hBase;
     // 遍历所有的设置
     for (let i = 0, len = list.length; i < len; i++) {
       const { node, frag, type } = list[i];
-      if (type === ContentBoxType.INLINE || type === ContentBoxType.TEXT) {
-        const style = node.style;
-        const res = node.result!;
-        if (style.verticalAlign === VerticalAlign.TOP) {
-          const leading = calLeading(res.fontFamily, res.fontSize, res.lineHeight);
+      const style = node.style;
+      const res = node.result!;
+      if (style.verticalAlign === VerticalAlign.TOP) {
+        const leading = calLeading(res.fontFamily, res.fontSize, res.lineHeight);
+        if (type === ContentBoxType.INLINE_BLOCK) {
+        }
+        else {
           frag.y += leading * 0.5;
         }
-        else if (style.verticalAlign === VerticalAlign.BASELINE) {
-          const b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-          frag.y += maxUpper! - b;
+      }
+      else if (style.verticalAlign === VerticalAlign.BASELINE) {
+        if (type === ContentBoxType.INLINE_BLOCK) {
+          node.offsetY(maxUpper! - node.getBaseline());
         }
-        else if (style.verticalAlign === VerticalAlign.BOTTOM) {
+        else {
+          frag.y += maxUpper! - calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+        }
+      }
+      else if (style.verticalAlign === VerticalAlign.BOTTOM) {
+        if (type === ContentBoxType.INLINE_BLOCK) {
+          node.offsetY(hBase - node.getBaseline());
+        }
+        else {
           frag.y += hBase - res.lineHeight;
         }
       }
@@ -417,11 +454,6 @@ export class MarginContext {
           c.cy += m;
           c.oy += m;
         }
-        // if (node.nodeType === NodeType.Container) {
-        //   const c = node.constraints!;
-        //   c.cy += m;
-        //   c.oy += m;
-        // }
       }
     }
     return m;

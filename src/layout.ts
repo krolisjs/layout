@@ -642,7 +642,7 @@ export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
   return { min, max };
 }
 
-function offsetX(res: Result, x: number) {
+export function offsetX(res: Result, x: number) {
   if (x === 0) {
     return;
   }
@@ -655,8 +655,8 @@ function offsetX(res: Result, x: number) {
   }
 }
 
-function offsetY(res: Result, y: number) {
-  if (y === 0) {
+export function offsetY(res: Result, y: number) {
+  if (!y) {
     return;
   }
   res.y += y;

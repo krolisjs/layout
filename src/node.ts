@@ -8,7 +8,7 @@ import {
   Position,
   Unit,
 } from './style';
-import type { ComputedStyle, JStyle, Style } from './style';
+import type { JStyle, Style } from './style';
 import {
   afterFlowBox,
   block,
@@ -18,12 +18,13 @@ import {
   marginAuto,
   minMaxText,
   normalizeConstraints,
+  offsetY,
   preset,
   text,
 } from './layout';
 import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Result, Text, } from './layout';
 import { LineBoxContext, MarginContext } from './context';
-import { calBaseline, getMbpBottom, getMbpH, hasBottomBarrier, hasTopBarrier, isBFC } from './compute';
+import { calBaseline, getMbpH, getMbpV, hasBottomBarrier, hasTopBarrier, isBFC } from './compute';
 
 export enum NodeType {
   Element = 0,
@@ -45,6 +46,8 @@ export interface INode {
   insertAfter(item: INode): void;
   remove(): void;
   hasContent(): boolean; // 是否有内容，比如text有非空字符串，img强制有内容
+  getBaseline(): number;
+  offsetY(n: number): void;
   lay(ics: InputConstraints): void;
   layFlow(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number): void;
   layAbs(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, x: number, y: number): void;
@@ -55,7 +58,7 @@ export interface IElementNode extends INode {
   result: Block | InlineBlock | Inline | null;
   constraints: Constraints | null;
   lineBoxContext: LineBoxContext | null;
-  getElementBaseline(): number;
+  baseline: number | null;
   appendChild(item: INode): void;
   prependChild(item: INode): void;
   removeChild(item: INode): void;
@@ -97,6 +100,7 @@ export abstract class Node implements INode {
   result: Result | null = null; // 布局结果
   collapse = false;
   contentArea: number | null = null;
+  baseline: number | null = null;
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
     this.nodeType = nodeType;
@@ -185,6 +189,8 @@ export abstract class Node implements INode {
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
 
+  abstract getBaseline(): number;
+
   protected getContainingNode() {
     let parent = this.parent;
     while (parent) {
@@ -212,6 +218,17 @@ export abstract class Node implements INode {
         }
       }
       parent = parent.parent;
+    }
+  }
+
+  offsetY(n: number) {
+    if (!n) {
+      return;
+    }
+    offsetY(this.result!, n);
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      children[i].offsetY(n);
     }
   }
 }
@@ -277,14 +294,28 @@ export class Element extends Node implements IElementNode {
     }
   }
 
-  getElementBaseline() {
-    const { children, style } = this;
-    const res = this.result!;
-    if (style.overflow !== Overflow.VISIBLE || !children.length) {
-      return res.h + getMbpBottom(res);
+  getBaseline() {
+    const { children, style, baseline } = this;
+    if (baseline !== null) {
+      return baseline;
     }
-    for (let i = children.length - 1; i >= 0; i++) {}
-    return 0;
+    const res = this.result!;
+    if ([Display.BLOCK, Display.INLINE_BLOCK].includes(style.display) && (style.overflow !== Overflow.VISIBLE || !children.length)) {
+      return this.baseline = res.h + getMbpV(res);
+    }
+    for (let i = children.length - 1; i >= 0; i++) {
+      const child = children[i];
+      const style = child.style;
+      if (style.position === Position.ABSOLUTE) {
+        continue;
+      }
+      // 空文本节点忽略
+      if (child.nodeType === NodeType.Text && !child.hasContent()) {
+        continue;
+      }
+      return this.baseline = child.getBaseline();
+    }
+    return this.baseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
   }
 
   /**
@@ -791,6 +822,13 @@ export class TextNode extends Node implements ITextNode {
 
   shrink2Fit(cs: Constraints, global: Global) {
     return minMaxText(this, cs, global);
+  }
+
+  getBaseline() {
+    const res = this.result!;
+    const frags = res.frags;
+    const last = frags[frags.length - 1]!;
+    return calBaseline(res.fontFamily, res.fontSize, res.lineHeight) + last.y - res.y;
   }
 }
 
