@@ -6,9 +6,9 @@ import {
   lineBreak,
   smartMeasure,
 } from './text';
-import type { INode, ITextNode, ITypeNode } from './node';
-import type { LineBoxContext } from './context';
-import { calContentArea, calNormalLineHeight } from './compute';
+import type { Global, IElementNode, INode, ITextNode } from './node';
+import { calContentArea, calNormalLineHeight, hasBottomBarrier, hasTopBarrier, isBFC } from './compute';
+import { LineBoxContext, MarginContext } from './context';
 
 export type Frag = { x: number; y: number; w: number; h: number };
 
@@ -40,14 +40,6 @@ export type TextBox = Frag & {
 };
 
 export type Result = Block | InlineBlock | Inline | Text;
-
-export type Global = {
-  root: ITypeNode,
-  rem: number,
-  w: number,
-  h: number,
-  cs: Constraints,
-};
 
 export type Constraints = {
   ox: number; // 相对原点坐标
@@ -84,7 +76,7 @@ export function normalizeConstraints(ic: InputConstraints) {
   }, ic) as Constraints;
 }
 
-export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], global: Global) {
+export function preset(node: INode, cs: Constraints, type: Result['type'], global: Global) {
   const style = node.style;
   const res: any = {
     type,
@@ -342,7 +334,7 @@ export function preset(node: ITypeNode, cs: Constraints, type: Result['type'], g
 }
 
 // block和inlineBlock复用
-function bib(node: INode, cs: Constraints, res: Block | InlineBlock) {
+function bib(node: IElementNode, cs: Constraints, res: Block | InlineBlock) {
   node.result = res;
   const style = node.style;
   // 返回递归的供子节点使用，block因为可能有margin合并，先不计入marginTop
@@ -375,14 +367,43 @@ function bib(node: INode, cs: Constraints, res: Block | InlineBlock) {
   return scs;
 }
 
-export function block(node: INode, cs: Constraints, global: Global, res?: Block) {
+// 广义的block（flex/grid也是）开始，处理行结束换行，因为可能prev是inline
+export function beforeFlowBox(cs: Constraints, lbc: LineBoxContext) {
+  if (lbc.endLine()) {
+    const current = lbc.current;
+    cs.cx = cs.ox;
+    cs.cy = current.y + current.h;
+  }
+}
+
+export function afterFlowBox(cs: Constraints, node: IElementNode) {
+  const scs = node.constraints!;
+  const lbc = node.lineBoxContext!;
+  if (lbc.endLine()) {
+    const current = lbc.current;
+    scs.cx = scs.ox;
+    scs.cy = current.y + current.h;
+  }
+  const style = node.style;
+  const res = node.result!;
+  // 自动高度，以及%高度但父级是auto
+  if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null) {
+    res.h = Math.max(0, scs.cy - scs.oy);
+  }
+  // 没有包含marginBottom，因为要处理合并
+  cs.cx = cs.ox;
+  cs.cy = res.y + res.h + res.paddingBottom + res.borderBottomWidth;
+}
+
+export function block(node: IElementNode, cs: Constraints, global: Global, lbc: LineBoxContext, res?: Block) {
+  beforeFlowBox(cs, lbc);
   if (!res) {
     res = preset(node, cs, 'block', global) as Block;
   }
   return bib(node, cs, res);
 }
 
-export function inline(node: INode, cs: Constraints, global: Global, lbc: LineBoxContext) {
+export function inline(node: IElementNode, cs: Constraints, global: Global, lbc: LineBoxContext, children?: Node[]) {
   const res = preset(node, cs, 'inline', global) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
   res.marginTop = res.marginBottom = 0;
@@ -393,7 +414,7 @@ export function inline(node: INode, cs: Constraints, global: Global, lbc: LineBo
   lbc.addInline(node, cs.cx, cs.cy);
 }
 
-export function inlineBlock(node: INode, cs: Constraints, global: Global, res?: InlineBlock) {
+export function inlineBlock(node: IElementNode, cs: Constraints, global: Global, res?: InlineBlock, children?: INode[]) {
   if (!res) {
     res = preset(node, cs, 'inlineBlock', global) as InlineBlock;
   }
@@ -545,11 +566,12 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags:
   lbc.addText(empty, node);
 }
 
-export function minMaxText(node: ITextNode, cs: Constraints, content: string, global: Global) {
+export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
   const measureText = getMeasureText();
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
+  const content = node.content;
   const res = preset(node, cs, 'text', global) as Text;
   let min = 0, max = 0;
   // 最大值需按行拆分求
@@ -642,5 +664,27 @@ export function offsetY(res: Result, y: number) {
     for (let i = 0, len = frags.length; i < len; i++) {
       frags[i].y += y;
     }
+  }
+}
+
+export function marginAuto(node: INode, global: Global) {
+  const { boxSizing, marginLeft, marginRight } = node.style;
+  const res = node.result!;
+  const parent = node.parent;
+  const w = parent ? parent.result!.w : global.w;
+  let w2 = res.w;
+  if (boxSizing === BoxSizing.CONTENT_BOX) {
+    w2 += res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight;
+  }
+  if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
+    if (w2 < w) {
+      const half = (w - w2) * 0.5;
+      res.x += half;
+      res.marginLeft = half;
+      res.marginRight = half;
+    }
+  }
+  else if (marginLeft.u === Unit.AUTO && marginRight.u !== Unit.AUTO && marginRight.v) {
+    res.x -= res.marginRight;
   }
 }

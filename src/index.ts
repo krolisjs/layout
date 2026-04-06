@@ -11,14 +11,14 @@ import type {
   Text,
 } from './layout';
 import {
-  AbstractNode,
+  Element,
   Node,
   TextNode,
 } from './node';
 import type {
   IAllNode,
   INode,
-  ITypeNode,
+  IElementNode,
   ITextNode,
 } from './node';
 import {
@@ -43,10 +43,10 @@ import { getMeasureText, getMetricizeFont, setMeasureText, setMetricizeFont } fr
 import type { FontMetrics, MeasureText, MetricizeFont, TextMeasures } from './text';
 
 export {
-  AbstractNode,
   BoxSizing,
   calCssLength,
   Display,
+  Element,
   FontStyle,
   getDefaultStyle,
   getMeasureText,
@@ -71,11 +71,11 @@ export type {
   Constraints,
   FontMetrics,
   IAllNode,
+  IElementNode,
   INode,
   Inline,
   InlineBlock,
   ITextNode,
-  ITypeNode,
   InputConstraints,
   Length,
   MetricizeFont,

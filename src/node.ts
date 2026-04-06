@@ -9,11 +9,12 @@ import {
   Unit,
 } from './style';
 import type { ComputedStyle, JStyle, Style } from './style';
-import type { Block, Constraints, Global, Inline, InlineBlock, InputConstraints, Result, Text, } from './layout';
 import {
+  afterFlowBox,
   block,
   inline,
   inlineBlock,
+  marginAuto,
   minMaxText,
   normalizeConstraints,
   offsetX,
@@ -21,79 +22,88 @@ import {
   preset,
   text,
 } from './layout';
+import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Result, Text, } from './layout';
 import { LineBoxContext, MarginContext } from './context';
 import { calBaseline, getMbpBottom, getMbpH, hasBottomBarrier, hasTopBarrier, isBFC } from './compute';
 
 export enum NodeType {
-  Node = 0,
+  Element = 0,
   Text = 1,
-  IMG = 2,
 }
 
-export interface ITypeNode {
+export interface INode {
   readonly id: number;
   readonly nodeType: NodeType;
   readonly style: Style;
-  readonly children: ITypeNode[];
-  parent: INode | null;
-  prev: ITypeNode | null;
-  next: ITypeNode | null;
-  constraints: Constraints | null;
+  parent: IElementNode | null;
+  prev: INode | null;
+  next: INode | null;
   result: Result | null;
   contentArea: number | null;
   collapse: boolean;
-  lineBoxContext: LineBoxContext | null;
-  layFlow(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext): void;
-  layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global): void;
+  insertBefore(item: INode): void;
+  insertAfter(item: INode): void;
+  remove(): void;
   hasContent(): boolean; // 是否有内容，比如text有非空字符串，img强制有内容
+  lay(ics: InputConstraints): void;
+  layFlow(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext): void;
+  layAbs(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global): void;
 }
 
-export interface INode extends ITypeNode {
-  readonly nodeType: NodeType.Node;
+export interface IElementNode extends INode {
+  readonly nodeType: NodeType.Element;
+  readonly children: INode[];
+  result: Block | InlineBlock | Inline | null;
+  constraints: Constraints | null;
+  lineBoxContext: LineBoxContext | null;
+  getElementBaseline(): number;
+  appendChild(item: INode): void;
+  prependChild(item: INode): void;
+  removeChild(item: INode): void;
 }
 
-export interface ITextNode extends ITypeNode {
+export interface ITextNode extends INode {
   readonly nodeType: NodeType.Text;
   content: string;
   result: Text | null;
 }
 
-export interface IImgNode extends ITypeNode {
-  readonly nodeType: NodeType.IMG;
-  src: string;
+export type IAllNode = IElementNode | ITextNode;
 
-}
-export type IAllNode = INode | ITextNode | IImgNode;
+export type Global = {
+  root: Node,
+  rem: number,
+  w: number,
+  h: number,
+  cs: Constraints,
+};
 
 type Abs = {
-  node: ITypeNode;
-  parent?: INode;
+  node: Node;
+  parent?: Element;
   cx: number;
   cy: number;
 };
 
 let id = 0;
 
-export abstract class AbstractNode implements ITypeNode {
+export abstract class Node implements INode {
   readonly id = id++;
   readonly nodeType: NodeType;
   readonly style: Style;
-  readonly children: AbstractNode[] = [];
-  parent: Node | null = null;
-  prev: AbstractNode | null = null;
-  next: AbstractNode | null = null;
-  constraints: Constraints | null = null; // block本身产生的约束，传给children
+  parent: Element | null = null;
+  prev: Node | null = null;
+  next: Node | null = null;
   result: Result | null = null; // 布局结果
-  collapse = false; // 垂直是否可以被穿透导致margin合并
-  contentArea: number | null = null; // inline时内容高度缓存
-  lineBoxContext: LineBoxContext | null = null; // block本身产生的行级上下文管理，传给children
+  collapse = false;
+  contentArea: number | null = null;
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
     this.nodeType = nodeType;
     this.style = getDefaultStyle(style);
   }
 
-  insertBefore(node: AbstractNode) {
+  insertBefore(node: Node) {
     const parent = this.parent;
     if (parent) {
       const i = parent.children.indexOf(this);
@@ -110,7 +120,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  insertAfter(node: AbstractNode) {
+  insertAfter(node: Node) {
     const parent = this.parent;
     if (parent) {
       const i = parent.children.indexOf(this);
@@ -133,7 +143,6 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  // 文本节点、img等覆盖调用
   hasContent() {
     return false;
   }
@@ -148,7 +157,7 @@ export abstract class AbstractNode implements ITypeNode {
       rem = 16;
     }
     // root入口处初始化，可能用不到，比如block会创建自己的lbc，为了方法参数一致性
-    const absMap: WeakMap<ITypeNode, Abs[]> = new WeakMap();
+    const absMap: WeakMap<Element, Abs[]> = new WeakMap();
     const cs = normalizeConstraints(ics);
     const mc = new MarginContext();
     const lbc = new LineBoxContext(cs.ox, cs.oy);
@@ -169,6 +178,147 @@ export abstract class AbstractNode implements ITypeNode {
       mc.reset();
     }
     this.finish(0, 0, global);
+  };
+
+  // TODO 性能优化，不整体root再递归一遍，用到的地方end时做
+  finish(x: number, y: number, global: Global) {
+    const style = this.style;
+    const res = this.result!;
+    if (style.position === Position.RELATIVE) {
+      const { left, top, right, bottom } = style;
+      if (left.u !== Unit.AUTO) {
+        x += calLength(left, res.w, global.rem, res.fontSize);
+      }
+      else if (right.u !== Unit.AUTO) {
+        x -= calLength(right, res.w, global.rem, res.fontSize);
+      }
+      if (top.u !== Unit.AUTO) {
+        // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
+        if (top.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== null) {
+          y += calLength(top, res.h, global.rem, res.fontSize);
+        }
+      }
+      else if (bottom.u !== Unit.AUTO) {
+        if (bottom.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== null) {
+          y -= calLength(bottom, res.h, global.rem, res.fontSize);
+        }
+      }
+    }
+    if (x) {
+      offsetX(res, x);
+    }
+    if (y) {
+      offsetY(res, y);
+    }
+    return { x, y };
+  }
+
+  abstract layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext): void;
+
+  abstract layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global): void;
+
+  abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
+
+  protected getContainingNode() {
+    let parent = this.parent;
+    while (parent) {
+      const style = parent.style;
+      if (style.position === Position.ABSOLUTE) {
+        return { parent, hook: parent };
+      }
+      if (style.position === Position.RELATIVE) {
+        // inline的hook继续往上找非inline
+        if ([Display.INLINE].includes(style.display)) {
+          let hook = parent.parent;
+          let root = parent;
+          while (hook) {
+            root = hook;
+            const style = hook.style;
+            if (![Display.INLINE].includes(style.display)) {
+              return { parent, hook };
+            }
+            hook = hook.parent;
+          }
+          return { parent, hook: root };
+        }
+        else {
+          return { parent, hook: parent };
+        }
+      }
+      parent = parent.parent;
+    }
+  }
+}
+
+export class Element extends Node implements IElementNode {
+  declare nodeType: NodeType.Element;
+  declare result: Block | InlineBlock | Inline | null;
+  readonly children: Node[];
+  constraints: Constraints | null = null;
+  lineBoxContext: LineBoxContext | null = null;
+
+  constructor(style?: Partial<JStyle | Style>, children: Node[] = []) {
+    super(NodeType.Element, style);
+    this.children = children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      child.parent = this;
+      if (i) {
+        child.prev = children[i - 1];
+      }
+      if (i < len - 1) {
+        child.next = children[i + 1];
+      }
+    }
+  }
+
+  appendChild(node: Node) {
+    const children = this.children;
+    const last = children[children.length - 1];
+    children.push(node);
+    node.parent = this;
+    if (last) {
+      last.next = node;
+      node.prev = last;
+    }
+  }
+
+  prependChild(node: Node) {
+    const children = this.children;
+    const first = children[0];
+    children.unshift(node);
+    node.parent = this;
+    if (first) {
+      first.prev = node;
+      node.next = first;
+    }
+  }
+
+  removeChild(node: Node) {
+    const children = this.children;
+    const i = children.indexOf(node);
+    if (i > -1) {
+      const prev = children[i - 1];
+      const next = children[i];
+      if (prev) {
+        prev.next = next || null;
+      }
+      if (next) {
+        next.prev = prev || null;
+      }
+      children.splice(i, 1);
+      node.parent = node.prev = node.next = null;
+    }
+  }
+
+  getElementBaseline() {
+    const { children, style } = this;
+    const res = this.result!;
+    if (style.overflow !== Overflow.VISIBLE || !children.length) {
+      return res.h + getMbpBottom(res);
+    }
+    for (let i = children.length - 1; i >= 0; i++) {}
+    return 0;
   }
 
   /**
@@ -182,9 +332,9 @@ export abstract class AbstractNode implements ITypeNode {
    * LineBoxContext情况和上面完全相同，遇到block产生新的传给子节点，inline复用同一个上下文；
    * MarginContext有点类似但比较复杂，仅block会用到，依旧是向下递归传递，但是在遇到阻断情况时（如BFC）会产生结算并重置，防止共享影响。
    */
-  layFlow(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
     const { position, display } = this.style;
-    if (position === Position.ABSOLUTE || display !== Display.BLOCK) {
+    if (position === Position.ABSOLUTE || ![Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
       mc.mergeTop();
       mc.reset();
     }
@@ -194,10 +344,7 @@ export abstract class AbstractNode implements ITypeNode {
     }
     // 普通文档流
     else {
-      if (this.nodeType === NodeType.Text) {
-        this.layText(cs, global, mc, lbc);
-      }
-      else if (display === Display.INLINE) {
+      if (display === Display.INLINE) {
         this.layInline(cs, absMap, global, mc, lbc);
       }
       else if (display === Display.INLINE_BLOCK) {
@@ -216,99 +363,64 @@ export abstract class AbstractNode implements ITypeNode {
     }
   }
 
-  // 将absolute节点记录下来，等到其包围块节点布局结束后有了确定的尺寸再布局
-  private recordAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global) {
-    // 获取相对包围块节点后记录，没有就是相对root
-    const n = this.getContainingBlockNode() || { hook: global.root, parent: undefined };
-    let list: Abs[];
-    if (absMap.has(n.hook)) {
-      list = absMap.get(n.hook)!;
+  private layInline(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    this.constraints = cs;
+    inline(this, cs, global, lbc);
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      child.layFlow(cs, absMap, global, mc, lbc);
+    }
+    // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
+    lbc.popInline();
+  }
+
+  private layInlineBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    const style = this.style;
+    // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
+    const temp = preset(this, cs, 'inlineBlock', global) as InlineBlock;
+    const used = cs.cx - cs.ox;
+    // 不固定则预测量
+    if (!isFixed(style.width)) {
+      const { min, max } = this.shrink2Fit(cs, global);
+      const aw = cs.aw - used;
+      temp.w = Math.max(min, Math.min(max, aw));
+    }
+    let scs: Constraints;
+    // inlineBlock放不下要换行，追加个精度冗余
+    if (!lbc.current.begin && temp.w + getMbpH(temp) > (cs.aw - used) + 1e-9) {
+      lbc.prepareNextLine();
+      lbc.endLine();
+      const current = lbc.current;
+      cs.cx = cs.ox;
+      cs.cy = current.y + current.h;
+      lbc.newLine(cs.cx, cs.cy);
+      scs = inlineBlock(this, cs, global);
     }
     else {
-      list = [];
-      absMap.set(n.hook, list);
+      scs = inlineBlock(this, cs, global, temp);
     }
-    list.push({
-      node: this,
-      parent: n.parent,
-      cx: cs.cx,
-      cy: cs.cy,
-    });
-  }
-
-  private checkAbs(absMap: WeakMap<ITypeNode, Abs[]>, global: Global) {
-    if (absMap.has(this)) {
-      const list = absMap.get(this)!;
-      list.forEach((item) => {
-        let x: number, y: number, pbw: number, pbh: number;
-        if (item.parent) {
-          const res = item.parent.result!;
-          // inline的包围块特殊逻辑，以首尾行为准
-          if (res.type === 'inline') {
-            const frags = res.frags;
-            if (frags.length) {
-              const start = frags[0];
-              const end = frags[frags.length - 1];
-              x = start.x;
-              y = start.y;
-              pbw = end.x + end.w - start.x + res.paddingRight + res.paddingLeft;
-              pbh = end.y + end.h - start.y + res.paddingTop + res.paddingBottom;
-            }
-            else {
-              x = res.x;
-              y = res.y;
-              pbw = res.w;
-              pbh = res.h;
-            }
-          }
-          else {
-            x = res.x;
-            y = res.y;
-            pbw = res.w + res.paddingLeft + res.paddingRight;
-            pbh = res.h + res.paddingTop + res.paddingBottom;
-          }
-        }
-        // 相当于全局的absolute
-        else {
-          x = y = 0;
-          pbw = global.w;
-          pbh = global.h;
-        }
-        const res = this.result!;
-        const c: Constraints = {
-          ox: x - res.paddingLeft,
-          oy: y - res.paddingTop,
-          aw: pbw,
-          ah: pbh,
-          pbw,
-          pbh,
-          cx: item.cx,
-          cy: item.cy,
-          fw: false,
-          fh: false,
-        };
-        // 可用尺寸以当前位置和end距离为准
-        c.aw -= c.cx - c.ox;
-        c.ah -= c.cy - c.oy;
-        // 获取到测量宽后，走一遍普通布局，inline要视作block
-        (item.node as AbstractNode).layAbs(c, absMap, global);
-      });
-    }
-  }
-
-  layText(cs: Constraints, global: Global, mc: MarginContext, lbc: LineBoxContext) {
-    this.constraints = cs;
-    const t = this as unknown as TextNode;
-    text(t, cs, global, lbc);
-  }
-
-  layBlock(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
-    this.blockStart(cs, lbc);
-    const n = this as unknown as Node;
-    // block自身的约束、自身的lineBoxContext是新的
-    const scs = block(n, cs, global);
     this.constraints = scs;
-    const slbc = new LineBoxContext(scs.cx, scs.cy, this as INode);
+    const slbc = new LineBoxContext(scs.cx, scs.cy, this);
+    this.lineBoxContext = slbc;
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      child.layFlow(scs, absMap, global, mc, slbc);
+    }
+    // 和block不同，inlineBlock不会直接新起一行，因此重设下
+    const { cx, cy } = cs;
+    afterFlowBox(cs, this);
+    cs.cx = cx + temp.w;
+    cs.cy = cy;
+    lbc.addInlineBlock(this);
+  }
+
+  private layBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    // block自身的约束、自身的lineBoxContext是新的
+    const scs = block(this, cs, global, lbc);
+    this.constraints = scs;
+    const slbc = new LineBoxContext(scs.cx, scs.cy, this);
     this.lineBoxContext = slbc;
     const style = this.style;
     const res = this.result!;
@@ -354,8 +466,8 @@ export abstract class AbstractNode implements ITypeNode {
       }
     }
     this.collapse = collapse;
-    this.blockEnd(cs);
-    this.marginAuto(global);
+    afterFlowBox(cs, this);
+    marginAuto(this, global);
     // 如果可以穿透，说明上下合并，记录下来等后续判断
     if (collapse) {
       mc.append(res.marginBottom);
@@ -381,157 +493,12 @@ export abstract class AbstractNode implements ITypeNode {
       }
       mc.append(res.marginBottom);
     }
-
     // block所属的inline（如有）中断撑开开始新行，记录下来
-    lbc.addBlock(this as INode);
+    lbc.addBlock(this);
     lbc.newLine(cs.cx, cs.cy);
   }
 
-  // flex/grid也是block，开始换行处理是一样的
-  private blockStart(cs: Constraints, lbc: LineBoxContext) {
-    // 可能存在prev是inline，lineBox最后一行对齐
-    if (lbc.endLine()) {
-      const current = lbc.current;
-      cs.cx = cs.ox;
-      cs.cy = current.y + current.h;
-    }
-  }
-
-  // absolute强制block，flex/grid也是block，尾部处理是一样的
-  private blockEnd(cs: Constraints) {
-    const scs = this.constraints!;
-    const lbc = this.lineBoxContext!;
-    if (lbc.endLine()) {
-      const current = lbc.current;
-      scs.cx = scs.ox;
-      scs.cy = current.y + current.h;
-    }
-    const style = this.style;
-    const res = this.result!;
-    // 自动高度，以及%高度但父级是auto
-    if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null) {
-      res.h = Math.max(0, scs.cy - scs.oy);
-    }
-    // 没有包含marginBottom，因为要处理合并
-    cs.cx = cs.ox;
-    cs.cy = res.y + res.h + res.paddingBottom + res.borderBottomWidth;
-  }
-
-  // flex/grid也是block，尾部auto处理是一样的
-  private marginAuto(global: Global) {
-    const { boxSizing, marginLeft, marginRight } = this.style;
-    const res = this.result!;
-    const parent = this.parent;
-    const w = parent ? parent.result!.w : global.w;
-    let w2 = res.w;
-    if (boxSizing === BoxSizing.CONTENT_BOX) {
-      w2 += res.borderLeftWidth + res.borderRightWidth + res.paddingLeft + res.paddingRight;
-    }
-    if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
-      if (w2 < w) {
-        const half = (w - w2) * 0.5;
-        res.x += half;
-        res.marginLeft = half;
-        res.marginRight = half;
-      }
-    }
-    else if (marginLeft.u === Unit.AUTO && marginRight.u !== Unit.AUTO && marginRight.v) {
-      res.x -= res.marginRight;
-    }
-  }
-
-  layInline(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
-    this.constraints = cs;
-    const n = this as unknown as Node;
-    inline(n, cs, global, lbc);
-    const children = this.children;
-    for (let i = 0, len = children.length; i < len; i++) {
-      const child = children[i];
-      child.layFlow(cs, absMap, global, mc, lbc);
-    }
-    // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
-    lbc.popInline();
-  }
-
-  layInlineBlock(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
-    const style = this.style;
-    const n = this as unknown as Node;
-    // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
-    const temp = preset(n, cs, 'inlineBlock', global) as InlineBlock;
-    const used = cs.cx - cs.ox;
-    // 不固定则预测量
-    if (!isFixed(style.width)) {
-      const { min, max } = this.shrink2Fit(cs, global, temp);
-      const aw = cs.aw - used;
-      temp.w = Math.max(min, Math.min(max, aw));
-    }
-    let scs: Constraints;
-    // inlineBlock放不下要换行，追加个精度冗余
-    if (!lbc.current.begin && temp.w + getMbpH(temp) > (cs.aw - used) + 1e-9) {
-      lbc.prepareNextLine();
-      lbc.endLine();
-      const current = lbc.current;
-      cs.cx = cs.ox;
-      cs.cy = current.y + current.h;
-      lbc.newLine(cs.cx, cs.cy);
-      scs = inlineBlock(n, cs, global);
-    }
-    else {
-      scs = inlineBlock(n, cs, global, temp);
-    }
-    this.constraints = scs;
-    const slbc = new LineBoxContext(scs.cx, scs.cy, this as INode);
-    this.lineBoxContext = slbc;
-    const children = this.children;
-    for (let i = 0, len = children.length; i < len; i++) {
-      const child = children[i];
-      child.layFlow(scs, absMap, global, mc, slbc);
-    }
-    // 和block不同，inlineBlock不会直接新起一行，因此重设下
-    const { cx, cy } = cs;
-    this.blockEnd(cs);
-    cs.cx = cx + temp.w;
-    cs.cy = cy;
-    lbc.addInlineBlock(this as INode);
-  }
-
-  // TODO 性能优化，不整体root再递归一遍，用到的地方end时做
-  finish(x: number, y: number, global: Global) {
-    const style = this.style;
-    const res = this.result!;
-    if (style.position === Position.RELATIVE) {
-      const { left, top, right, bottom } = style;
-      if (left.u !== Unit.AUTO) {
-        x += calLength(left, res.w, global.rem, res.fontSize);
-      }
-      else if (right.u !== Unit.AUTO) {
-        x -= calLength(right, res.w, global.rem, res.fontSize);
-      }
-      if (top.u !== Unit.AUTO) {
-        // 注意%单位时如果约束尺寸为auto（父节点height为auto）视为0
-        if (top.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== null) {
-          y += calLength(top, res.h, global.rem, res.fontSize);
-        }
-      }
-      else if (bottom.u !== Unit.AUTO) {
-        if (bottom.u !== Unit.PERCENT || this.parent?.constraints!.pbh !== null) {
-          y -= calLength(bottom, res.h, global.rem, res.fontSize);
-        }
-      }
-    }
-    if (x) {
-      offsetX(res, x);
-    }
-    if (y) {
-      offsetY(res, y);
-    }
-    const children = this.children;
-    for (let i = 0; i < children.length; i++) {
-      children[i].finish(x, y, global);
-    }
-  }
-
-  layAbs(cs: Constraints, absMap: WeakMap<ITypeNode, Abs[]>, global: Global) {
+  layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global) {
     const style = this.style;
     // 根据trbl确定最终尺寸
     const {
@@ -561,7 +528,7 @@ export abstract class AbstractNode implements ITypeNode {
       res.w = cs.pbw - res.left - res.right - res.marginLeft - res.marginRight;
     }
     else {
-      const { min, max } = this.shrink2Fit(cs, global, res);
+      const { min, max } = this.shrink2Fit(cs, global);
       const l = left.u === Unit.AUTO ? (cs.cx - cs.ox) : res.left;
       const r = right.u === Unit.AUTO ? 0 : res.right;
       const aw = cs.aw - l - r;
@@ -641,7 +608,7 @@ export abstract class AbstractNode implements ITypeNode {
     this.constraints = scs;
     // 继续普通递归
     const mc = new MarginContext();
-    const slbc = new LineBoxContext(scs.cx, scs.cy, this.nodeType === NodeType.Text ? undefined : this as INode);
+    const slbc = new LineBoxContext(scs.cx, scs.cy, this);
     this.lineBoxContext = slbc;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -661,7 +628,7 @@ export abstract class AbstractNode implements ITypeNode {
     this.checkAbs(absMap, global);
   }
 
-  private shrink2Fit(cs: Constraints, global: Global, pc: ComputedStyle) {
+  shrink2Fit(cs: Constraints, global: Global) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
@@ -670,17 +637,17 @@ export abstract class AbstractNode implements ITypeNode {
       // 测量阶段递归的子节点absolute忽略
       if (style.position !== Position.ABSOLUTE) {
         if (child.nodeType === NodeType.Text) {
-          const o = child.shrink2FitText(cs, global);
+          const o = child.shrink2Fit(cs, global);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else if (style.display === Display.INLINE) {
-          const o = child.shrink2FitInline(cs, global);
+          const o = (child as Element).shrink2FitInline(cs, global);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
         else {
-          const o = child.shrink2FitBlock(cs, global, pc);
+          const o = (child as Element).shrink2FitBlock(cs, global);
           min = Math.max(min, o.min);
           max = Math.max(max, o.max);
         }
@@ -689,12 +656,12 @@ export abstract class AbstractNode implements ITypeNode {
     return { min, max };
   }
 
-  private shrink2FitBlock(cs: Constraints, global: Global, pc: ComputedStyle) {
+  private shrink2FitBlock(cs: Constraints, global: Global) {
     let min = 0, max = 0;
     const style = this.style;
     // block如果定宽则直接返回（不考虑%），否则递归
     if (isFixed(style.width)) {
-      let w = calLength(style.width, cs.pbw, global.rem, pc.fontSize);
+      let w = calLength(style.width, cs.pbw, global.rem);
       if (style.boxSizing === BoxSizing.CONTENT_BOX) {
         const r = preset(this, cs, 'block', global) as Block;
         w += getMbpH(r);
@@ -706,7 +673,7 @@ export abstract class AbstractNode implements ITypeNode {
       const r = preset(this, cs, 'block', global) as Block;
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
-        const o = children[i].shrink2Fit(cs, global, r);
+        const o = children[i].shrink2Fit(cs, global);
         min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }
@@ -719,146 +686,148 @@ export abstract class AbstractNode implements ITypeNode {
 
   private shrink2FitInline(cs: Constraints, global: Global) {
     let min = 0, max = 0;
-    const r = preset(this, cs, 'inline', global) as Inline;
+    // const r = preset(this, cs, 'inline', global) as Inline;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      const o = children[i].shrink2Fit(cs, global, r);
+      const o = children[i].shrink2Fit(cs, global);
       min = Math.max(min, o.min);
       max += o.max;
     }
     return { min, max };
   }
 
-  private shrink2FitText(cs: Constraints, global: Global) {
-    const t = this as unknown as TextNode;
-    return minMaxText(t, cs, t.content, global);
+  // 将absolute节点记录下来，等到其包围块节点布局结束后有了确定的尺寸再布局，没有就是相对root
+  private recordAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global) {
+    const n = this.getContainingNode() || { hook: global.root as Element, parent: undefined };
+    let list: Abs[];
+    if (absMap.has(n.hook)) {
+      list = absMap.get(n.hook)!;
+    }
+    else {
+      list = [];
+      absMap.set(n.hook, list);
+    }
+    list.push({
+      node: this,
+      parent: n.parent,
+      cx: cs.cx,
+      cy: cs.cy,
+    });
   }
 
-  // 获取absolute的包围块节点，可能是relative+inline，需要返回钩子节点（所属block）和真正的包围块
-  getContainingBlockNode() {
-    let parent = this.parent;
-    while (parent) {
-      const style = parent.style;
-      if (style.position === Position.ABSOLUTE) {
-        return { parent, hook: parent };
-      }
-      if (style.position === Position.RELATIVE) {
-        // inline的hook继续往上找非inline
-        if ([Display.INLINE].includes(style.display)) {
-          let hook = parent.parent;
-          let root = parent;
-          while (hook) {
-            root = hook;
-            const style = hook.style;
-            if (![Display.INLINE].includes(style.display)) {
-              return { parent, hook };
+  // 作为包围块节点结束后拥有了宽高，可以查看以自己为相对基础的所有absolute节点，进入定位流
+  private checkAbs(absMap: WeakMap<Element, Abs[]>, global: Global) {
+    if (absMap.has(this)) {
+      const list = absMap.get(this)!;
+      list.forEach((item) => {
+        let x: number, y: number, pbw: number, pbh: number;
+        if (item.parent) {
+          const res = item.parent.result!;
+          // inline的包围块特殊逻辑，以首尾行为准
+          if (res.type === 'inline') {
+            const frags = res.frags;
+            if (frags.length) {
+              const start = frags[0];
+              const end = frags[frags.length - 1];
+              x = start.x;
+              y = start.y;
+              pbw = end.x + end.w - start.x + res.paddingRight + res.paddingLeft;
+              pbh = end.y + end.h - start.y + res.paddingTop + res.paddingBottom;
             }
-            hook = hook.parent;
+            else {
+              x = res.x;
+              y = res.y;
+              pbw = res.w;
+              pbh = res.h;
+            }
           }
-          return { parent, hook: root };
+          else {
+            x = res.x;
+            y = res.y;
+            pbw = res.w + res.paddingLeft + res.paddingRight;
+            pbh = res.h + res.paddingTop + res.paddingBottom;
+          }
         }
+        // 相当于全局的absolute
         else {
-          return { parent, hook: parent };
+          x = y = 0;
+          pbw = global.w;
+          pbh = global.h;
         }
-      }
-      parent = parent.parent;
+        const res = this.result!;
+        const c: Constraints = {
+          ox: x - res.paddingLeft,
+          oy: y - res.paddingTop,
+          aw: pbw,
+          ah: pbh,
+          pbw,
+          pbh,
+          cx: item.cx,
+          cy: item.cy,
+          fw: false,
+          fh: false,
+        };
+        // 可用尺寸以当前位置和end距离为准
+        c.aw -= c.cx - c.ox;
+        c.ah -= c.cy - c.oy;
+        // 获取到测量宽后，走一遍普通布局，inline要视作block
+        item.node.layAbs(c, absMap, global);
+      });
     }
   }
 
-  // inlineBlock获取基线，其内部可能递归包含block/text等
-  getElementBaseline() {
-    const { children, style } = this;
-    const res = this.result!;
-    if (style.overflow !== Overflow.VISIBLE || !children.length) {
-      return res.h + getMbpBottom(res);
-    }
-    for (let i = children.length - 1; i >= 0; i++) {}
-    // const last = children[children.length - 1];
-    // if (last.nodeType === NodeType.Text) {
-    //   return calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
-    // }
-    // else {
-    //   if (style.display )
-    // }
-  }
-}
-
-export class Node extends AbstractNode {
-  declare nodeType: NodeType.Node;
-  children: AbstractNode[];
-
-  constructor(style?: Partial<JStyle | Style>, children: AbstractNode[] = []) {
-    super(NodeType.Node, style);
-    this.children = children;
-    for (let i = 0, len = children.length; i < len; i++) {
+  override finish(x: number, y: number, global: Global) {
+    const offset = super.finish(x, y, global);
+    const children = this.children;
+    for (let i = 0; i < children.length; i++) {
       const child = children[i];
-      child.parent = this;
-      if (i) {
-        child.prev = children[i - 1];
-      }
-      if (i < len - 1) {
-        child.next = children[i + 1];
-      }
+      child.finish(offset.x, offset.y, global);
     }
-  }
-
-  appendChild(item: AbstractNode) {
-    const children = this.children;
-    const last = children[children.length - 1];
-    children.push(item);
-    item.parent = this;
-    if (last) {
-      last.next = item;
-      item.prev = last;
-    }
-  }
-
-  prependChild(item: AbstractNode) {
-    const children = this.children;
-    const first = children[0];
-    children.unshift(item);
-    item.parent = this;
-    if (first) {
-      first.prev = item;
-      item.next = first;
-    }
-  }
-
-  removeChild(item: AbstractNode) {
-    const children = this.children;
-    const i = children.indexOf(item);
-    if (i > -1) {
-      const prev = children[i - 1];
-      const next = children[i];
-      if (prev) {
-        prev.next = next || null;
-      }
-      if (next) {
-        next.prev = prev || null;
-      }
-      children.splice(i, 1);
-      item.parent = item.prev = item.next = null;
-    }
+    return offset;
   }
 }
 
-export class TextNode extends AbstractNode implements ITextNode {
+export class TextNode extends Node implements ITextNode {
   declare nodeType: NodeType.Text;
-  declare result: Text;
+  declare result: Text | null;
   content = '';
 
   constructor(content: string, style?: Partial<JStyle | Style>) {
     super(NodeType.Text, style);
+    // text默认inline，和标准不同，text可以单独存在，而非依附Dom
+    if (!style || !style.display) {
+      this.style.display = Display.INLINE;
+    }
     this.content = content;
   }
 
   override hasContent() {
     return !!this.content;
   }
+
+  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext) {
+    const { position, display } = this.style;
+    if (position === Position.ABSOLUTE || ![Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
+      mc.mergeTop();
+      mc.reset();
+    }
+    if (position === Position.ABSOLUTE || [Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
+    }
+    else if (display === Display.INLINE) {
+      text(this, cs, global, lbc);
+    }
+    else if (display === Display.INLINE_BLOCK) {}
+  }
+
+  layAbs(cs: Constraints, absMap: WeakMap<Node, Abs[]>, global: Global) {}
+
+  shrink2Fit(cs: Constraints, global: Global) {
+    return minMaxText(this, cs, global);
+  }
 }
 
-function getRoot(item: ITypeNode) {
-  let parent: ITypeNode | null = item;
+function getRoot(item: Node) {
+  let parent: Node | null = item;
   let temp = item;
   while (parent) {
     temp = parent;

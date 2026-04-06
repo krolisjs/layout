@@ -1,4 +1,4 @@
-import type { ITypeNode } from './node';
+import type { INode } from './node';
 import type { ComputedStyle } from './style';
 import { Display, Overflow, Position } from './style';
 import { getMetricizeFont } from './text';
@@ -65,7 +65,7 @@ export function hasBottomBarrier(style: ComputedStyle) {
   return style.paddingBottom > 0 || style.borderBottomWidth > 0;
 }
 
-export function isBFC(node: ITypeNode) {
+export function isBFC(node: INode) {
   const style = node.style;
   return !node.parent
     || style.overflow !== Overflow.VISIBLE

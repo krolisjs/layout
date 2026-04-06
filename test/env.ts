@@ -1,5 +1,5 @@
 import type { JStyle } from '../dist/index.js';
-import { AbstractNode, Node, setMeasureText, setMetricizeFont, TextNode } from '../dist/index.js';
+import { Element, setMeasureText, setMetricizeFont, TextNode } from '../dist/index.js';
 
 type Item = {
   style?: Partial<JStyle>;
@@ -12,20 +12,19 @@ type Item = {
 };
 
 export function genNode(item: Item) {
-  let node: AbstractNode;
   if ('content' in item) {
-    node = new TextNode(item.content, item.style);
+    return new TextNode(item.content, item.style);
   }
   else {
-    node = new Node(item.style, []);
+    const node = new Element(item.style, []);
     if (item.children) {
       item.children.forEach(child => {
         const n = genNode(child);
-        (node as Node).appendChild(n);
+        node.appendChild(n);
       });
     }
+    return node;
   }
-  return node;
 }
 
 export function createTestInputConstraints() {

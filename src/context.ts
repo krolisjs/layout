@@ -1,7 +1,7 @@
 import { calBaseline, calContentArea, calLeading, getMbpBottom, getMbpRight } from './compute';
-import type { Frag, Inline, Text, TextBox } from './layout';
+import type { Constraints, Frag, Inline, Text, TextBox } from './layout';
 import { VerticalAlign } from './style';
-import type { INode, ITextNode, ITypeNode } from './node';
+import type { IElementNode, INode, ITextNode } from './node';
 
 enum ContentBoxType {
   TEXT = 0, // 一个lineBox中，text内容形成的一个区域
@@ -20,13 +20,13 @@ type ContentBox = {
   type: ContentBoxType.INLINE;
   lv: number;
   frag: Frag; // 可能不被添加到result.frags里，仅占位参与行高计算（空节点时），有内容或有左右边距才会
-  node: INode;
+  node: IElementNode;
   added: boolean; // 防重添加到节点result的frags，空inline会生成一个不添加只占位参与行高计算
 } | {
   type: ContentBoxType.INLINE_BLOCK;
   lv: number;
   frag: null; // 无用
-  node: INode;
+  node: IElementNode;
   added: boolean; // 无用
 };
 
@@ -50,13 +50,13 @@ export class LineBoxContext {
   readonly id = id++;
   readonly lineBoxes: LineBox[] = [];
   current: LineBox; // 当前行，即最后一行
-  readonly struct: INode | null = null; // 所属的block节点支柱，强制每行baseline对齐，根节点inline的话就没有
+  readonly struct: IElementNode | null = null; // 所属的block节点支柱，强制每行baseline对齐，根节点inline的话就没有
   structBaseline: number | null = null; // 缓存支柱的计算值
-  readonly inlineMap: WeakMap<INode, ITypeNode[]> = new WeakMap(); // inline节点包含的block占位记录
-  readonly inlineStack: INode[] = []; // 随着inline父子嵌套递归，记录当前所有inline节点，不包含叶子text节点
-  readonly endList: ITypeNode[] = []; // inline/text节点结束时记录，在每行end时这些结束的节点要计算自身尺寸，end前因为对齐可能会变
+  readonly inlineMap: WeakMap<IElementNode, IElementNode[]> = new WeakMap(); // inline节点包含的block占位记录
+  readonly inlineStack: IElementNode[] = []; // 随着inline父子嵌套递归，记录当前所有inline节点，不包含叶子text节点
+  readonly endList: INode[] = []; // inline/text节点结束时记录，在每行end时这些结束的节点要计算自身尺寸，end前因为对齐可能会变
 
-  constructor(x: number, y: number, struct?: INode) {
+  constructor(x: number, y: number, struct?: IElementNode) {
     // 最初生成首行，是个空行，等后续子节点添加
     this.current = new LineBox(x, y);
     this.lineBoxes.push(this.current);
@@ -69,12 +69,12 @@ export class LineBoxContext {
    * 如果是0宽没有真实叶子结点调用，只参与行高计算，不计入自身的frags；
    * 产生换行时，新的行能知道当前有哪些父inline节点还在。
    */
-  addInline(node: INode, x: number, y: number) {
+  addInline(node: IElementNode, x: number, y: number) {
     this.addInlineFrag(node, x, y, this.inlineStack.length);
     this.inlineStack.push(node);
   }
 
-  private addInlineFrag(node: INode, x: number, y: number, lv: number) {
+  private addInlineFrag(node: IElementNode, x: number, y: number, lv: number) {
     const { fontSize, fontFamily, lineHeight } = node.result!;
     let contentArea = node.contentArea;
     // inline的内容区域（背景色）高度和font有关，但整行换行却使用lineHeight来隔开
@@ -113,10 +113,6 @@ export class LineBoxContext {
         const res = node.result as Inline;
         // 这里的判断分开，因为合起来可能为0（负margin）
         if (res.marginRight || res.borderRightWidth || res.paddingRight) {
-          // if (!item.added) {
-          //   item.added = true;
-          //   res.frags.push(item.frag as Frag);
-          // }
           const mbp = getMbpRight(res);
           if (mbp) {
             // 父inline一定在前面出现，且lv更小
@@ -126,18 +122,13 @@ export class LineBoxContext {
                 const frag = item.frag;
                 frag.w += mbp;
                 // 末尾mbp一定跟着不会另起一行，无需判断added
-                // 很特殊，可能子inline是个空的，但有mbp后会撑开，父节点的0宽frag有实质性意义了，需要添加
-                // if (!item.added) {
-                //   item.added = true;
-                //   (item.node.result as Inline).frags.push(frag);
-                // }
               }
             }
           }
         }
         // 如果包含block，需要将block考虑进来计算极值
         if (inlineMap.has(o)) {
-          const list = inlineMap.get(node)!;
+          const list = inlineMap.get(o)!;
           for (let i = 0, len = list.length; i < len; i++) {
             const r = list[i].result!;
             res.x = Math.min(res.x, r.x);
@@ -179,7 +170,7 @@ export class LineBoxContext {
     this.endList.push(node);
   }
 
-  addInlineBlock(node: INode) {
+  addInlineBlock(node: IElementNode) {
     const current = this.current!;
     current.begin = false; // 不再是行首
     const list = current.list;
@@ -200,12 +191,12 @@ export class LineBoxContext {
   }
 
   // 一行中添加block是个奇怪行为，它会隔断，并且对所属的inline产生最终尺寸特殊极值计算
-  addBlock(node: INode) {
+  addBlock(node: IElementNode) {
     const inlineMap = this.inlineMap;
     const inlineStack = this.inlineStack;
     for (let i = 0, len = inlineStack.length; i < len; i++) {
       const inline = this.inlineStack[i];
-      let list: ITypeNode[];
+      let list: IElementNode[];
       if (inlineMap.has(inline)) {
         list = inlineMap.get(inline)!;
       }
@@ -389,9 +380,9 @@ export class LineBoxContext {
 export class MarginContext {
   pos = 0;
   neg = 0;
-  list: ITypeNode[] = [];
+  list: INode[] = [];
 
-  append(n: number, node?: ITypeNode) {
+  append(n: number, node?: INode) {
     if (node) {
       this.list.push(node);
     }
@@ -421,9 +412,16 @@ export class MarginContext {
         const node = list[i];
         const r = node.result!;
         r.y += m;
-        const c = node.constraints!;
-        c.cy += m;
-        c.oy += m;
+        if ('constraints' in node) {
+          const c = node.constraints as Constraints;
+          c.cy += m;
+          c.oy += m;
+        }
+        // if (node.nodeType === NodeType.Container) {
+        //   const c = node.constraints!;
+        //   c.cy += m;
+        //   c.oy += m;
+        // }
       }
     }
     return m;
