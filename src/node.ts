@@ -34,6 +34,7 @@ export interface INode {
   readonly id: number;
   readonly nodeType: NodeType;
   readonly style: Style;
+  readonly children: INode[];
   parent: IElementNode | null;
   prev: INode | null;
   next: INode | null;
@@ -51,7 +52,6 @@ export interface INode {
 
 export interface IElementNode extends INode {
   readonly nodeType: NodeType.Element;
-  readonly children: INode[];
   result: Block | InlineBlock | Inline | null;
   constraints: Constraints | null;
   lineBoxContext: LineBoxContext | null;
@@ -90,6 +90,7 @@ export abstract class Node implements INode {
   readonly id = id++;
   readonly nodeType: NodeType;
   readonly style: Style;
+  readonly children: Node[] = [];
   parent: Element | null = null;
   prev: Node | null = null;
   next: Node | null = null;
