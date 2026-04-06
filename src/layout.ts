@@ -1,4 +1,4 @@
-import { BoxSizing, calLength, FontStyle, Unit } from './style';
+import { BoxSizing, calLength, FontStyle, Position, Unit } from './style';
 import type { ComputedStyle } from './style';
 import {
   CJK_REG_EXTENDED,
@@ -186,7 +186,8 @@ export function preset(node: INode, cs: Constraints, type: Result['type'], globa
       }
     }
     else {
-      res[k] = calLength(style[k], cs.pbw, global.rem, res.fontSize);
+      const pbw = (k === 'top' || k === 'bottom') ? cs.pbh : cs.pbw;
+      res[k] = calLength(style[k], pbw || 0, global.rem, res.fontSize);
     }
   });
 
@@ -403,7 +404,7 @@ export function block(node: IElementNode, cs: Constraints, global: Global, lbc: 
   return bib(node, cs, res);
 }
 
-export function inline(node: IElementNode, cs: Constraints, global: Global, lbc: LineBoxContext, children?: Node[]) {
+export function inline(node: IElementNode, cs: Constraints, global: Global, lbc: LineBoxContext) {
   const res = preset(node, cs, 'inline', global) as Inline;
   // inline的上下margin无效，border/padding对绘制有效但布局无效
   res.marginTop = res.marginBottom = 0;
@@ -414,7 +415,7 @@ export function inline(node: IElementNode, cs: Constraints, global: Global, lbc:
   lbc.addInline(node, cs.cx, cs.cy);
 }
 
-export function inlineBlock(node: IElementNode, cs: Constraints, global: Global, res?: InlineBlock, children?: INode[]) {
+export function inlineBlock(node: IElementNode, cs: Constraints, global: Global, res?: InlineBlock) {
   if (!res) {
     res = preset(node, cs, 'inlineBlock', global) as InlineBlock;
   }
@@ -641,7 +642,7 @@ export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
   return { min, max };
 }
 
-export function offsetX(res: Result, x: number) {
+function offsetX(res: Result, x: number) {
   if (x === 0) {
     return;
   }
@@ -654,7 +655,7 @@ export function offsetX(res: Result, x: number) {
   }
 }
 
-export function offsetY(res: Result, y: number) {
+function offsetY(res: Result, y: number) {
   if (y === 0) {
     return;
   }
@@ -687,4 +688,20 @@ export function marginAuto(node: INode, global: Global) {
   else if (marginLeft.u === Unit.AUTO && marginRight.u !== Unit.AUTO && marginRight.v) {
     res.x -= res.marginRight;
   }
+}
+
+export function checkRelative(node: INode, x: number, y: number) {
+  const style = node.style;
+  const res = node.result!;
+  if (style.position === Position.RELATIVE) {
+    x += res.left;
+    y += res.top;
+  }
+  if (x) {
+    offsetX(res, x);
+  }
+  if (y) {
+    offsetY(res, y);
+  }
+  return { x, y };
 }
