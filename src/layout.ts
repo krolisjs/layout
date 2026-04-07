@@ -57,11 +57,7 @@ export type Constraints = {
 export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
   & Partial<Omit<Constraints, 'aw' | 'ah'>>;
 
-export enum LayoutMode {
-  NORMAL       = 0b000,
-  MIN_MAX      = 0b001, // flex测量阶段
-  OUT_FLOW     = 0b100, // absolute脱离文档流测量阶段
-}
+export type Offset = { x: number; y: number };
 
 export function normalizeConstraints(ic: InputConstraints) {
   return Object.assign({
@@ -668,6 +664,22 @@ export function offsetY(res: Result, y: number) {
   }
 }
 
+export function offsetXY(res: Result, x: number, y: number) {
+  if (!x && !y) {
+    return;
+  }
+  res.x += x;
+  res.y += y;
+  const frags = res.frags;
+  if (frags && frags.length) {
+    for (let i = 0, len = frags.length; i < len; i++) {
+      const frag = frags[i];
+      frag.x += x;
+      frag.y += y;
+    }
+  }
+}
+
 export function marginAuto(node: INode, global: Global) {
   const { boxSizing, marginLeft, marginRight } = node.style;
   const res = node.result!;
@@ -690,18 +702,30 @@ export function marginAuto(node: INode, global: Global) {
   }
 }
 
-export function checkRelative(node: INode, x: number, y: number) {
+export function checkRelative(node: INode, offset: Offset) {
   const style = node.style;
   const res = node.result!;
-  if (style.position === Position.RELATIVE) {
-    x += res.left;
-    y += res.top;
+  if (style.position === Position.RELATIVE && (res.left || res.right || res.top || res.bottom)) {
+    const o = { x: offset.x, y: offset.y };
+    // 优先级是左上为先，即便是0，除了auto外还有可能是inherit
+    if (style.left.u !== Unit.AUTO || res.left) {
+      o.x += res.left;
+    }
+    else if (res.right) {
+      o.x -= res.right;
+    }
+    if (style.top.u !== Unit.AUTO || res.top) {
+      o.y += res.top;
+    }
+    else if (res.bottom) {
+      o.y -= res.bottom;
+    }
+    return o;
   }
-  if (x) {
-    offsetX(res, x);
-  }
-  if (y) {
-    offsetY(res, y);
-  }
-  return { x, y };
+  return offset;
+}
+
+export function applyRelative(node: INode, offset: Offset) {
+  const res = node.result!;
+  offsetXY(res, offset.x, offset.y);
 }

@@ -11,6 +11,7 @@ import {
 import type { JStyle, Style } from './style';
 import {
   afterFlowBox,
+  applyRelative,
   block,
   checkRelative,
   inline,
@@ -22,7 +23,7 @@ import {
   preset,
   text,
 } from './layout';
-import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Result, Text, } from './layout';
+import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
 import { LineBoxContext, MarginContext } from './context';
 import { calBaseline, getMbpH, getMbpV, hasBottomBarrier, hasTopBarrier, isBFC } from './compute';
 
@@ -49,8 +50,8 @@ export interface INode {
   getBaseline(): number;
   offsetY(n: number): void;
   lay(ics: InputConstraints): void;
-  layFlow(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number): void;
-  layAbs(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, x: number, y: number): void;
+  layFlow(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset): void;
+  layAbs(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, offset: Offset): void;
 }
 
 export interface IElementNode extends INode {
@@ -184,18 +185,18 @@ export abstract class Node implements INode {
     };
     // 入口判断文档流or定位流，因为比较特殊，root没有相对包围块节点
     if (this.style.position === Position.ABSOLUTE) {
-      this.layAbs(cs, absMap, global, 0, 0);
+      this.layAbs(cs, absMap, global, { x: 0, y: 0 });
     }
     else {
-      this.layFlow(cs, absMap, global, mc, lbc, 0, 0);
+      this.layFlow(cs, absMap, global, mc, lbc, { x: 0, y: 0 });
       mc.mergeTop();
       mc.reset();
     }
   };
 
-  abstract layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number): void;
+  abstract layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset): void;
 
-  abstract layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, x: number, y: number): void;
+  abstract layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset): void;
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
 
@@ -334,14 +335,13 @@ export class Element extends Node implements IElementNode {
    * @param global root的一些全局单位
    * @param mc 父节点传下来的处理margin合并的上下文
    * @param lbc 父节点传下来的处理每行对齐的上下文
-   * @param x 因为relative造成的偏移
-   * @param y
+   * @param offset 因为relative造成的偏移
    * 这是一个深度递归先根遍历的过程，处理文档流的主流程，定位流脱离于文档流在规范时期重新发起一个新的定位流递归循环；
    * 每遇到block产生一个新的Constraints供子节点使用，并且赋值给自身同名属性，再传给参数递归，inline则复用仅更新cx/cy不给自己赋值；
    * LineBoxContext情况和上面完全相同，遇到block产生新的传给子节点，inline复用同一个上下文；
    * MarginContext有点类似但比较复杂，仅block会用到，依旧是向下递归传递，但是在遇到阻断情况时（如BFC）会产生结算并重置，防止共享影响。
    */
-  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number) {
+  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const { position, display } = this.style;
     if (position === Position.ABSOLUTE || ![Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
       mc.mergeTop();
@@ -354,38 +354,39 @@ export class Element extends Node implements IElementNode {
     // 普通文档流
     else {
       if (display === Display.INLINE) {
-        this.layInline(cs, absMap, global, mc, lbc, x, y);
+        this.layInline(cs, absMap, global, mc, lbc, offset);
       }
       else if (display === Display.INLINE_BLOCK) {
-        this.layInlineBlock(cs, absMap, global, mc, lbc, x, y);
+        this.layInlineBlock(cs, absMap, global, mc, lbc, offset);
       }
       // 默认block
       else {
-        this.layBlock(cs, absMap, global, mc, lbc, x, y);
+        this.layBlock(cs, absMap, global, mc, lbc, offset);
       }
       // 特殊时机，root是inline节点需要在absolute前执行计算
       if (this === global.root && display === Display.INLINE) {
         lbc.endLine();
       }
       // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
-      this.checkAbs(absMap, global, x, y);
+      this.checkAbs(absMap, global, offset);
     }
   }
 
-  private layInline(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number) {
+  private layInline(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     this.constraints = cs;
     inline(this, cs, global, lbc);
-    ({ x, y } = checkRelative(this, x, y));
+    offset = checkRelative(this, offset);
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      child.layFlow(cs, absMap, global, mc, lbc, x, y);
+      child.layFlow(cs, absMap, global, mc, lbc, offset);
     }
+    applyRelative(this, offset);
     // inline结束时，检查最后一个子节点的mpb，看是否影响宽度
     lbc.popInline();
   }
 
-  private layInlineBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number) {
+  private layInlineBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const style = this.style;
     // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
     const temp = preset(this, cs, 'inlineBlock', global) as InlineBlock;
@@ -413,21 +414,22 @@ export class Element extends Node implements IElementNode {
     this.constraints = scs;
     const slbc = new LineBoxContext(scs.cx, scs.cy, this);
     this.lineBoxContext = slbc;
-    ({ x, y } = checkRelative(this, x, y));
+    offset = checkRelative(this, offset);
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      child.layFlow(scs, absMap, global, mc, slbc, x, y);
+      child.layFlow(scs, absMap, global, mc, slbc, offset);
     }
     // 和block不同，inlineBlock不会直接新起一行，因此重设下
     const { cx, cy } = cs;
     afterFlowBox(cs, this);
     cs.cx = cx + temp.w;
     cs.cy = cy;
+    applyRelative(this, offset);
     lbc.addInlineBlock(this);
   }
 
-  private layBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number) {
+  private layBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     // block自身的约束、自身的lineBoxContext是新的
     const scs = block(this, cs, global, lbc);
     this.constraints = scs;
@@ -435,7 +437,7 @@ export class Element extends Node implements IElementNode {
     this.lineBoxContext = slbc;
     const style = this.style;
     const res = this.result!;
-    ({ x, y } = checkRelative(this, x, y));
+    offset = checkRelative(this, offset);
     /**
      * block独有的marginTop合并检查，在首个节点（无prev）发生；
      * 如果节点是有paddingTop、borderTop、BFC则直接中断；
@@ -472,7 +474,7 @@ export class Element extends Node implements IElementNode {
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      child.layFlow(scs, absMap, global, mc, slbc, x, y);
+      child.layFlow(scs, absMap, global, mc, slbc, offset);
       if (collapse && !child.collapse) {
         collapse = false;
       }
@@ -505,12 +507,13 @@ export class Element extends Node implements IElementNode {
       }
       mc.append(res.marginBottom);
     }
+    applyRelative(this, offset);
     // block所属的inline（如有）中断撑开开始新行，记录下来
     lbc.addBlock(this);
     lbc.newLine(cs.cx, cs.cy);
   }
 
-  layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, x: number, y: number) {
+  layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset) {
     const style = this.style;
     // 根据trbl确定最终尺寸
     const {
@@ -624,7 +627,7 @@ export class Element extends Node implements IElementNode {
     this.lineBoxContext = slbc;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      children[i].layFlow(scs, absMap, global, mc, slbc, x, y);
+      children[i].layFlow(scs, absMap, global, mc, slbc, offset);
     }
     // 模拟end
     const isAutoH = style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO);
@@ -637,7 +640,8 @@ export class Element extends Node implements IElementNode {
     }
     mc.reset();
     // absolute递归包含absolute
-    this.checkAbs(absMap, global, x, y);
+    this.checkAbs(absMap, global, offset);
+    applyRelative(this, offset);
   }
 
   shrink2Fit(cs: Constraints, global: Global) {
@@ -728,14 +732,9 @@ export class Element extends Node implements IElementNode {
   }
 
   // 作为包围块节点结束后拥有了宽高，可以查看以自己为相对基础的所有absolute节点，进入定位流
-  private checkAbs(absMap: WeakMap<Element, Abs[]>, global: Global, x: number, y: number) {
+  private checkAbs(absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset) {
     if (absMap.has(this)) {
-      const style = this.style;
-      const res = this.result!;
-      if (style.position === Position.RELATIVE) {
-        x += res.left;
-        y += res.top;
-      }
+      offset = checkRelative(this, offset);
       const list = absMap.get(this)!;
       list.forEach((item) => {
         let ox: number, oy: number, pbw: number, pbh: number;
@@ -789,7 +788,7 @@ export class Element extends Node implements IElementNode {
         c.aw -= c.cx - c.ox;
         c.ah -= c.cy - c.oy;
         // 获取到测量宽后，走一遍普通布局，inline要视作block
-        item.node.layAbs(c, absMap, global, x, y);
+        item.node.layAbs(c, absMap, global, offset);
       });
     }
   }
@@ -813,7 +812,7 @@ export class TextNode extends Node implements ITextNode {
     return !!this.content;
   }
 
-  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, x: number, y: number) {
+  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const { position, display } = this.style;
     if (position === Position.ABSOLUTE || ![Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
       mc.mergeTop();
@@ -823,12 +822,13 @@ export class TextNode extends Node implements ITextNode {
     }
     else if (display === Display.INLINE) {
       text(this, cs, global, lbc);
-      checkRelative(this, x, y);
+      offset = checkRelative(this, offset);
+      applyRelative(this, offset);
     }
     else if (display === Display.INLINE_BLOCK) {}
   }
 
-  layAbs(cs: Constraints, absMap: WeakMap<Node, Abs[]>, global: Global, x: number, y: number) {}
+  layAbs(cs: Constraints, absMap: WeakMap<Node, Abs[]>, global: Global, offset: Offset) {}
 
   shrink2Fit(cs: Constraints, global: Global) {
     return minMaxText(this, cs, global);

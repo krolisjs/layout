@@ -148,7 +148,7 @@ export class LineBoxContext {
     const current = this.current!;
     current.begin = false; // 不再是行首
     const list = current.list;
-    const lv = this.inlineStack.length;
+    let lv = this.inlineStack.length;
     list.push({ type: ContentBoxType.TEXT, lv, frag, node, added: true });
     // 所属的inline都要扩展本行的宽度，用lv判断
     for (let i = list.length - 2; i >= 0; i--) {
@@ -161,6 +161,8 @@ export class LineBoxContext {
           item.added = true;
           res.frags.push(item.frag);
         }
+        // 不停地向上作用于自己的父级inline
+        lv = item.lv;
       }
     }
   }

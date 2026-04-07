@@ -1,5 +1,5 @@
 import { LineBoxContext } from './context';
-import { LayoutMode, normalizeConstraints } from './layout';
+import { normalizeConstraints } from './layout';
 import type {
   Block,
   Constraints,
@@ -52,7 +52,6 @@ export {
   getMeasureText,
   getMetricizeFont,
   LineBoxContext,
-  LayoutMode,
   Node,
   normalizeConstraints,
   normalizeStyle,
