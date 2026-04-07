@@ -151,8 +151,18 @@ export abstract class Node implements INode {
     return false;
   }
 
+  getRoot() {
+    let parent: Node | null = this;
+    let temp = parent;
+    while (parent) {
+      temp = parent;
+      parent = parent.parent;
+    }
+    return temp;
+  }
+
   lay(ics: InputConstraints) {
-    const root = getRoot(this);
+    const root = this.getRoot();
     if (root !== this) {
       throw new Error('Cannot call lay() on a non-root node.');
     }
@@ -825,19 +835,12 @@ export class TextNode extends Node implements ITextNode {
   }
 
   getBaseline() {
+    if (this.baseline !== null) {
+      return this.baseline;
+    }
     const res = this.result!;
     const frags = res.frags;
     const last = frags[frags.length - 1]!;
-    return calBaseline(res.fontFamily, res.fontSize, res.lineHeight) + last.y - res.y;
+    return this.baseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight) + last.y - res.y;
   }
-}
-
-function getRoot(item: Node) {
-  let parent: Node | null = item;
-  let temp = item;
-  while (parent) {
-    temp = parent;
-    parent = parent.parent;
-  }
-  return temp;
 }
