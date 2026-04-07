@@ -40,21 +40,21 @@ describe('margin-trim', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 50,
       h: 50,
       marginTop: 0,
       marginBottom: 0,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 50,
       h: 50,
       marginTop: 50,
       marginBottom: 50,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 150,
       h: 50,
@@ -102,35 +102,35 @@ describe('margin-trim', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 50,
       h: 75,
       marginTop: 0,
       marginBottom: 0,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 50,
       h: 25,
       marginTop: 50,
       marginBottom: 0,
     });
-    expect(node.children[0].children[1].result).toMatchObject({
+    expect(node.children[0].children[1].mixedResult).toMatchObject({
       x: 0,
       y: 75,
       h: 10,
       marginTop: 0,
       marginBottom: 15,
     });
-    expect(node.children[0].children[2].result).toMatchObject({
+    expect(node.children[0].children[2].mixedResult).toMatchObject({
       x: 0,
       y: 100,
       h: 25,
       marginTop: 0,
       marginBottom: 50,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 175,
       h: 25,
@@ -166,21 +166,21 @@ describe('margin-trim', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 50,
       marginTop: 0,
       marginBottom: 0,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 50,
       marginTop: 0,
       marginBottom: 50,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 100,
       h: 50,
@@ -221,26 +221,26 @@ describe('margin-trim', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 60,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 25,
       marginTop: 0,
       marginBottom: 25,
     });
-    expect(node.children[0].children[1].result).toMatchObject({
+    expect(node.children[0].children[1].mixedResult).toMatchObject({
       x: 0,
       y: 50,
       h: 10,
       marginTop: 0,
       marginBottom: 100,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 160,
       h: 40,
@@ -274,13 +274,13 @@ describe('margin-trim', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 100,
       h: 50,
       marginTop: 0,
     });
-    expect(node.children[1].children[0].result).toMatchObject({
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 100,
       h: 50,
@@ -322,18 +322,18 @@ describe('margin-trim', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 60,
       h: 90,
     });
-    expect(node.children[1].children[0].result).toMatchObject({
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 60,
       h: 40,
       marginTop: 50,
     });
-    expect(node.children[1].children[1].result).toMatchObject({
+    expect(node.children[1].children[1].mixedResult).toMatchObject({
       x: 0,
       y: 110,
       h: 40,
@@ -358,7 +358,7 @@ describe('margin-trim', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 20,
       marginTop: 10,

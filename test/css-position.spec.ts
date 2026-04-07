@@ -31,7 +31,7 @@ describe('css-position', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 10,
       y: 10,
       w: 80,
@@ -64,7 +64,7 @@ describe('css-position', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -116,19 +116,19 @@ describe('css-position', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 1,
       w: 416,
       h: 56,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 1,
       w: 176,
       h: 22,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 1,
       w: 416,
@@ -138,31 +138,31 @@ describe('css-position', () => {
         { x: 0, y: 35, w: 208, h: 22 },
       ],
     });
-    expect(node.children[1].children[0].result).toMatchObject({
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
       x: 176,
       y: 1,
       w: 240,
       h: 22,
     });
-    expect(node.children[1].children[1].result).toMatchObject({
+    expect(node.children[1].children[1].mixedResult).toMatchObject({
       x: 0,
       y: 24,
       w: 10,
       h: 10,
     });
-    expect(node.children[1].children[2].result).toMatchObject({
+    expect(node.children[1].children[2].mixedResult).toMatchObject({
       x: 176,
       y: 1,
       w: 32,
       h: 56,
     });
-    expect(node.children[1].children[3].result).toMatchObject({
+    expect(node.children[1].children[3].mixedResult).toMatchObject({
       x: 0,
       y: 35,
       w: 208,
       h: 22,
     });
-    expect(node.children[2].result).toMatchObject({
+    expect(node.children[2].mixedResult).toMatchObject({
       x: 208,
       y: 35,
       w: 144,
@@ -199,7 +199,7 @@ describe('css-position', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -236,7 +236,7 @@ describe('css-position', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -260,7 +260,7 @@ describe('css-position', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,

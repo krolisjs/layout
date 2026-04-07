@@ -16,14 +16,10 @@ export function genNode(item: Item) {
     return new TextNode(item.content, item.style);
   }
   else {
-    const node = new Element(item.style, []);
-    if (item.children) {
-      item.children.forEach(child => {
-        const n = genNode(child);
-        node.appendChild(n);
-      });
-    }
-    return node;
+    const children: (Element | TextNode)[] = item.children ? item.children.map(o => {
+      return genNode(o);
+    }) : [];
+    return new Element(item.style, children);
   }
 }
 

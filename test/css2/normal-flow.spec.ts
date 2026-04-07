@@ -26,7 +26,7 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 1,
       y: 1,
       w: 9998,
@@ -36,7 +36,7 @@ describe('normal-flow', () => {
       borderBottomWidth: 1,
       borderLeftWidth: 1,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 1,
       y: 25,
       w: 9998,
@@ -63,14 +63,14 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 48,
       h: 16,
     });
     const child = node.children[0];
-    expect(child.result).toMatchObject({
+    expect(child.mixedResult).toMatchObject({
       x: 32,
       y: 0,
       w: 0,
@@ -97,7 +97,7 @@ describe('normal-flow', () => {
     });
     node.lay(inputConstraints);
     const child = node.children[0];
-    expect(child.result).toMatchObject({
+    expect(child.mixedResult).toMatchObject({
       x: 32,
       y: 0,
       w: 0,
@@ -125,7 +125,7 @@ describe('normal-flow', () => {
     });
     node.lay(inputConstraints);
     const child = node.children[0];
-    expect(child.result).toMatchObject({
+    expect(child.mixedResult).toMatchObject({
       x: 32,
       y: 0,
       w: 16,
@@ -152,7 +152,7 @@ describe('normal-flow', () => {
     });
     node.lay(inputConstraints);
     const child = node.children[0];
-    expect(child.result).toMatchObject({
+    expect(child.mixedResult).toMatchObject({
       x: 32,
       y: 0,
       w: 16,
@@ -178,7 +178,7 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 600,
@@ -194,7 +194,7 @@ describe('normal-flow', () => {
       },
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 300,
@@ -221,7 +221,7 @@ describe('normal-flow', () => {
     });
     node.lay(inputConstraints);
     const child = node.children[0];
-    expect(child.result).toMatchObject({
+    expect(child.mixedResult).toMatchObject({
       x: 100,
       y: 100,
       w: 150,
@@ -244,7 +244,7 @@ describe('normal-flow', () => {
       },
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 32,
       y: 0,
       w: 0,
@@ -267,7 +267,7 @@ describe('normal-flow', () => {
       },
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 32,
       y: 0,
       w: 0,
@@ -292,14 +292,14 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
       h: 100,
       marginBottom: 0,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -324,13 +324,13 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 200,
       h: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 100,
       y: 0,
       w: 100,
@@ -355,13 +355,13 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 200,
       h: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -386,13 +386,13 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
       h: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 50,
       w: 100,
@@ -418,13 +418,13 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 500,
       h: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -449,13 +449,13 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 500,
       h: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 50,
       y: 0,
       w: 50,
@@ -481,13 +481,13 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 500,
       h: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 50,
@@ -513,13 +513,13 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 500,
       h: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 50,
       w: 100,
@@ -538,7 +538,7 @@ describe('normal-flow', () => {
       },
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 0,
@@ -553,7 +553,7 @@ describe('normal-flow', () => {
       },
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 10000,
@@ -582,7 +582,7 @@ describe('normal-flow', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 1,
       w: 176,
@@ -601,7 +601,7 @@ describe('normal-flow', () => {
       ],
       type: 'inline',
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 8,
       y: 1,
       w: 160,
@@ -620,7 +620,7 @@ describe('normal-flow', () => {
       ],
       type: 'inline',
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 8,
       y: 1,
       w: 160,

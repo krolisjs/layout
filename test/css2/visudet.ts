@@ -72,7 +72,7 @@ describe('visudet', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 0,

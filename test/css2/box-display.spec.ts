@@ -29,7 +29,7 @@ describe('box-display', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 10000,
@@ -69,7 +69,7 @@ describe('box-display', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].children[0].children[0].result).toMatchObject({
+    expect(node.children[1].children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 80,
@@ -93,7 +93,7 @@ describe('box-display', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -126,18 +126,129 @@ describe('box-display', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 20,
       y: 20,
       w: 60,
       h: 60,
       frags: null,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
       h: 100,
+    });
+  });
+
+  it('display-001', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            display: 'inline',
+          },
+          children: [{ content: 'Filler text' }],
+        },
+        {
+          style: {
+            display: 'inline',
+          },
+          children: [{ content: 'Filler text' }],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 24,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      type: 'inline',
+      x: 0,
+      y: 1,
+      w: 176,
+      h: 22,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      type: 'inline',
+      x: 176,
+      y: 1,
+      w: 176,
+      h: 22,
+    });
+  });
+
+  it('display-002', () => {
+    const node = genNode({
+      children: [
+        {
+          children: [{ content: 'Filler text' }],
+        },
+        {
+          children: [{ content: 'Filler text' }],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 48,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      type: 'block',
+      x: 0,
+      y: 0,
+      h: 24,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      type: 'block',
+      x: 0,
+      y: 24,
+      h: 24,
+    });
+  });
+
+  it('display-005', () => {
+    const node = genNode({
+      children: [
+        { content: 'Filler text' },
+        {
+          style: {
+            display: 'inlineBlock',
+          },
+          children: [{ content: 'Filler text' }],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 24,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      type: 'text',
+      x: 0,
+      y: 1,
+      w: 176,
+      h: 22,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      type: 'inlineBlock',
+      x: 176,
+      y: 0,
+      w: 176,
+      h: 24,
+    });
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
+      type: 'text',
+      x: 176,
+      y: 1,
+      w: 176,
+      h: 22,
     });
   });
 });

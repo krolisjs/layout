@@ -85,6 +85,10 @@ export type Style = {
   boxSizing: BoxSizing;
   display: Display;
   position: Position;
+  top: Length;
+  right: Length;
+  bottom: Length;
+  left: Length;
   marginTop: Length;
   marginRight: Length;
   marginBottom: Length;
@@ -93,16 +97,12 @@ export type Style = {
   paddingRight: Length;
   paddingBottom: Length;
   paddingLeft: Length;
-  top: Length;
-  right: Length;
-  bottom: Length;
-  left: Length;
-  width: Length;
-  height: Length;
   borderTopWidth: Length;
   borderRightWidth: Length;
   borderBottomWidth: Length;
   borderLeftWidth: Length;
+  width: Length;
+  height: Length;
   fontFamily: string;
   fontStyle: FontStyle;
   fontWeight: number;
@@ -457,35 +457,10 @@ export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
   return res;
 };
 
-export function calLength(target: Length, pb: number, rem = 16, em = 16) {
-  if (target.u === Unit.PX || target.u === Unit.NUMBER) {
-    return target.v;
-  }
-  else if (target.u === Unit.PERCENT) {
-    return target.v * 0.01 * pb;
-  }
-  else if (target.u === Unit.IN) {
-    return target.v * 96;
-  }
-  else if (target.u === Unit.PT) {
-    return target.v * 4 / 3;
-  }
-  else if (target.u === Unit.PC) {
-    return target.v * 16;
-  }
-  else if (target.u === Unit.CM) {
-    return target.v * 37.8;
-  }
-  else if (target.u === Unit.EM) {
-    return target.v * em;
-  }
-  else if (target.u === Unit.REM) {
-    return target.v * rem;
-  }
-  return 0;
-}
-
 export type ComputedStyle = {
+  boxSizing: BoxSizing;
+  display: Display;
+  position: Position;
   top: number;
   right: number;
   bottom: number;
@@ -502,24 +477,100 @@ export type ComputedStyle = {
   borderRightWidth: number;
   borderBottomWidth: number;
   borderLeftWidth: number;
+  width: number;
+  height: number;
   fontFamily: string;
-  fontSize: number;
-  fontWeight: number;
   fontStyle: FontStyle;
+  fontWeight: number;
+  fontSize: number;
   lineHeight: number;
   letterSpacing: number;
+  verticalAlign: VerticalAlign;
+  overflow: Overflow;
   minWidth: number;
   maxWidth: number;
   minHeight: number;
   maxHeight: number;
 };
 
-export function isFixed(o: Length, includePercent = false) {
-  if ([Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.CM, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u)) {
-    return true;
+export function getDefaultComputedStyle(style?: Style) {
+  const dft: ComputedStyle = {
+    boxSizing: BoxSizing.CONTENT_BOX,
+    display: Display.BLOCK,
+    position: Position.STATIC,
+    marginTop: 0,
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    paddingTop: 0,
+    paddingRight: 0,
+    paddingBottom: 0,
+    paddingLeft: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    borderTopWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+    fontFamily: 'inherit',
+    fontStyle: FontStyle.INHERIT,
+    fontWeight: 0,
+    fontSize: 0,
+    lineHeight: 0,
+    letterSpacing: 0,
+    verticalAlign: VerticalAlign.BASELINE,
+    overflow: Overflow.VISIBLE,
+    minWidth: 0,
+    maxWidth: 0,
+    minHeight: 0,
+    maxHeight: 0,
+  };
+  // 一些可以在布局前提前计算出的
+  if (style) {
+    dft.boxSizing = style.boxSizing;
+    dft.display = style.display;
+    dft.position = style.position;
+    dft.fontFamily = style.fontFamily;
+    dft.fontStyle = style.fontStyle;
+    dft.verticalAlign = style.verticalAlign;
+    dft.overflow = style.overflow;
+    dft.fontWeight = style.fontWeight;
+    ([
+      'marginTop',
+      'marginRight',
+      'marginBottom',
+      'marginLeft',
+      'paddingTop',
+      'paddingRight',
+      'paddingBottom',
+      'paddingLeft',
+      'top',
+      'right',
+      'bottom',
+      'left',
+      'width',
+      'height',
+      'borderTopWidth',
+      'borderRightWidth',
+      'borderBottomWidth',
+      'borderLeftWidth',
+      'fontSize',
+      'lineHeight',
+      'letterSpacing',
+      'minWidth',
+      'maxWidth',
+      'minHeight',
+      'maxHeight',
+    ] as const).forEach(k => {
+      const v = style[k];
+      if (v.u === Unit.PX) {
+        dft[k] = v.v;
+      }
+    });
   }
-  if (includePercent && o.u === Unit.PERCENT) {
-    return true;
-  }
-  return false;
+  return dft;
 }

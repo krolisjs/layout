@@ -26,7 +26,7 @@ describe('linebox', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 10000,
@@ -34,7 +34,7 @@ describe('linebox', () => {
       lineHeight: 40,
       letterSpacing: 0,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 32.5,
       w: 440,
@@ -71,7 +71,7 @@ describe('linebox', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 0,
@@ -114,7 +114,7 @@ describe('linebox', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 250,
       y: 126,
       w: 0,
@@ -138,7 +138,7 @@ describe('linebox', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 1,
       w: 192,
@@ -163,7 +163,7 @@ describe('linebox', () => {
       ],
       type: 'inline',
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 24,
       w: 192,
@@ -191,7 +191,7 @@ describe('linebox', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 193,
       w: 192,
@@ -215,7 +215,7 @@ describe('linebox', () => {
         },
       ],
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 216,
       w: 192,
@@ -259,12 +259,12 @@ describe('linebox', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 24,
     });
-    expect(node.children[2].result).toMatchObject({
+    expect(node.children[2].mixedResult).toMatchObject({
       x: 320,
       y: 1,
       w: 160,

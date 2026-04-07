@@ -75,20 +75,20 @@ export class LineBoxContext {
   }
 
   private addInlineFrag(node: IElementNode, x: number, y: number, lv: number) {
-    const { fontSize, fontFamily, lineHeight } = node.result!;
+    const computedStyle = node.computedStyle;
     let contentArea = node.contentArea;
     // inline的内容区域（背景色）高度和font有关，但整行换行却使用lineHeight来隔开
     if (contentArea === null) {
-      contentArea = node.contentArea = calContentArea(fontFamily, fontSize);
+      contentArea = node.contentArea = calContentArea(computedStyle.fontFamily, computedStyle.fontSize);
     }
-    const leading = lineHeight - contentArea;
+    const leading = computedStyle.lineHeight - contentArea;
     const frag = { x, y: y + leading * 0.5, w: 0, h: contentArea };
     // added: false说明暂时未被添加，只参与行高计算，防止空inline，等叶子内容节点坐实它；
     // 但开始mbp行首强制添加，因为歧义，节点能看到占位了，哪怕是0宽
     let added = this.current.begin;
     if (added) {
       const res = node.result!;
-      if (!res.marginLeft && !res.borderLeftWidth && !res.paddingLeft) {
+      if (!computedStyle.marginLeft && !computedStyle.borderLeftWidth && !computedStyle.paddingLeft) {
         added = false;
       }
     }
@@ -110,10 +110,10 @@ export class LineBoxContext {
       const { node, lv } = item;
       // 找到结束的inline节点和lv，有末尾mbp计算
       if (node === o) {
-        const res = node.result as Inline;
+        const computedStyle = node.computedStyle;
         // 这里的判断分开，因为合起来可能为0（负margin）
-        if (res.marginRight || res.borderRightWidth || res.paddingRight) {
-          const mbp = getMbpRight(res);
+        if (computedStyle.marginRight || computedStyle.borderRightWidth || computedStyle.paddingRight) {
+          const mbp = getMbpRight(computedStyle);
           if (mbp) {
             // 父inline一定在前面出现，且lv更小
             for (let j = 0; j < i; j++) {
@@ -129,13 +129,16 @@ export class LineBoxContext {
         // 如果包含block，需要将block考虑进来计算极值
         if (inlineMap.has(o)) {
           const list = inlineMap.get(o)!;
+          const res = node.result as Inline;
+          const computedStyle = node.computedStyle;
           for (let i = 0, len = list.length; i < len; i++) {
             const r = list[i].result!;
             res.x = Math.min(res.x, r.x);
             res.y = Math.min(res.y, r.y);
+            const cp = list[i].computedStyle;
             // block是需要考虑mbp的
-            res.w = Math.max(res.w, r.x + r.w + getMbpRight(r) - res.x);
-            res.h = Math.max(res.h, r.y + r.h + getMbpBottom(r) - res.y);
+            res.w = Math.max(res.w, r.x + r.w + getMbpRight(cp) - res.x);
+            res.h = Math.max(res.h, r.y + r.h + getMbpBottom(cp) - res.y);
           }
         }
         break;
@@ -183,7 +186,7 @@ export class LineBoxContext {
       const item = list[i];
       if (item.type === ContentBoxType.INLINE && item.lv < lv) {
         const res = item.node.result as Inline;
-        item.frag.w = res.x + res.w + getMbpRight(res) - item.frag.x;
+        item.frag.w = res.x + res.w + getMbpRight(item.node.computedStyle) - item.frag.x;
         if (!item.added) {
           item.added = true;
           res.frags.push(item.frag);
@@ -271,26 +274,27 @@ export class LineBoxContext {
     let structBaseline = this.structBaseline;
     // 缓存只求一次，多行情况下支柱不用重复计算
     if (struct && structBaseline === null) {
-      const res = struct.result!;
-      structBaseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+      const computedStyle = struct.computedStyle;
+      structBaseline = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
       this.structBaseline = structBaseline;
     }
     if (structBaseline !== null) {
       maxUpper = structBaseline;
-      const res = struct!.result!;
-      maxLower = res.lineHeight - maxUpper;
-      hBase = res.lineHeight;
+      const computedStyle = struct!.computedStyle;
+      maxLower = computedStyle.lineHeight - maxUpper;
+      hBase = computedStyle.lineHeight;
     }
     // 求出基线极值和初步的行高
     for (let i = 0, len = list.length; i < len; i++) {
       const { type, node } = list[i];
       const style = node.style;
+      const computedStyle = node.computedStyle;
       const res = node.result!;
       if (style.verticalAlign === VerticalAlign.BASELINE) {
         let b: number;
         if (ContentBoxType.INLINE_BLOCK === type) {
           b = node.getBaseline();
-          const n = res.h + getMbpV(res) - b;
+          const n = res.h + getMbpV(computedStyle) - b;
           if (maxLower === null) {
             maxLower = n;
           }
@@ -299,12 +303,12 @@ export class LineBoxContext {
           }
         }
         else {
-          b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+          b = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
           if (maxLower === null) {
-            maxLower = res.lineHeight - b;
+            maxLower = computedStyle.lineHeight - b;
           }
           else {
-            maxLower = Math.max(maxLower, res.lineHeight - b);
+            maxLower = Math.max(maxLower, computedStyle.lineHeight - b);
           }
         }
         // 没有支柱的特殊情况
@@ -323,23 +327,23 @@ export class LineBoxContext {
     for (let i = 0, len = list.length; i < len; i++) {
       const { type, node } = list[i];
       const style = node.style;
-      const res = node.result!;
+      const computedStyle = node.computedStyle;
       if (style.verticalAlign === VerticalAlign.TOP) {
         let b: number;
         if (ContentBoxType.INLINE_BLOCK === type) {
           b = node.getBaseline();
         }
         else {
-          b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+          b = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
         }
         // 特殊的没有支柱且没有baseline的情况，只要判断hBase就可以了，另外2个会被条件包含
         if (hBase === null) {
           maxUpper = b;
-          maxLower = res.lineHeight - b;
-          hBase = res.lineHeight;
+          maxLower = computedStyle.lineHeight - b;
+          hBase = computedStyle.lineHeight;
         }
-        else if (res.lineHeight > hBase) {
-          maxLower = Math.max(maxLower!, res.lineHeight - b);
+        else if (computedStyle.lineHeight > hBase) {
+          maxLower = Math.max(maxLower!, computedStyle.lineHeight - b);
         }
       }
       else if (style.verticalAlign === VerticalAlign.BOTTOM) {
@@ -348,14 +352,14 @@ export class LineBoxContext {
           b = node.getBaseline();
         }
         else {
-          b = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+          b = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
         }
         if (hBase === null) {
           maxUpper = b;
-          maxLower = res.lineHeight - b;
-          hBase = res.lineHeight;
+          maxLower = computedStyle.lineHeight - b;
+          hBase = computedStyle.lineHeight;
         }
-        else if (res.lineHeight > hBase) {
+        else if (computedStyle.lineHeight > hBase) {
           maxUpper = Math.max(maxUpper!, b);
         }
       }
@@ -368,9 +372,9 @@ export class LineBoxContext {
     for (let i = 0, len = list.length; i < len; i++) {
       const { node, frag, type } = list[i];
       const style = node.style;
-      const res = node.result!;
+      const computedStyle = node.computedStyle;
       if (style.verticalAlign === VerticalAlign.TOP) {
-        const leading = calLeading(res.fontFamily, res.fontSize, res.lineHeight);
+        const leading = calLeading(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
         if (type === ContentBoxType.INLINE_BLOCK) {
         }
         else {
@@ -382,7 +386,7 @@ export class LineBoxContext {
           node.offsetY(maxUpper! - node.getBaseline());
         }
         else {
-          frag.y += maxUpper! - calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+          frag.y += maxUpper! - calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
         }
       }
       else if (style.verticalAlign === VerticalAlign.BOTTOM) {
@@ -390,7 +394,7 @@ export class LineBoxContext {
           node.offsetY(hBase - node.getBaseline());
         }
         else {
-          frag.y += hBase - res.lineHeight;
+          frag.y += hBase - computedStyle.lineHeight;
         }
       }
     }

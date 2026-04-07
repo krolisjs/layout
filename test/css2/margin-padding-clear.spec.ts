@@ -56,8 +56,8 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result?.h).toBe(0);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.mixedResult?.h).toBe(0);
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 10,
       y: 10,
       w: 10,
@@ -67,7 +67,7 @@ describe('margin-padding-clear', () => {
       borderBottomWidth: 10,
       borderLeftWidth: 10,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 10,
       y: 10,
       w: 54,
@@ -77,7 +77,7 @@ describe('margin-padding-clear', () => {
       borderBottomWidth: 10,
       borderLeftWidth: 10,
     });
-    expect(node.children[1].children[0].result).toMatchObject({
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
       x: 22,
       y: 22,
       w: 30,
@@ -129,8 +129,8 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result?.h).toBe(0);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.mixedResult?.h).toBe(0);
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 10,
       y: 10,
       w: 50,
@@ -140,7 +140,7 @@ describe('margin-padding-clear', () => {
       borderBottomWidth: 10,
       borderLeftWidth: 10,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 20,
       y: 20,
       w: 30,
@@ -185,8 +185,8 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result!.h).toBe(0);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.mixedResult.h).toBe(0);
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 10,
       y: 10,
       w: 70,
@@ -196,7 +196,7 @@ describe('margin-padding-clear', () => {
       marginBottom: 10,
       marginLeft: 10,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 30,
       y: 30,
       w: 30,
@@ -230,8 +230,8 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result?.h).toBe(0);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.mixedResult?.h).toBe(0);
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 25,
       y: 100,
       w: 30,
@@ -283,30 +283,30 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 250,
       y: 0,
       w: 100,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 275,
       y: 0,
       w: 50,
       h: 5,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 250,
       y: 5,
       w: 200,
       h: 5,
     });
-    expect(node.children[2].result).toMatchObject({
+    expect(node.children[2].mixedResult).toMatchObject({
       x: 125,
       w: 50,
       h: 5,
       marginLeft: -125,
     });
-    expect(node.children[3].result).toMatchObject({
+    expect(node.children[3].mixedResult).toMatchObject({
       x: 375,
       w: 50,
       h: 5,
@@ -346,8 +346,8 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result?.h).toBe(0);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.mixedResult?.h).toBe(0);
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 30,
       y: 30,
       w: 0,
@@ -374,7 +374,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 10,
       borderTopWidth: 5,
@@ -402,7 +402,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 106,
       borderTopWidth: 5,
@@ -427,7 +427,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       y: 30,
       h: 10,
       marginTop: 10,
@@ -451,7 +451,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       y: 10,
       marginTop: -20,
     });
@@ -473,7 +473,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       y: -20,
       marginTop: -40,
     });
@@ -497,7 +497,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       y: 2,
       marginTop: 1,
     });
@@ -521,7 +521,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       y: 20,
       marginTop: 20,
     });
@@ -546,7 +546,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       y: 40,
       marginTop: 20,
     });
@@ -571,7 +571,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       y: 40,
       marginTop: 20,
     });
@@ -596,11 +596,11 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       y: 20,
       marginTop: 20,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       y: 40,
       marginTop: 20,
     });
@@ -623,7 +623,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 10,
       marginTop: 10,
@@ -649,11 +649,11 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       y: 10,
       marginTop: 10,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       y: 20,
       marginTop: 10,
     });
@@ -688,14 +688,14 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 80,
       h: 20,
       marginBottom: 20,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 60,
       w: 80,
@@ -741,19 +741,19 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 40,
       marginBottom: 20,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 20,
       marginBottom: 20,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 60,
       h: 20,
@@ -790,14 +790,14 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 48,
       h: 0,
       marginTop: 32,
       marginBottom: 32,
     });
-    expect(node.children[2].result).toMatchObject({
+    expect(node.children[2].mixedResult).toMatchObject({
       x: 0,
       y: 48,
       h: 16,
@@ -830,13 +830,13 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 60,
       h: 20,
       marginTop: 60,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 60,
       h: 20,
@@ -877,13 +877,13 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 48,
       h: 16,
       marginTop: 0,
     });
-    expect(node.children[0].children[1].result).toMatchObject({
+    expect(node.children[0].children[1].mixedResult).toMatchObject({
       x: 0,
       y: 48,
       h: 16,
@@ -912,15 +912,15 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 25,
       marginLeft: 0,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 50,
       marginLeft: 25,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       marginLeft: -50,
     });
@@ -952,7 +952,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 101,
       y: 101,
       h: 102,
@@ -965,7 +965,7 @@ describe('margin-padding-clear', () => {
       borderBottomWidth: 1,
       borderLeftWidth: 1,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 102,
       y: 102,
       h: 100,
@@ -1001,21 +1001,21 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 0,
       h: 1,
       borderRightWidth: 2,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 0,
       h: 1,
       marginRight: 96,
     });
-    expect(node.children[0].children[0].result).toMatchObject({
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 96,
@@ -1043,13 +1043,13 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       y: 2,
       h: 0,
       marginBottom: -98,
       borderTopWidth: 2,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       y: 2,
       h: 0,
       marginTop: 96,
@@ -1106,7 +1106,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 10,
       y: 10,
       w: 500,
@@ -1116,7 +1116,7 @@ describe('margin-padding-clear', () => {
       borderBottomWidth: 10,
       borderLeftWidth: 10,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 106,
       y: 106,
       w: 308,
@@ -1126,7 +1126,7 @@ describe('margin-padding-clear', () => {
       borderBottomWidth: 10,
       borderLeftWidth: 10,
     });
-    expect(node.children[1].children[0].result).toMatchObject({
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
       x: 116,
       y: 116,
       w: 288,
@@ -1158,12 +1158,12 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 2,
       paddingBottom: 1,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       marginTop: -3,
@@ -1187,13 +1187,13 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 5,
       y: 0,
       paddingLeft: 0,
       h: 96,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 10,
       y: 0,
       h: 96,
@@ -1216,12 +1216,12 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 98,
       paddingLeft: 96,
       borderLeftWidth: 2,
     });
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 2,
       marginLeft: -98,
       borderLeftWidth: 2,
@@ -1243,7 +1243,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       borderRightWidth: 5,
     });
@@ -1266,7 +1266,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       w: 72,
       borderRightWidth: 6,
@@ -1288,7 +1288,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       y: 5,
       borderBottomWidth: 6,
     });
@@ -1315,7 +1315,7 @@ describe('margin-padding-clear', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       y: 0,
       marginTop: -100,
     });

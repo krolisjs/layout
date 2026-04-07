@@ -2,7 +2,7 @@ import { expect } from 'expect';
 import { createTestInputConstraints, genNode } from './env.ts';
 import type { InputConstraints } from '../dist/index.js';
 
-describe('box-display', () => {
+describe('css-ui', () => {
   let inputConstraints: InputConstraints;
 
   beforeEach(() => {
@@ -32,7 +32,7 @@ describe('box-display', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 20,
       y: 25,
       w: 20,

@@ -33,7 +33,7 @@ describe('positioning', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 100,
@@ -62,7 +62,7 @@ describe('positioning', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 300,
       y: 0,
       w: 100,
@@ -102,20 +102,20 @@ describe('positioning', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 24,
       h: 2,
       top: 24,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 0,
       y: 28,
       w: 16,
       h: 22,
       top: 25,
     });
-    expect(node.children[2].result).toMatchObject({
+    expect(node.children[2].mixedResult).toMatchObject({
       x: 16,
       y: 3,
       w: 16,
@@ -152,19 +152,19 @@ describe('positioning', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
       w: 10,
       h: 10,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 10,
       y: 0,
       w: 10,
       h: 10,
     });
-    expect(node.children[2].result).toMatchObject({
+    expect(node.children[2].mixedResult).toMatchObject({
       x: 10,
       y: 10,
       w: 10,
@@ -193,12 +193,12 @@ describe('positioning', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.result).toMatchObject({
+    expect(node.mixedResult).toMatchObject({
       x: 0,
       y: 0,
       h: 20,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: 10,
       y: 0,
       w: 10,
@@ -231,17 +231,386 @@ describe('positioning', () => {
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].result).toMatchObject({
+    expect(node.children[0].mixedResult).toMatchObject({
       x: -10,
       y: 0,
       w: 10,
       h: 10,
     });
-    expect(node.children[1].result).toMatchObject({
+    expect(node.children[1].mixedResult).toMatchObject({
       x: -20,
       y: 0,
       w: 10,
       h: 10,
+      left: 0,
+      right: 10,
+      top: -10,
+    });
+  });
+
+  it('position-relative-008', () => {
+    const node = genNode({
+      style: {
+        marginLeft: 10,
+      },
+      children: [
+        {
+          style: {
+            width: 10,
+            height: 10,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            left: 10,
+            right: 'auto',
+            top: -10,
+            width: 10,
+            height: 10,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 10,
+      y: 0,
+      w: 10,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 20,
+      y: 0,
+      w: 10,
+      h: 10,
+      left: 10,
+      top: -10,
+    });
+  });
+
+  it('position-relative-008', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            width: 10,
+            height: 10,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            left: 10,
+            right: 10,
+            top: -10,
+            width: 10,
+            height: 10,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 10,
+      y: 0,
+      w: 10,
+      h: 10,
+      left: 10,
+      right: 10,
+      top: -10,
+    });
+  });
+
+  it('position-relative-013', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            width: 100,
+            height: 100,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            top: 'auto',
+            bottom: 100,
+            width: 100,
+            height: 100,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            top: -200,
+            bottom: 0,
+            width: 100,
+            height: 100,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 100,
+      top: 0,
+      bottom: 100,
+    });
+    expect(node.children[2].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 100,
+      top: -200,
+      bottom: 0,
+    });
+  });
+
+  it('position-relative-014', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            position: 'absolute',
+            width: 100,
+            height: 100,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            top: 100,
+            width: 100,
+            height: 100,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 100,
+      w: 100,
+      h: 100,
+      top: 100,
+    });
+  });
+
+  it('position-relative-015', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            position: 'relative',
+            top: 100,
+            width: 100,
+            height: 100,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            bottom: 100,
+            width: 100,
+            height: 100,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 100,
+      w: 100,
+      h: 100,
+      top: 100,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 100,
+      bottom: 100,
+    });
+  });
+
+  it('position-relative-016', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            borderTopWidth: 1,
+            borderRightWidth: 1,
+            borderBottomWidth: 1,
+            borderLeftWidth: 1,
+          },
+        },
+        {
+          style: {
+            position: 'absolute',
+            marginTop: 100,
+            width: 100,
+            height: 100,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            top: 'auto',
+            bottom: -100,
+            width: 100,
+            height: 100,
+          },
+          children: [
+            {
+              style: {
+                position: 'relative',
+                top: 'inherit',
+                width: 100,
+                height: 100,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 102,
+      w: 100,
+      h: 100,
+      marginTop: 100,
+    });
+    expect(node.children[2].mixedResult).toMatchObject({
+      x: 0,
+      y: 102,
+      w: 100,
+      h: 100,
+      top: 0,
+      bottom: -100,
+    });
+    expect(node.children[2].children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 102,
+      w: 100,
+      h: 100,
+      top: 0,
+      bottom: 0,
+    });
+  });
+
+  it('position-relative-017', () => {
+    const node = genNode({
+      style: {
+        width: 100,
+        height: 200,
+      },
+      children: [
+        {
+          style: {
+            position: 'relative',
+            top: 'auto',
+            bottom: 'auto',
+            width: 100,
+            height: 100,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 100,
+      top: 0,
+      bottom: 0,
+    });
+  });
+
+  it('position-relative-019', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            position: 'absolute',
+            width: 100,
+            height: 100,
+          },
+        },
+        {
+          style: {
+            position: 'relative',
+            top: 100,
+            bottom: 300,
+            width: 100,
+            height: 100,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 100,
+      top: 0,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 100,
+      w: 100,
+      h: 100,
+      top: 100,
+      bottom: 300,
+    });
+  });
+
+  it('position-static-001', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+        width: 200,
+        height: 200,
+      },
+      children: [
+        {
+          children: [{ content: 'Filler Text' }],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 200,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      type: 'block',
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 24,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      type: 'text',
+      x: 0,
+      y: 1,
+      w: 176,
+      h: 22,
     });
   });
 });

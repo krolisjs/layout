@@ -1,14 +1,13 @@
 import {
   BoxSizing,
-  calLength,
   Display,
+  getDefaultComputedStyle,
   getDefaultStyle,
-  isFixed,
   Overflow,
   Position,
   Unit,
 } from './style';
-import type { JStyle, Style } from './style';
+import type { ComputedStyle, JStyle, Style } from './style';
 import {
   afterFlowBox,
   applyRelative,
@@ -25,7 +24,19 @@ import {
 } from './layout';
 import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
 import { LineBoxContext, MarginContext } from './context';
-import { calBaseline, getMbpH, getMbpV, hasBottomBarrier, hasTopBarrier, isBFC } from './compute';
+import {
+  calBaseline,
+  calComputedStyle,
+  calLength,
+  getMbpH,
+  getMbpLeft,
+  getMbpTop,
+  getMbpV,
+  hasBottomBarrier,
+  hasTopBarrier,
+  isBFC,
+  isFixed,
+} from './compute';
 
 export enum NodeType {
   Element = 0,
@@ -37,6 +48,8 @@ export interface INode {
   readonly nodeType: NodeType;
   readonly style: Style;
   readonly children: INode[];
+  readonly computedStyle: ComputedStyle;
+  computed: boolean;
   parent: IElementNode | null;
   prev: INode | null;
   next: INode | null;
@@ -46,12 +59,13 @@ export interface INode {
   insertBefore(item: INode): void;
   insertAfter(item: INode): void;
   remove(): void;
-  hasContent(): boolean; // 是否有内容，比如text有非空字符串，img强制有内容
+  hasContent(): boolean;
   getBaseline(): number;
   offsetY(n: number): void;
   lay(ics: InputConstraints): void;
   layFlow(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset): void;
   layAbs(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, offset: Offset): void;
+  get mixedResult(): ComputedStyle & (Result | null);
 }
 
 export interface IElementNode extends INode {
@@ -95,17 +109,20 @@ export abstract class Node implements INode {
   readonly nodeType: NodeType;
   readonly style: Style;
   readonly children: Node[] = [];
+  readonly computedStyle: ComputedStyle;
+  computed = false; // 是否计算过ComputedStyle缓存
   parent: Element | null = null;
   prev: Node | null = null;
   next: Node | null = null;
   result: Result | null = null; // 布局结果
-  collapse = false;
-  contentArea: number | null = null;
-  baseline: number | null = null;
+  collapse = false; // 是否空块可穿透缓存
+  contentArea: number | null = null; // 文字内容高度缓存
+  baseline: number | null = null; // 基线高度缓存
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
     this.nodeType = nodeType;
     this.style = getDefaultStyle(style);
+    this.computedStyle = getDefaultComputedStyle(this.style);
   }
 
   insertBefore(node: Node) {
@@ -148,6 +165,7 @@ export abstract class Node implements INode {
     }
   }
 
+  // 是否有内容，比如text有非空字符串，img强制有内容，子类覆盖
   hasContent() {
     return false;
   }
@@ -242,6 +260,10 @@ export abstract class Node implements INode {
       children[i].offsetY(n);
     }
   }
+
+  get mixedResult() {
+    return Object.assign({}, this.computedStyle, this.result);
+  }
 }
 
 export class Element extends Node implements IElementNode {
@@ -311,8 +333,9 @@ export class Element extends Node implements IElementNode {
       return baseline;
     }
     const res = this.result!;
+    const computedStyle = this.computedStyle;
     if ([Display.BLOCK, Display.INLINE_BLOCK].includes(style.display) && (style.overflow !== Overflow.VISIBLE || !children.length)) {
-      return this.baseline = res.h + getMbpV(res);
+      return this.baseline = res.h + getMbpV(computedStyle);
     }
     for (let i = children.length - 1; i >= 0; i++) {
       const child = children[i];
@@ -326,7 +349,7 @@ export class Element extends Node implements IElementNode {
       }
       return this.baseline = child.getBaseline();
     }
-    return this.baseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight);
+    return this.baseline = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
   }
 
   /**
@@ -353,6 +376,7 @@ export class Element extends Node implements IElementNode {
     }
     // 普通文档流
     else {
+      calComputedStyle(this, cs, global);
       if (display === Display.INLINE) {
         this.layInline(cs, absMap, global, mc, lbc, offset);
       }
@@ -389,17 +413,17 @@ export class Element extends Node implements IElementNode {
   private layInlineBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const style = this.style;
     // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
-    const temp = preset(this, cs, 'inlineBlock', global) as InlineBlock;
+    const res = preset(this, cs, 'inlineBlock', global) as InlineBlock;
     const used = cs.cx - cs.ox;
     // 不固定则预测量
     if (!isFixed(style.width)) {
       const { min, max } = this.shrink2Fit(cs, global);
       const aw = cs.aw - used;
-      temp.w = Math.max(min, Math.min(max, aw));
+      res.w = Math.max(min, Math.min(max, aw));
     }
     let scs: Constraints;
     // inlineBlock放不下要换行，追加个精度冗余
-    if (!lbc.current.begin && temp.w + getMbpH(temp) > (cs.aw - used) + 1e-9) {
+    if (!lbc.current.begin && res.w + getMbpH(this.computedStyle) > (cs.aw - used) + 1e-9) {
       lbc.prepareNextLine();
       lbc.endLine();
       const current = lbc.current;
@@ -409,7 +433,7 @@ export class Element extends Node implements IElementNode {
       scs = inlineBlock(this, cs, global);
     }
     else {
-      scs = inlineBlock(this, cs, global, temp);
+      scs = inlineBlock(this, cs, global, res);
     }
     this.constraints = scs;
     const slbc = new LineBoxContext(scs.cx, scs.cy, this);
@@ -423,7 +447,7 @@ export class Element extends Node implements IElementNode {
     // 和block不同，inlineBlock不会直接新起一行，因此重设下
     const { cx, cy } = cs;
     afterFlowBox(cs, this);
-    cs.cx = cx + temp.w;
+    cs.cx = cx + res.w;
     cs.cy = cy;
     applyRelative(this, offset);
     lbc.addInlineBlock(this);
@@ -436,6 +460,7 @@ export class Element extends Node implements IElementNode {
     const slbc = new LineBoxContext(scs.cx, scs.cy, this);
     this.lineBoxContext = slbc;
     const style = this.style;
+    const computedStyle = this.computedStyle;
     const res = this.result!;
     offset = checkRelative(this, offset);
     /**
@@ -446,17 +471,17 @@ export class Element extends Node implements IElementNode {
      * 如果没有隔断，检查当前存入的节点和数据，用规范的正正、负负、正负不同情况计算合并最终值。
      * 连续的bfc隔离也不会有合并情况，因此先判断当前存入了多少个节点和数据。
      */
-    const htb = hasTopBarrier(res);
-    const hbb = hasBottomBarrier(res);
+    const htb = hasTopBarrier(computedStyle);
+    const hbb = hasBottomBarrier(computedStyle);
     const bfc = isBFC(this);
     if (htb || bfc) {
       // 先算上自己，隔断是和自己和子节点隔断，如果只有自己一个节点等于直接生效
-      mc.append(res.marginTop, this);
+      mc.append(computedStyle.marginTop, this);
       mc.mergeTop();
       mc.reset();
     }
     else {
-      mc.append(res.marginTop, this);
+      mc.append(computedStyle.marginTop, this);
     }
     /**
      * 空高节点且没有隔断视作空块可以被穿透，同时要满足所有子节点也是可以穿透的；
@@ -484,7 +509,7 @@ export class Element extends Node implements IElementNode {
     marginAuto(this, global);
     // 如果可以穿透，说明上下合并，记录下来等后续判断
     if (collapse) {
-      mc.append(res.marginBottom);
+      mc.append(computedStyle.marginBottom);
     }
     // 不可以穿透，要分是有下隔断或BFC，还是非空高
     else {
@@ -505,7 +530,7 @@ export class Element extends Node implements IElementNode {
         }
         mc.reset();
       }
-      mc.append(res.marginBottom);
+      mc.append(computedStyle.marginBottom);
     }
     applyRelative(this, offset);
     // block所属的inline（如有）中断撑开开始新行，记录下来
@@ -529,84 +554,86 @@ export class Element extends Node implements IElementNode {
       width,
       height
     } = style;
+    calComputedStyle(this, cs, global);
+    const computedStyle = this.computedStyle;
     const res = preset(this, cs, 'block', global) as Block;
     this.result = res;
     if (left.u !== Unit.AUTO) {
-      res.x = cs.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+      res.x = cs.ox + computedStyle.left + getMbpLeft(computedStyle);
     }
     if (top.u !== Unit.AUTO) {
-      res.y = cs.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
+      res.y = cs.oy + computedStyle.top + getMbpTop(computedStyle);
     }
     // 尺寸优先级
     if (width.u !== Unit.AUTO) {}
     else if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
-      res.w = cs.pbw - res.left - res.right - res.marginLeft - res.marginRight;
+      res.w = cs.pbw - computedStyle.left - computedStyle.right - computedStyle.marginLeft - computedStyle.marginRight;
     }
     else {
       const { min, max } = this.shrink2Fit(cs, global);
-      const l = left.u === Unit.AUTO ? (cs.cx - cs.ox) : res.left;
-      const r = right.u === Unit.AUTO ? 0 : res.right;
+      const l = left.u === Unit.AUTO ? (cs.cx - cs.ox) : computedStyle.left;
+      const r = right.u === Unit.AUTO ? 0 : computedStyle.right;
       const aw = cs.aw - l - r;
       res.w = Math.max(min, Math.min(max, aw));
     }
     if (height.u !== Unit.AUTO) {}
     else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
-      res.h = cs.pbh! - res.top - res.bottom - res.marginTop - res.marginBottom;
+      res.h = cs.pbh! - computedStyle.top - computedStyle.bottom - computedStyle.marginTop - computedStyle.marginBottom;
     }
     else {}
     // 边距平分
     if (left.u !== Unit.AUTO && right.u !== Unit.AUTO && width.u !== Unit.AUTO) {
-      const residual = cs.aw - (res.left + res.right + res.w);
+      const residual = cs.aw - (computedStyle.left + computedStyle.right + res.w);
       if (marginLeft.u === Unit.AUTO && marginRight.u === Unit.AUTO) {
         if (residual > 0) {
           const half = residual * 0.5;
           res.x += half;
-          res.marginLeft = half;
-          res.marginRight = half;
+          computedStyle.marginLeft = half;
+          computedStyle.marginRight = half;
         }
         else if (residual < 0) {
-          res.marginRight = residual;
+          computedStyle.marginRight = residual;
         }
       }
       else if (marginLeft.u === Unit.AUTO) {
-        res.marginLeft = residual;
+        computedStyle.marginLeft = residual;
       }
       else if (marginRight.u === Unit.AUTO) {
-        res.marginRight = residual;
+        computedStyle.marginRight = residual;
       }
     }
     if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO && height.u !== Unit.AUTO) {
-      const residual = cs.ah - (res.top + res.bottom + res.h);
+      const residual = cs.ah - (computedStyle.top + computedStyle.bottom + res.h);
       if (marginTop.u === Unit.AUTO && marginBottom.u === Unit.AUTO) {
         const half = residual * 0.5;
         res.y += half;
-        res.marginTop = half;
-        res.marginBottom = half;
+        computedStyle.marginTop = half;
+        computedStyle.marginBottom = half;
       }
     }
     // 超额约束修正
     if (left.u === Unit.AUTO && right.u === Unit.AUTO) {
-      res.left = cs.cx - cs.ox;
-      res.right = cs.aw - res.left - res.w - res.marginLeft - res.marginRight;
+      computedStyle.left = cs.cx - cs.ox;
+      computedStyle.right = cs.aw - computedStyle.left - res.w - computedStyle.marginLeft - computedStyle.marginRight;
     }
     else if (left.u === Unit.AUTO) {
-      res.left = cs.aw - res.right - res.w - res.marginLeft - res.marginRight;
+      computedStyle.left = cs.aw - computedStyle.right - res.w - computedStyle.marginLeft - computedStyle.marginRight;
     }
     else {
-      res.right = cs.aw - res.left - res.w - res.marginLeft - res.marginRight;
+      computedStyle.right = cs.aw - computedStyle.left - res.w - computedStyle.marginLeft - computedStyle.marginRight;
     }
-    res.x = cs.ox + res.left + res.marginLeft + res.borderLeftWidth + res.paddingLeft;
+    res.x = cs.ox + computedStyle.left + getMbpLeft(computedStyle);
     if (top.u === Unit.AUTO && bottom.u === Unit.AUTO) {
-      res.top = cs.cy - cs.oy;
-      res.bottom = cs.ah - res.top - res.h - res.marginTop - res.marginBottom;
+      computedStyle.top = cs.cy - cs.oy;
+      computedStyle.bottom = cs.ah - computedStyle.top - res.h - computedStyle.marginTop - computedStyle.marginBottom;
     }
     else if (top.u === Unit.AUTO) {
-      res.top = cs.ah - res.bottom - res.h - res.marginTop - res.marginBottom;
+      computedStyle.top = cs.ah - computedStyle.bottom - res.h - computedStyle.marginTop - computedStyle.marginBottom;
     }
     else {
-      res.bottom = cs.ah - res.top - res.h - res.marginTop - res.marginBottom;
+      computedStyle.bottom = cs.ah - computedStyle.top - res.h - computedStyle.marginTop - computedStyle.marginBottom;
     }
-    res.y = cs.oy + res.top + res.marginTop + res.borderTopWidth + res.paddingTop;
+    res.y = cs.oy + computedStyle.top + getMbpTop(computedStyle);
     // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
     const scs: Constraints = {
       ox: res.x,
@@ -652,6 +679,7 @@ export class Element extends Node implements IElementNode {
       const style = child.style;
       // 测量阶段递归的子节点absolute忽略
       if (style.position !== Position.ABSOLUTE) {
+        calComputedStyle(child, cs, global);
         if (child.nodeType === NodeType.Text) {
           const o = child.shrink2Fit(cs, global);
           min = Math.max(min, o.min);
@@ -675,25 +703,24 @@ export class Element extends Node implements IElementNode {
   private shrink2FitBlock(cs: Constraints, global: Global) {
     let min = 0, max = 0;
     const style = this.style;
+    const computedStyle = this.computedStyle;
     // block如果定宽则直接返回（不考虑%），否则递归
     if (isFixed(style.width)) {
       let w = calLength(style.width, cs.pbw, global.rem);
       if (style.boxSizing === BoxSizing.CONTENT_BOX) {
-        const r = preset(this, cs, 'block', global) as Block;
-        w += getMbpH(r);
+        w += getMbpH(computedStyle);
       }
       min = w;
       max = w;
     }
     else {
-      const r = preset(this, cs, 'block', global) as Block;
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
         const o = children[i].shrink2Fit(cs, global);
         min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }
-      const mbp = getMbpH(r);
+      const mbp = getMbpH(computedStyle);
       min += mbp;
       max += mbp;
     }
@@ -702,7 +729,6 @@ export class Element extends Node implements IElementNode {
 
   private shrink2FitInline(cs: Constraints, global: Global) {
     let min = 0, max = 0;
-    // const r = preset(this, cs, 'inline', global) as Inline;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const o = children[i].shrink2Fit(cs, global);
@@ -740,6 +766,7 @@ export class Element extends Node implements IElementNode {
         let ox: number, oy: number, pbw: number, pbh: number;
         if (item.parent) {
           const res = item.parent.result!;
+          const computedStyle = item.parent.computedStyle;
           // inline的包围块特殊逻辑，以首尾行为准
           if (res.type === 'inline') {
             const frags = res.frags;
@@ -748,8 +775,8 @@ export class Element extends Node implements IElementNode {
               const end = frags[frags.length - 1];
               ox = start.x;
               oy = start.y;
-              pbw = end.x + end.w - start.x + res.paddingRight + res.paddingLeft;
-              pbh = end.y + end.h - start.y + res.paddingTop + res.paddingBottom;
+              pbw = end.x + end.w - start.x + computedStyle.paddingRight + computedStyle.paddingLeft;
+              pbh = end.y + end.h - start.y + computedStyle.paddingTop + computedStyle.paddingBottom;
             }
             else {
               ox = res.x;
@@ -761,8 +788,8 @@ export class Element extends Node implements IElementNode {
           else {
             ox = res.x;
             oy = res.y;
-            pbw = res.w + res.paddingLeft + res.paddingRight;
-            pbh = res.h + res.paddingTop + res.paddingBottom;
+            pbw = res.w + computedStyle.paddingLeft + computedStyle.paddingRight;
+            pbh = res.h + computedStyle.paddingTop + computedStyle.paddingBottom;
           }
         }
         // 相当于全局的absolute
@@ -771,10 +798,10 @@ export class Element extends Node implements IElementNode {
           pbw = global.w;
           pbh = global.h;
         }
-        const res = this.result!;
+        const computedStyle = this.computedStyle;
         const c: Constraints = {
-          ox: ox - res.paddingLeft,
-          oy: oy - res.paddingTop,
+          ox: ox - computedStyle.paddingLeft,
+          oy: oy - computedStyle.paddingTop,
           aw: pbw,
           ah: pbh,
           pbw,
@@ -800,11 +827,13 @@ export class TextNode extends Node implements ITextNode {
   content = '';
 
   constructor(content: string, style?: Partial<JStyle | Style>) {
-    super(NodeType.Text, style);
+    super(NodeType.Text, Object.assign({
+      display: Display.INLINE,
+    }, style));
     // text默认inline，和标准不同，text可以单独存在，而非依附Dom
-    if (!style || !style.display) {
-      this.style.display = Display.INLINE;
-    }
+    // if (!style || !style.display) {
+    //   this.style.display = Display.INLINE;
+    // }
     this.content = content;
   }
 
@@ -818,6 +847,7 @@ export class TextNode extends Node implements ITextNode {
       mc.mergeTop();
       mc.reset();
     }
+    calComputedStyle(this, cs, global);
     if (position === Position.ABSOLUTE || [Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
     }
     else if (display === Display.INLINE) {
@@ -828,7 +858,9 @@ export class TextNode extends Node implements ITextNode {
     else if (display === Display.INLINE_BLOCK) {}
   }
 
-  layAbs(cs: Constraints, absMap: WeakMap<Node, Abs[]>, global: Global, offset: Offset) {}
+  layAbs(cs: Constraints, absMap: WeakMap<Node, Abs[]>, global: Global, offset: Offset) {
+    calComputedStyle(this, cs, global);
+  }
 
   shrink2Fit(cs: Constraints, global: Global) {
     return minMaxText(this, cs, global);
@@ -841,6 +873,7 @@ export class TextNode extends Node implements ITextNode {
     const res = this.result!;
     const frags = res.frags;
     const last = frags[frags.length - 1]!;
-    return this.baseline = calBaseline(res.fontFamily, res.fontSize, res.lineHeight) + last.y - res.y;
+    const computedStyle = this.computedStyle;
+    return this.baseline = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight) + last.y - res.y;
   }
 }
