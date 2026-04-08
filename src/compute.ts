@@ -187,10 +187,10 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
     if (v.u === Unit.INHERIT && parent) {
       let p: INode | null = parent;
       while (p) {
-        const style = p.style;
-        if (style[k].u !== Unit.INHERIT) {
-          if (style[k].u === Unit.PERCENT) {
-            computedStyle[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, computedStyle.fontSize));
+        const ps = p.style;
+        if (ps[k].u !== Unit.INHERIT) {
+          if (ps[k].u === Unit.PERCENT) {
+            computedStyle[k] = Math.max(0, calLength(ps[k], cs.pbw || 0, global.rem, computedStyle.fontSize));
           }
           else {
             computedStyle[k] = p.computedStyle[k];
@@ -221,12 +221,13 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
     if (v.u === Unit.INHERIT && parent) {
       let p: INode | null = parent;
       while (p) {
-        const style = p.style;
-        if (style[k].u !== Unit.INHERIT) {
-          if (style[k].u === Unit.PERCENT) {
-            computedStyle[k] = Math.max(0, calLength(style[k], pb || 0, global.rem, computedStyle.fontSize));
+        const ps = p.style;
+        if (ps[k].u !== Unit.INHERIT) {
+          if (ps[k].u === Unit.PERCENT) {
+            computedStyle[k] = Math.max(0, calLength(ps[k], pb || 0, global.rem, computedStyle.fontSize));
           }
           else {
+            // @ts-ignore
             computedStyle[k] = p.computedStyle[k];
           }
           return;
@@ -256,18 +257,18 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
       if (parent) {
         let p: INode | null = parent;
         while (p) {
-          const style = p.style;
-          if (style.lineHeight.u !== Unit.INHERIT) {
-            if (style.lineHeight.u === Unit.NUMBER) {
+          const ps = p.style;
+          if (ps.lineHeight.u !== Unit.INHERIT) {
+            if (ps.lineHeight.u === Unit.NUMBER) {
               computedStyle[k] = Math.max(0, v * computedStyle.fontSize);
             }
-            else if (style.lineHeight.u === Unit.PX) {
+            else if (ps.lineHeight.u === Unit.PX) {
               computedStyle[k] = p.computedStyle.lineHeight;
             }
-            else if (style.lineHeight.u === Unit.PERCENT) {
+            else if (ps.lineHeight.u === Unit.PERCENT) {
               computedStyle[k] = p.computedStyle.lineHeight;
             }
-            else if (style.lineHeight.u === Unit.AUTO) {
+            else if (ps.lineHeight.u === Unit.AUTO) {
               computedStyle[k] = calNormalLineHeight(computedStyle.fontFamily, computedStyle.fontSize);
             }
             return;
@@ -293,7 +294,7 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
       computedStyle[k] = parent.computedStyle[k];
     }
     else {
-      computedStyle[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, computedStyle.fontSize));
+      computedStyle[k] = Math.max(0, calLength(style[k], cs.pbw || 0, global.rem, computedStyle.fontSize));
     }
   });
 }

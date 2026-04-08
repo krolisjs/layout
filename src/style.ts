@@ -487,10 +487,10 @@ export type ComputedStyle = {
   letterSpacing: number;
   verticalAlign: VerticalAlign;
   overflow: Overflow;
-  minWidth: number;
-  maxWidth: number;
-  minHeight: number;
-  maxHeight: number;
+  minWidth: number | null;
+  maxWidth: number | null;
+  minHeight: number | null;
+  maxHeight: number | null;
 };
 
 export function getDefaultComputedStyle(style?: Style) {

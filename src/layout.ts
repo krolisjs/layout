@@ -16,6 +16,7 @@ import {
 } from './compute';
 import { LineBoxContext } from './context';
 
+// 不包含边距边框，纯内容尺寸
 export type Frag = { x: number; y: number; w: number; h: number };
 
 export type Block = {
@@ -50,12 +51,10 @@ export type Constraints = {
   oy: number;
   aw: number; // 可用尺寸
   ah: number;
-  pbw: number; // 百分比基于尺寸
+  pbw: number | null; // 百分比基于尺寸
   pbh: number | null; // 可能出现null表示无法使用%计算，退化为auto
   cx: number; // 当前坐标，flow流用到，absolute时自动位置也会用
   cy: number;
-  fw: boolean; // 是否固定尺寸，决定节点%是否可用，否则视为auto
-  fh: boolean;
 };
 
 export type InputConstraints = Pick<Constraints, 'aw' | 'ah'>
@@ -71,8 +70,6 @@ export function normalizeConstraints(ic: InputConstraints) {
     cy: 0,
     pbw: ic.aw,
     pbh: ic.ah,
-    fw: true,
-    fh: true,
   }, ic) as Constraints;
 }
 
@@ -86,227 +83,10 @@ export function preset(node: INode, cs: Constraints, type: Result['type'], globa
     y: cs.cy,
     w: 0,
     h: 0,
-    // top: 0,
-    // right: 0,
-    // bottom: 0,
-    // left: 0,
-    // marginTop: 0,
-    // marginRight: 0,
-    // marginBottom: 0,
-    // marginLeft: 0,
-    // paddingTop: 0,
-    // paddingRight: 0,
-    // paddingBottom: 0,
-    // paddingLeft: 0,
-    // borderTopWidth: 0,
-    // borderRightWidth: 0,
-    // borderBottomWidth: 0,
-    // borderLeftWidth: 0,
-    // fontFamily: 'sans-serif',
-    // fontSize: 16,
-    // fontWeight: 400,
-    // fontStyle: FontStyle.NORMAL,
-    // lineHeight: 24,
-    // letterSpacing: 0,
   };
 
-  // if (style.fontFamily === 'inherit') {
-  //   if (parent) {
-  //     res.fontFamily = parent.result!.fontFamily;
-  //   }
-  //   else {
-  //     res.fontFamily = 'sans-serif';
-  //   }
-  // }
-  // else {
-  //   res.fontFamily = style.fontFamily;
-  // }
-  //
-  // if (style.fontSize.u === Unit.INHERIT) {
-  //   if (parent) {
-  //     res.fontSize = parent.result!.fontSize;
-  //   }
-  //   else {
-  //     res.fontSize = global.rem;
-  //   }
-  // }
-  // else {
-  //   res.fontSize = calLength(style.fontSize, (parent?.result!.fontSize || global.rem) * 100, global.rem, 0) || parent?.result!.fontSize || global.rem;
-  // }
-  //
-  // if (style.fontWeight === 0) {
-  //   if (parent) {
-  //     res.fontWeight = parent.result!.fontWeight;
-  //   }
-  //   else {
-  //     res.fontWeight = 400;
-  //   }
-  // }
-  // else {
-  //   res.fontWeight = style.fontWeight;
-  // }
-  //
-  // if (style.fontStyle === FontStyle.INHERIT) {
-  //   if (parent) {
-  //     res.fontStyle = parent.result!.fontStyle;
-  //   }
-  //   else {
-  //     res.fontStyle = FontStyle.NORMAL;
-  //   }
-  // }
-  // else {
-  //   res.fontStyle = style.fontStyle;
-  // }
-  //
-  // ([
-  //   'top',
-  //   'right',
-  //   'bottom',
-  //   'left',
-  //   'marginTop',
-  //   'marginRight',
-  //   'marginBottom',
-  //   'marginLeft',
-  // ] as const).forEach(k => {
-  //   const v = style[k];
-  //   if (v.u === Unit.INHERIT && parent) {
-  //     let p: INode | null = parent;
-  //     while (p) {
-  //       const style = p.style;
-  //       if (style[k].u !== Unit.INHERIT) {
-  //         if (style[k].u === Unit.PERCENT) {
-  //           res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
-  //         }
-  //         else {
-  //           res[k] = p.result![k];
-  //         }
-  //         return;
-  //       }
-  //       p = p.parent;
-  //     }
-  //   }
-  //   else {
-  //     const pbw = (k === 'top' || k === 'bottom') ? cs.pbh : cs.pbw;
-  //     res[k] = calLength(style[k], pbw || 0, global.rem, res.fontSize);
-  //   }
-  // });
-  //
-  // ([
-  //   'paddingTop',
-  //   'paddingRight',
-  //   'paddingBottom',
-  //   'paddingLeft',
-  //   'minWidth',
-  //   'maxWidth',
-  // ] as const).forEach(k => {
-  //   const v = style[k];
-  //   if (v.u === Unit.INHERIT && parent) {
-  //     let p: INode | null = parent;
-  //     while (p) {
-  //       const style = p.style;
-  //       if (style[k].u !== Unit.INHERIT) {
-  //         if (style[k].u === Unit.PERCENT) {
-  //           res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
-  //         }
-  //         else {
-  //           res[k] = p.result![k];
-  //         }
-  //         return;
-  //       }
-  //       p = p.parent;
-  //     }
-  //   }
-  //   else {
-  //     res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
-  //   }
-  // });
-  //
-  // ([
-  //   'minHeight',
-  //   'maxHeight',
-  // ] as const).forEach(k => {
-  //   const v = style[k];
-  //   if (v.u === Unit.INHERIT && parent) {
-  //     let p: INode | null = parent;
-  //     while (p) {
-  //       const style = p.style;
-  //       if (style[k].u !== Unit.INHERIT) {
-  //         if (style[k].u === Unit.PERCENT) {
-  //           res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
-  //         }
-  //         else {
-  //           res[k] = p.result![k];
-  //         }
-  //         return;
-  //       }
-  //       p = p.parent;
-  //     }
-  //   }
-  //   else {
-  //     res[k] = Math.max(0, calLength(style[k], cs.pbh || 0, global.rem, res.fontSize));
-  //   }
-  // });
-  //
-  // ([
-  //   'borderTopWidth',
-  //   'borderRightWidth',
-  //   'borderBottomWidth',
-  //   'borderLeftWidth',
-  //   'lineHeight',
-  //   'letterSpacing',
-  // ] as const).forEach(k => {
-  //   const { v, u } = style[k];
-  //   if (k === 'lineHeight' && u === Unit.NUMBER && v >= 0) {
-  //     res[k] = v * res.fontSize;
-  //   }
-  //   // lineHeight<0非法，视为继承，root视为auto
-  //   else if (k === 'lineHeight' && (u === Unit.INHERIT || u === Unit.NUMBER)) {
-  //     if (parent) {
-  //       let p: INode | null = parent;
-  //       while (p) {
-  //         const style = p.style;
-  //         if (style.lineHeight.u !== Unit.INHERIT) {
-  //           if (style.lineHeight.u === Unit.NUMBER) {
-  //             res[k] = Math.max(0, v * res.fontSize);
-  //           }
-  //           else if (style.lineHeight.u === Unit.PX) {
-  //             res[k] = p.result!.lineHeight;
-  //           }
-  //           else if (style.lineHeight.u === Unit.PERCENT) {
-  //             res[k] = p.result!.lineHeight;
-  //           }
-  //           else if (style.lineHeight.u === Unit.AUTO) {
-  //             res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
-  //           }
-  //           return;
-  //         }
-  //         p = p.parent;
-  //       }
-  //       res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
-  //     }
-  //     else {
-  //       res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
-  //     }
-  //   }
-  //   else if (k === 'lineHeight') {
-  //     if (v < 0 || u === Unit.AUTO) {
-  //       res[k] = calNormalLineHeight(res.fontFamily, res.fontSize);
-  //     }
-  //     else {
-  //       res[k] = calLength(style[k], parent?.result!.lineHeight || 24, global.rem, res.fontSize);
-  //     }
-  //   }
-  //   // border没有%
-  //   else if (u === Unit.INHERIT && parent) {
-  //     res[k] = parent.result![k];
-  //   }
-  //   else {
-  //     res[k] = Math.max(0, calLength(style[k], cs.pbw, global.rem, res.fontSize));
-  //   }
-  // });
-  //
   if (style.width.u !== Unit.AUTO) {
-    res.w = Math.max(0, calLength(style.width, cs.pbw, global.rem, computedStyle.fontSize));
+    res.w = Math.max(0, calLength(style.width, cs.pbw || 0, global.rem, computedStyle.fontSize));
     if (style.boxSizing === BoxSizing.BORDER_BOX) {
       res.w = Math.max(0, res.w - (computedStyle.borderLeftWidth + computedStyle.borderRightWidth + computedStyle.paddingLeft + computedStyle.paddingRight));
     }
@@ -354,12 +134,34 @@ function bib(node: IElementNode, cs: Constraints, res: Block | InlineBlock) {
     cy: oy,
     pbw: res.w,
     pbh: res.h,
-    fw: false,
-    fh: false,
   };
-  if (style.width.u === Unit.AUTO && res.type === 'block') {
-    scs.pbw = scs.aw = res.w
-      = Math.max(0, cs.aw - getMbpH(computedStyle));
+  if (style.width.u === Unit.AUTO) {
+    if (res.type === 'block') {
+      scs.pbw = scs.aw = res.w = Math.max(0, cs.aw - getMbpH(computedStyle));
+    }
+    else {
+      scs.pbw = null;
+    }
+    // 应用minWidth和maxWidth约束，它们已校验不可能为负值
+    const minWidth = computedStyle.minWidth;
+    if (minWidth !== null && minWidth > 0) {
+      res.w = Math.max(res.w, minWidth);
+      scs.pbw = scs.aw = res.w;
+    }
+    // min>max冲突时，min优先级更高
+    const maxWidth = computedStyle.maxWidth;
+    if (maxWidth !== null && maxWidth >= 0 && style.maxWidth.u !== Unit.AUTO) {
+      if (minWidth !== null) {
+        if (maxWidth >= minWidth) {
+          res.w = Math.min(res.w, maxWidth);
+          scs.pbw = scs.aw = res.w;
+        }
+      }
+      else {
+        res.w = Math.min(res.w, maxWidth);
+        scs.pbw = scs.aw = res.w;
+      }
+    }
   }
   // 父级高度auto时，%失效也是auto
   if (style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null) {

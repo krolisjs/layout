@@ -567,7 +567,7 @@ export class Element extends Node implements IElementNode {
     // 尺寸优先级
     if (width.u !== Unit.AUTO) {}
     else if (left.u !== Unit.AUTO && right.u !== Unit.AUTO) {
-      res.w = cs.pbw - computedStyle.left - computedStyle.right - computedStyle.marginLeft - computedStyle.marginRight;
+      res.w = Math.max(0, (cs.pbw || 0) - computedStyle.left - computedStyle.right - computedStyle.marginLeft - computedStyle.marginRight);
     }
     else {
       const { min, max } = this.shrink2Fit(cs, global);
@@ -623,6 +623,7 @@ export class Element extends Node implements IElementNode {
       computedStyle.right = cs.aw - computedStyle.left - res.w - computedStyle.marginLeft - computedStyle.marginRight;
     }
     res.x = cs.ox + computedStyle.left + getMbpLeft(computedStyle);
+    // 垂直方向同理
     if (top.u === Unit.AUTO && bottom.u === Unit.AUTO) {
       computedStyle.top = cs.cy - cs.oy;
       computedStyle.bottom = cs.ah - computedStyle.top - res.h - computedStyle.marginTop - computedStyle.marginBottom;
@@ -644,8 +645,6 @@ export class Element extends Node implements IElementNode {
       pbh: cs.ah,
       cx: res.x,
       cy: res.y,
-      fw: false,
-      fh: false,
     };
     this.constraints = scs;
     // 继续普通递归
@@ -706,7 +705,7 @@ export class Element extends Node implements IElementNode {
     const computedStyle = this.computedStyle;
     // block如果定宽则直接返回（不考虑%），否则递归
     if (isFixed(style.width)) {
-      let w = calLength(style.width, cs.pbw, global.rem);
+      let w = calLength(style.width, cs.pbw || 0, global.rem);
       if (style.boxSizing === BoxSizing.CONTENT_BOX) {
         w += getMbpH(computedStyle);
       }
@@ -731,7 +730,9 @@ export class Element extends Node implements IElementNode {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
-      const o = children[i].shrink2Fit(cs, global);
+      const child = children[i];
+      // TODO inline包含block时计算不一样
+      const o = child.shrink2Fit(cs, global);
       min = Math.max(min, o.min);
       max += o.max;
     }
@@ -808,12 +809,7 @@ export class Element extends Node implements IElementNode {
           pbh,
           cx: item.cx,
           cy: item.cy,
-          fw: false,
-          fh: false,
         };
-        // 可用尺寸以当前位置和end距离为准
-        c.aw -= c.cx - c.ox;
-        c.ah -= c.cy - c.oy;
         // 获取到测量宽后，走一遍普通布局，inline要视作block
         item.node.layAbs(c, absMap, global, offset);
       });
