@@ -75,11 +75,11 @@ export function isBFC(node: INode) {
     || [Display.FLEX, Display.GRID, Display.INLINE_FLEX, Display.INLINE_GRID].includes(node.parent!.style.display);
 }
 
-export function isFixed(o: Length, includePercent = false) {
+export function isFixed(o: Length, includePercent = false, pb: number | null = null) {
   if ([Unit.PX, Unit.IN, Unit.PT, Unit.PC, Unit.CM, Unit.EM, Unit.REM, Unit.NUMBER].includes(o.u)) {
     return true;
   }
-  return includePercent && o.u === Unit.PERCENT;
+  return includePercent && o.u === Unit.PERCENT && pb !== null;
 }
 
 export function calLength(target: Length, pb: number, rem = 16, em = 16) {

@@ -408,29 +408,36 @@ export class Element extends Node implements IElementNode {
 
   private layInlineBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const style = this.style;
+    const computedStyle = this.computedStyle;
     // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
     const res = preset(this, cs, 'inlineBlock', global) as InlineBlock;
     const used = cs.cx - cs.ox;
+    // 无论是否固定，都要求一个max尺寸，固定时就是width；然后看非行首是否放得下，考虑换行
+    let max: number;
     // 不固定则预测量
-    if (!isFixed(style.width)) {
-      const { min, max } = this.shrink2Fit(cs, global);
+    if (!isFixed(style.width, true, cs.pbw)) {
+      const mm = this.shrink2Fit(cs, global);
+      max = mm.max;
       const aw = cs.aw - used;
-      res.w = Math.max(min, Math.min(max, aw));
+      res.w = Math.max(mm.min, Math.min(max, aw));
+    }
+    else {
+      max = res.w;
     }
     let scs: Constraints;
     // inlineBlock放不下要换行，追加个精度冗余
-    if (!lbc.current.begin && res.w + getMbpH(this.computedStyle) > (cs.aw - used) + 1e-9) {
+    if (!lbc.current.begin && max + getMbpH(computedStyle) > (cs.aw - used) + 1e-9) {
       lbc.prepareNextLine();
       lbc.endLine();
       const current = lbc.current;
       cs.cx = cs.ox;
       cs.cy = current.y + current.h;
       lbc.newLine(cs.cx, cs.cy);
-      scs = inlineBlock(this, cs, global);
+      res.x = cs.ox + getMbpLeft(computedStyle);
+      res.y = cs.cy + getMbpTop(computedStyle);
+      res.w = Math.min(cs.aw, max);
     }
-    else {
-      scs = inlineBlock(this, cs, global, res);
-    }
+    scs = inlineBlock(this, cs, global, res);
     this.constraints = scs;
     const slbc = new LineBoxContext(scs.cx, scs.cy, this);
     this.lineBoxContext = slbc;
@@ -440,7 +447,7 @@ export class Element extends Node implements IElementNode {
       const child = children[i];
       child.layFlow(scs, absMap, global, mc, slbc, offset);
     }
-    // 和block不同，inlineBlock不会直接新起一行，因此重设下
+    // 和block不同，inlineBlock不会直接新起一行，因此重设下；即便占满了一行，也交给后续inline判断
     const { cx, cy } = cs;
     afterFlowBox(cs, this);
     cs.cx = cx + res.w;

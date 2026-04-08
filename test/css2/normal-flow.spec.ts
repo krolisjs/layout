@@ -561,6 +561,49 @@ describe('normal-flow', () => {
     });
   });
 
+  it('inline-block-width-001a', () => {
+    const node = genNode({
+      style: {
+        width: '10em',
+      },
+      children: [
+        { content: 'x' },
+        {
+          style: {
+            display: 'inlineBlock',
+          },
+          children: [{ content: '1234567890' }],
+        },
+        { content: 'z' },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 160,
+      h: 72,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 1,
+      w: 16,
+      h: 22,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 24,
+      w: 160,
+      h: 24,
+    });
+    expect(node.children[2].mixedResult).toMatchObject({
+      x: 0,
+      y: 49,
+      w: 16,
+      h: 22,
+    });
+  });
+
   it('inlines-002', () => {
     const node = genNode({
       style: {

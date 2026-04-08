@@ -460,6 +460,91 @@ describe('box-display', () => {
     });
   });
 
+  it('containing-block-027', () => {
+    const node = genNode({
+      style: {
+        paddingTop: 5,
+        width: 100,
+        height: 100,
+      },
+      children: [
+        {
+          style: {
+            paddingTop: 5,
+            width: 200,
+            height: 50,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 10,
+      w: 200,
+      h: 50,
+    });
+  });
+
+  it('containing-block-028', () => {
+    const node = genNode({
+      style: {
+        position: 'absolute',
+        width: 100,
+        height: 100,
+      },
+      children: [
+        {
+          style: {
+            position: 'absolute',
+            right: 0,
+            bottom: 0,
+            width: 25,
+            height: 25,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 75,
+      y: 75,
+      w: 25,
+      h: 25,
+    });
+  });
+
+  it('containing-block-029', () => {
+    const node = genNode({
+      style: {
+        paddingLeft: 5,
+        width: 100,
+        height: 100,
+      },
+      children: [
+        {
+          style: {
+            width: 50,
+            height: 200,
+          },
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 5,
+      y: 0,
+      w: 100,
+      h: 100,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 5,
+      y: 0,
+      w: 50,
+      h: 200,
+    });
+  });
+
   it('display-001', () => {
     const node = genNode({
       children: [
