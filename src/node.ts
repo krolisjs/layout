@@ -366,10 +366,6 @@ export class Element extends Node implements IElementNode {
    */
   layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const { position, display } = this.style;
-    if (position === Position.ABSOLUTE || ![Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
-      mc.mergeTop();
-      mc.reset();
-    }
     // absolute脱离文档流
     if (position === Position.ABSOLUTE) {
       this.recordAbs(cs, absMap, global);
@@ -497,11 +493,15 @@ export class Element extends Node implements IElementNode {
     }
     // 先序遍历，同时由于子节点先触发，计算子节点是否空块可以被穿透，父节点后面可以直接读取
     const children = this.children;
+    let flowChildrenCount = 0; // 统计文档流子节点数量，看是不是叶子节点（absolute不算）
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
       child.layFlow(scs, absMap, global, mc, slbc, offset);
-      if (collapse && !child.collapse) {
-        collapse = false;
+      if (child.style.position !== Position.ABSOLUTE) {
+        flowChildrenCount++;
+        if (collapse && !child.collapse) {
+          collapse = false;
+        }
       }
     }
     this.collapse = collapse;
@@ -521,7 +521,7 @@ export class Element extends Node implements IElementNode {
            * 这里和开始不同，如果是唯一的叶子结点，因为blockEnd已经结算过cy了，所以要加上偏移，list[0]一定是自己，cs就是所属的约束；
            * 如果是叶子节点但有多个，即list不唯一，那么在刚刚的处理中倒数第2个一定是父节点，它的cs已经处理过了
            */
-          if (!children.length && mc.list.length === 1) {
+          if (!flowChildrenCount && mc.list.length === 1) {
             cs.cy += m;
           }
           if (isAutoH) {

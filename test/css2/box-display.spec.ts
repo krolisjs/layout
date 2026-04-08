@@ -350,6 +350,116 @@ describe('box-display', () => {
     });
   });
 
+  it('containing-block-013', () => {
+    const node = genNode({
+      style: {
+        position: 'absolute',
+        paddingTop: 100,
+        paddingLeft: 100,
+        paddingBottom: 100,
+        paddingRight: 100,
+        borderTopWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderLeftWidth: 1,
+        width: 0,
+      },
+      children: [
+        {
+          style: {
+            display: 'inline',
+          },
+          children: [
+            {
+              style: {
+                position: 'absolute',
+                display: 'inline',
+                width: 100,
+                height: 100,
+              },
+            }
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 101,
+      y: 101,
+      w: 0,
+      h: 0,
+      paddingTop: 100,
+      paddingLeft: 100,
+      paddingBottom: 100,
+      paddingRight: 100,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      x: 101,
+      y: 101,
+      w: 100,
+      h: 100,
+    });
+  });
+
+  it('containing-block-023', () => {
+    const node = genNode({
+      children: [
+        {
+          style: {
+            marginTop: 50,
+            marginLeft: 50,
+            marginBottom: 50,
+            marginRight: 50,
+            width: 100,
+          },
+          children: [
+            {
+              style: {
+                marginTop: 50,
+                marginLeft: 50,
+                marginBottom: 50,
+                marginRight: 50,
+              },
+              children: [
+                {
+                  style: {
+                    position: 'absolute',
+                    left: 0,
+                    bottom: 0,
+                    width: 100,
+                    height: 100,
+                  },
+                }
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 50,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 50,
+      y: 50,
+      h: 0,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      x: 100,
+      y: 50,
+      h: 0,
+    });
+    expect(node.children[0].children[0].children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 9900,
+      w: 100,
+      h: 100,
+    });
+  });
+
   it('display-001', () => {
     const node = genNode({
       children: [
