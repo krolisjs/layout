@@ -1,7 +1,8 @@
-import { BoxSizing, Position, Unit } from './style';
+import { BoxSizing, Position, Unit } from './constants';
 import {
   CJK_REG_EXTENDED,
   getMeasureText,
+  getMetricizeFont,
   lineBreak,
   smartMeasure,
 } from './text';
@@ -12,7 +13,7 @@ import {
   getMbpLeft,
   getMbpRight,
   getMbpH,
-  getMbpTop,
+  getMbpTop, calBaseline,
 } from './compute';
 import { LineBoxContext } from './context';
 
@@ -41,6 +42,7 @@ export type InlineBlock = {
 } & Frag;
 
 export type TextBox = Frag & {
+  baseline: number;
   content: string;
 };
 
@@ -236,12 +238,16 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   if (!measureText) {
     throw new Error('Text must be passed to the measureText method.');
   }
+  const metricizeFont = getMetricizeFont();
+  if (!metricizeFont) {
+    throw new Error('Text must be passed to the metricizeFont method.');
+  }
   const style = node.style;
   const res = preset(node, cs, 'text', global) as Text;
   node.result = res;
   const computedStyle = node.computedStyle;
-  // inline的上下margin无效
-  // res.marginTop = res.marginBottom = 0;
+  const { fontFamily, fontSize, letterSpacing, lineHeight } = computedStyle;
+  // inline的上下margin无效，但不修改值只是无视它
   let cx = cs.cx + getMbpLeft(computedStyle);
   let cy = cs.cy;
   let aw = cs.aw;
@@ -251,55 +257,59 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   // 每个textBox还要额外的计算内容区域高度，设置上下平分leading
   let contentArea = node.contentArea;
   if (contentArea === null) {
-    contentArea = node.contentArea = calContentArea(computedStyle.fontFamily, computedStyle.fontSize);
+    contentArea = node.contentArea = calContentArea(fontFamily, fontSize);
   }
-  const leading = (computedStyle.lineHeight - contentArea) * 0.5;
+  const leading = (lineHeight - contentArea) * 0.5;
+  const baseline = calBaseline(fontFamily, fontSize, lineHeight);
   // 不在行首时要检查换行，有可能本行一个字符都排不下
   if (!lbc.current.begin) {
     const c = node.content[0];
     const m = measureText(
       c,
-      style.fontFamily,
-      computedStyle.fontSize,
-      computedStyle.lineHeight,
+      fontFamily,
+      fontSize,
+      lineHeight,
       style.fontWeight,
       style.fontStyle,
-      computedStyle.letterSpacing,
+      letterSpacing,
     );
     const w = m.width;
     if (cs.cx + w - cs.ox > cs.aw) {
       lbc.prepareNextLine();
       lbc.endLine(); // 这里传个标识符绝对有下一行新的，这样刚开始的inline父节点会变到下一行
       cx = cs.ox;
-      cy += computedStyle.lineHeight;
+      cy += lineHeight;
       lbc.newLine(cx, cy);
     }
   }
-  // 遇到换行符手动标识
-  let newLine = false;
+  // 遇到\n换行符手动标识
+  let newLineLB = false;
+  // 非\n换行标识
+  let newLineAuto = false;
   // 循环获取满足宽度下的字符串
   let i = 0;
   let length = content.length;
   while (i < length) {
     if (lineBreak.test(content[i])) {
-      // 连续的换行符，每个产生一个空行
-      if (newLine) {
-        lbc.endLine();
-        lbc.newLine(cx, cy);
-        addEmptyLine(cx, cy + leading, contentArea, node, frags, lbc);
-      }
       i++;
-      cx = cs.ox;
-      cy += computedStyle.lineHeight;
-      if (newLine) {
+      // 连续的换行符，每个产生一个空行
+      if (newLineLB || !newLineAuto) {
+        lbc.endLine();
+        cx = cs.ox;
+        cy += lineHeight;
         lbc.newLine(cx, cy);
+        if (newLineLB) {
+          addEmptyLine(cx, cy + leading, contentArea, baseline, node, frags, lbc);
+        }
       }
       // 后续普通的字符自动用新的行y坐标，如果这是最后一个字符，后面逻辑识别生成新行
-      newLine = true;
+      newLineLB = true;
+      newLineAuto = false;
       continue;
     }
     // 置false，前面假如有换行已经设置好换行坐标了，新的内容用这个坐标即可
-    newLine = false;
+    newLineLB = false;
+    newLineAuto = false;
     // 使用一种预测字符长度的技术，结合2分查找，减少调用measureText的次数
     const {
       num,
@@ -310,30 +320,32 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       content,
       i,
       aw,
-      style.fontFamily,
-      computedStyle.fontSize,
-      computedStyle.lineHeight,
+      fontFamily,
+      fontSize,
+      lineHeight,
       style.fontWeight,
       style.fontStyle,
-      computedStyle.letterSpacing,
+      letterSpacing,
     );
     const textBox: TextBox = {
       x: cx,
       y: cy + leading,
       w: width,
       h: contentArea,
-      content: content.slice(i, num),
+      baseline: cy + baseline,
+      content: content.slice(i, i + num),
     };
     frags.push(textBox);
     i += num;
     lbc.addText(textBox, node);
     maxW = Math.max(maxW, textBox.w);
     if (breakLine) {
-      lbc.endLine();
-      cx = cs.ox;
-      cy += computedStyle.lineHeight;
-      // 新开一行
+      newLineAuto = true;
+      // 新开一行，这里能提前知道
       if (i < length) {
+        lbc.endLine();
+        cx = cs.ox;
+        cy += lineHeight;
         lbc.newLine(cx, cy);
       }
     }
@@ -342,10 +354,13 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     }
   }
   // 最后一个换行符手动空行
-  if (newLine) {
-    lbc.endLine();
-    lbc.newLine(cx, cy);
-    addEmptyLine(cx, cy + leading, contentArea, node, frags, lbc);
+  if (newLineLB) {
+    if (lbc.endLine()) {
+      cx = cs.ox;
+      cy += lineHeight;
+      lbc.newLine(cx, cy);
+    }
+    addEmptyLine(cx, cy + leading, contentArea, cy + baseline, node, frags, lbc);
   }
   lbc.popText(node);
   res.w = maxW;
@@ -354,19 +369,20 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     res.h = last.y + last.h - cs.cy;
   }
   else {
-    res.h = computedStyle.lineHeight;
+    res.h = lineHeight;
   }
   // 没有子节点不需要产生新的递归约束，但要修改父级约束当前位置
   cs.cx = cx;
   cs.cy = cy;
 }
 
-function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags: TextBox[], lbc: LineBoxContext) {
+function addEmptyLine(cx: number, cy: number, h: number, baseline: number, node: ITextNode, frags: TextBox[], lbc: LineBoxContext) {
   const empty: TextBox = {
     x: cx,
     y: cy,
     w: 0,
     h,
+    baseline,
     content: '\n', // 统一标准化
   };
   frags.push(empty);

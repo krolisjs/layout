@@ -1,6 +1,6 @@
-import type { Constraints } from './layout';
-import type { Global, INode } from './node';
-import { Display, FontStyle, Overflow, Position, Unit } from './style';
+import { Display, FontStyle, NodeType, Overflow, Position, Unit } from './constants';
+import type { Constraints, TextBox } from './layout';
+import type { Global, IElementNode, INode } from './node';
 import type { ComputedStyle, Length } from './style';
 import { getMetricizeFont } from './text';
 
@@ -297,4 +297,48 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
       computedStyle[k] = Math.max(0, calLength(style[k], cs.pbw || 0, global.rem, computedStyle.fontSize));
     }
   });
+}
+
+function getBaseline(node: INode, oy: number) {
+  if (node.nodeType === NodeType.Element) {
+    const { children, style } = node;
+    let flowChildrenCount = 0;
+    // 寻找最后一个子节点的baseline
+    for (let i = children.length - 1; i >= 0; i++) {
+      const child = children[i];
+      const style = child.style;
+      if (style.position === Position.ABSOLUTE) {
+        continue;
+      }
+      // 空文本节点忽略
+      if (child.nodeType === NodeType.Text && !child.hasContent()) {
+        continue;
+      }
+      flowChildrenCount++;
+      return getBaseline(child, oy);
+    }
+    const res = node.result!;
+    const computedStyle = node.computedStyle;
+    // 找不到的话block等返回自身外边距底部
+    if ([Display.BLOCK, Display.INLINE_BLOCK].includes(style.display)
+      && (style.overflow !== Overflow.VISIBLE || !flowChildrenCount)) {
+      return res!.h + getMbpV(computedStyle) + res!.y - oy;
+    }
+    // inline
+    return calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight)
+      + res.y - oy;
+  }
+  else {
+    const res = node.result!;
+    const frags = res.frags as TextBox[];
+    const last = frags[frags.length - 1]!;
+    const computedStyle = node.computedStyle;
+    return last.baseline - oy;
+  }
+}
+
+export function getInlineBlockBaseline(node: IElementNode) {
+  const res = node.result!;
+  const oy = res.y - getMbpTop(node.computedStyle);
+  return getBaseline(node, oy);
 }

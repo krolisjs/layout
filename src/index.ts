@@ -1,3 +1,13 @@
+import {
+  BoxSizing,
+  Display,
+  FontStyle,
+  NodeType,
+  Overflow,
+  Position,
+  Unit,
+  VerticalAlign,
+} from './constants';
 import { LineBoxContext } from './context';
 import { normalizeConstraints } from './layout';
 import type {
@@ -22,11 +32,6 @@ import type {
   ITextNode,
 } from './node';
 import {
-  BoxSizing,
-  Display,
-  FontStyle,
-  Position,
-  Unit,
   calCssLength,
   getDefaultStyle,
   normalizeStyle,
@@ -53,13 +58,16 @@ export {
   getMetricizeFont,
   LineBoxContext,
   Node,
+  NodeType,
   normalizeConstraints,
   normalizeStyle,
   Position,
   setMeasureText,
   setMetricizeFont,
+  Overflow,
   TextNode,
   Unit,
+  VerticalAlign,
 };
 
 export type {

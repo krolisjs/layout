@@ -531,21 +531,6 @@ describe('normal-flow', () => {
     });
   });
 
-  it('width-001', () => {
-    const node = genNode({
-      style: {
-        width: 0,
-      },
-    });
-    node.lay(inputConstraints);
-    expect(node.mixedResult).toMatchObject({
-      x: 0,
-      y: 0,
-      w: 0,
-      h: 0,
-    });
-  });
-
   it('height-001', () => {
     const node = genNode({
       style: {
@@ -558,6 +543,77 @@ describe('normal-flow', () => {
       y: 0,
       w: 10000,
       h: 0,
+    });
+  });
+
+  it('inline-block-000', () => {
+    const node = genNode({
+      children: [
+        { content: 'a' },
+        {
+          style: {
+            display: 'inlineBlock',
+          },
+          children: [{ content: 'b' }],
+        },
+        { content: 'c' },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 16,
+      y: 0,
+      w: 16,
+      h: 24,
+    });
+  });
+
+  it('inline-block-001', () => {
+    const node = genNode({
+      children: [
+        { content: 'This test has:' },
+        {
+          style: {
+            display: 'inlineBlock',
+            paddingRight: '1em',
+            paddingBottom: '1em',
+            paddingLeft: '1em',
+            borderTopWidth: '1em',
+            borderRightWidth: '1em',
+            borderBottomWidth: '1em',
+            borderLeftWidth: '1em',
+          },
+          children: [{ content: '1\n2\n3' }],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 65,
+      w: 224,
+      h: 22,
+      frags: [
+        { x: 0, y: 65, w: 224, h: 22, baseline: 79, content: 'This test has:' },
+      ],
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 256,
+      y: 16,
+      w: 16,
+      h: 72,
+    });
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
+      type: 'text',
+      x: 256,
+      y: 17,
+      w: 16,
+      h: 70,
+      frags: [
+        { x: 256, y: 17, w: 16, h: 22, baseline: 31, content: '1' },
+        { x: 256, y: 41, w: 16, h: 22, baseline: 55, content: '2' },
+        { x: 256, y: 65, w: 16, h: 22, baseline: 79, content: '3' },
+      ],
     });
   });
 
@@ -594,6 +650,138 @@ describe('normal-flow', () => {
       x: 0,
       y: 24,
       w: 160,
+      h: 24,
+    });
+    expect(node.children[2].mixedResult).toMatchObject({
+      x: 0,
+      y: 49,
+      w: 16,
+      h: 22,
+    });
+  });
+
+  it('inline-block-width-001b', () => {
+    const node = genNode({
+      style: {
+        width: '10em',
+      },
+      children: [
+        { content: 'x' },
+        {
+          style: {
+            display: 'inlineBlock',
+            width: '10em',
+          },
+          children: [{ content: '1234567890' }],
+        },
+        { content: 'z' },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 160,
+      h: 72,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 1,
+      w: 16,
+      h: 22,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 24,
+      w: 160,
+      h: 24,
+    });
+    expect(node.children[2].mixedResult).toMatchObject({
+      x: 0,
+      y: 49,
+      w: 16,
+      h: 22,
+    });
+  });
+
+  it('inline-block-width-002a', () => {
+    const node = genNode({
+      style: {
+        width: '10em',
+      },
+      children: [
+        { content: 'x' },
+        {
+          style: {
+            display: 'inlineBlock',
+          },
+          children: [
+            {
+              style: {
+                width: '20em',
+              },
+              children: [{ content: 'y' }],
+            },
+          ],
+        },
+        { content: 'z' },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 160,
+      h: 72,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 24,
+      w: 320,
+      h: 24,
+    });
+    expect(node.children[2].mixedResult).toMatchObject({
+      x: 0,
+      y: 49,
+      w: 16,
+      h: 22,
+    });
+  });
+
+  it('inline-block-width-002b', () => {
+    const node = genNode({
+      style: {
+        width: '10em',
+      },
+      children: [
+        { content: 'x' },
+        {
+          style: {
+            display: 'inlineBlock',
+            width: '20em',
+          },
+          children: [
+            {
+              style: {
+              },
+              children: [{ content: 'y' }],
+            },
+          ],
+        },
+        { content: 'z' },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 160,
+      h: 72,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 24,
+      w: 320,
       h: 24,
     });
     expect(node.children[2].mixedResult).toMatchObject({
@@ -678,6 +866,21 @@ describe('normal-flow', () => {
         }
       ],
       type: 'text',
+    });
+  });
+
+  it('width-001', () => {
+    const node = genNode({
+      style: {
+        width: 0,
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
     });
   });
 });

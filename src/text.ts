@@ -1,4 +1,4 @@
-import { FontStyle } from './style';
+import { FontStyle } from './constants';
 
 export type TextMeasures = { width: number };
 

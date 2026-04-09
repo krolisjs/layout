@@ -1,6 +1,14 @@
-import { calBaseline, calContentArea, calLeading, getMbpBottom, getMbpRight, getMbpV } from './compute';
+import { VerticalAlign } from './constants';
+import {
+  calBaseline,
+  calContentArea,
+  calLeading,
+  getInlineBlockBaseline,
+  getMbpBottom,
+  getMbpRight,
+  getMbpV
+} from './compute';
 import type { Constraints, Frag, Inline, Text, TextBox } from './layout';
-import { VerticalAlign } from './style';
 import type { IElementNode, INode, ITextNode } from './node';
 
 enum ContentBoxType {
@@ -272,7 +280,7 @@ export class LineBoxContext {
     let hBase = 0;
     const struct = this.struct;
     let structBaseline = this.structBaseline;
-    // 缓存只求一次，多行情况下支柱不用重复计算
+    // 缓存只求一次，多行情况下支柱不用重复计算，这里不能复用节点的baseline，因为含义不同
     if (struct && structBaseline === null) {
       const computedStyle = struct.computedStyle;
       structBaseline = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
@@ -284,7 +292,8 @@ export class LineBoxContext {
       maxLower = computedStyle.lineHeight - maxUpper;
       hBase = computedStyle.lineHeight;
     }
-    // 求出基线极值和初步的行高
+    const baselineCache: WeakMap<IElementNode, number> = new WeakMap();
+    // 求出基线极值和初步的行高，text不能调用getBaseline()，多行会缓存住第一行的结果，然后多行和外部对齐时直接拿缓存就错了
     for (let i = 0, len = list.length; i < len; i++) {
       const { type, node } = list[i];
       const style = node.style;
@@ -292,8 +301,10 @@ export class LineBoxContext {
       const res = node.result!;
       if (style.verticalAlign === VerticalAlign.BASELINE) {
         let b: number;
-        if (ContentBoxType.INLINE_BLOCK === type) {
-          b = node.getBaseline();
+        if (type === ContentBoxType.INLINE_BLOCK) {
+          b = getInlineBlockBaseline(node);
+          // 后续偏移还要使用，缓存
+          baselineCache.set(node, b);
           const n = res.h + getMbpV(computedStyle) - b;
           if (maxLower === null) {
             maxLower = n;
@@ -330,8 +341,8 @@ export class LineBoxContext {
       const computedStyle = node.computedStyle;
       if (style.verticalAlign === VerticalAlign.TOP) {
         let b: number;
-        if (ContentBoxType.INLINE_BLOCK === type) {
-          b = node.getBaseline();
+        if (type === ContentBoxType.INLINE_BLOCK) {
+          b = getInlineBlockBaseline(node);
         }
         else {
           b = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
@@ -348,8 +359,10 @@ export class LineBoxContext {
       }
       else if (style.verticalAlign === VerticalAlign.BOTTOM) {
         let b: number;
-        if (ContentBoxType.INLINE_BLOCK === type) {
-          b = node.getBaseline();
+        if (type === ContentBoxType.INLINE_BLOCK) {
+          b = getInlineBlockBaseline(node);
+          // bottom也要偏移复用
+          baselineCache.set(node, b);
         }
         else {
           b = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
@@ -375,26 +388,36 @@ export class LineBoxContext {
       const computedStyle = node.computedStyle;
       if (style.verticalAlign === VerticalAlign.TOP) {
         const leading = calLeading(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
-        if (type === ContentBoxType.INLINE_BLOCK) {
-        }
-        else {
-          frag.y += leading * 0.5;
+        if (type !== ContentBoxType.INLINE_BLOCK) {
+          const d = leading * 0.5;
+          frag.y += d;
+          if (type === ContentBoxType.TEXT) {
+            frag.baseline += d;
+          }
         }
       }
       else if (style.verticalAlign === VerticalAlign.BASELINE) {
         if (type === ContentBoxType.INLINE_BLOCK) {
-          node.offsetY(maxUpper! - node.getBaseline());
+          node.offsetY(maxUpper! - baselineCache.get(node)!);
         }
         else {
-          frag.y += maxUpper! - calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
+          const d = maxUpper! - calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
+          frag.y += d;
+          if (type === ContentBoxType.TEXT) {
+            frag.baseline += d;
+          }
         }
       }
       else if (style.verticalAlign === VerticalAlign.BOTTOM) {
         if (type === ContentBoxType.INLINE_BLOCK) {
-          node.offsetY(hBase - node.getBaseline());
+          node.offsetY(hBase - baselineCache.get(node)!);
         }
         else {
-          frag.y += hBase - computedStyle.lineHeight;
+          const d = hBase - computedStyle.lineHeight;
+          frag.y += d;
+          if (type === ContentBoxType.TEXT) {
+            frag.baseline += d;
+          }
         }
       }
     }

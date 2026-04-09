@@ -1,12 +1,5 @@
-import {
-  BoxSizing,
-  Display,
-  getDefaultComputedStyle,
-  getDefaultStyle,
-  Overflow,
-  Position,
-  Unit,
-} from './style';
+import { BoxSizing, Display, NodeType, Overflow, Position, Unit } from './constants';
+import { getDefaultComputedStyle, getDefaultStyle } from './style';
 import type { ComputedStyle, JStyle, Style } from './style';
 import {
   afterFlowBox,
@@ -38,11 +31,6 @@ import {
   isFixed,
 } from './compute';
 
-export enum NodeType {
-  Element = 0,
-  Text = 1,
-}
-
 export interface INode {
   readonly id: number;
   readonly nodeType: NodeType;
@@ -60,7 +48,6 @@ export interface INode {
   insertAfter(item: INode): void;
   remove(): void;
   hasContent(): boolean;
-  getBaseline(): number;
   offsetY(n: number): void;
   lay(ics: InputConstraints): void;
   layFlow(cs: Constraints, absMap: WeakMap<INode, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset): void;
@@ -73,7 +60,6 @@ export interface IElementNode extends INode {
   result: Block | InlineBlock | Inline | null;
   constraints: Constraints | null;
   lineBoxContext: LineBoxContext | null;
-  baseline: number | null;
   appendChild(item: INode): void;
   prependChild(item: INode): void;
   removeChild(item: INode): void;
@@ -117,7 +103,6 @@ export abstract class Node implements INode {
   result: Result | null = null; // 布局结果
   collapse = false; // 是否空块可穿透缓存
   contentArea: number | null = null; // 文字内容高度缓存
-  baseline: number | null = null; // 基线高度缓存
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
     this.nodeType = nodeType;
@@ -217,8 +202,6 @@ export abstract class Node implements INode {
   abstract layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset): void;
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
-
-  abstract getBaseline(): number;
 
   protected getContainingNode() {
     let parent = this.parent;
@@ -327,31 +310,6 @@ export class Element extends Node implements IElementNode {
     }
   }
 
-  getBaseline() {
-    const { children, style, baseline } = this;
-    if (baseline !== null) {
-      return baseline;
-    }
-    const res = this.result!;
-    const computedStyle = this.computedStyle;
-    if ([Display.BLOCK, Display.INLINE_BLOCK].includes(style.display) && (style.overflow !== Overflow.VISIBLE || !children.length)) {
-      return this.baseline = res.h + getMbpV(computedStyle);
-    }
-    for (let i = children.length - 1; i >= 0; i++) {
-      const child = children[i];
-      const style = child.style;
-      if (style.position === Position.ABSOLUTE) {
-        continue;
-      }
-      // 空文本节点忽略
-      if (child.nodeType === NodeType.Text && !child.hasContent()) {
-        continue;
-      }
-      return this.baseline = child.getBaseline();
-    }
-    return this.baseline = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
-  }
-
   /**
    * @param cs 约束空间，目前可用的尺寸、百分比、是否可计算百分比状态和位置
    * @param absMap abs节点和其相对包含块节点记录，等end时开始处理所拥有的abs节点
@@ -412,10 +370,11 @@ export class Element extends Node implements IElementNode {
     // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
     const res = preset(this, cs, 'inlineBlock', global) as InlineBlock;
     const used = cs.cx - cs.ox;
+    const fixedW = isFixed(style.width, true, cs.pbw);
     // 无论是否固定，都要求一个max尺寸，固定时就是width；然后看非行首是否放得下，考虑换行
     let max: number;
     // 不固定则预测量
-    if (!isFixed(style.width, true, cs.pbw)) {
+    if (!fixedW) {
       const mm = this.shrink2Fit(cs, global);
       max = mm.max;
       const aw = cs.aw - used;
@@ -435,7 +394,9 @@ export class Element extends Node implements IElementNode {
       lbc.newLine(cs.cx, cs.cy);
       res.x = cs.ox + getMbpLeft(computedStyle);
       res.y = cs.cy + getMbpTop(computedStyle);
-      res.w = Math.min(cs.aw, max);
+      if (!fixedW && res.w < cs.aw) {
+        res.w = cs.aw;
+      }
     }
     scs = inlineBlock(this, cs, global, res);
     this.constraints = scs;
@@ -504,7 +465,8 @@ export class Element extends Node implements IElementNode {
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
       child.layFlow(scs, absMap, global, mc, slbc, offset);
-      if (child.style.position !== Position.ABSOLUTE) {
+      // 除了absolute，空的text也无视
+      if (child.style.position !== Position.ABSOLUTE && (child.nodeType !== NodeType.Text || child.hasContent())) {
         flowChildrenCount++;
         if (collapse && !child.collapse) {
           collapse = false;
@@ -661,6 +623,11 @@ export class Element extends Node implements IElementNode {
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       children[i].layFlow(scs, absMap, global, mc, slbc, offset);
+    }
+    if (slbc.endLine()) {
+      const current = slbc.current;
+      scs.cx = scs.ox;
+      scs.cy += current.h;
     }
     // 模拟end
     const isAutoH = style.height.u === Unit.AUTO && (top.u === Unit.AUTO || bottom.u === Unit.AUTO);
@@ -867,16 +834,5 @@ export class TextNode extends Node implements ITextNode {
 
   shrink2Fit(cs: Constraints, global: Global) {
     return minMaxText(this, cs, global);
-  }
-
-  getBaseline() {
-    if (this.baseline !== null) {
-      return this.baseline;
-    }
-    const res = this.result!;
-    const frags = res.frags;
-    const last = frags[frags.length - 1]!;
-    const computedStyle = this.computedStyle;
-    return this.baseline = calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight) + last.y - res.y;
   }
 }
