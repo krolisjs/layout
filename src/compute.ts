@@ -37,11 +37,15 @@ export function calNormalLineHeight(fontFamily: string, fontSize: number) {
   return fontSize * (m.ascentRatio + m.descentRatio + (m.lineGapRatio || 0));
 }
 
-export function calBaseline(fontFamily: string, fontSize: number, lineHeight: number) {
+export function calBaseline(fontFamily: string, fontSize: number, lineHeight: number, excludeLeading = false) {
   const metricizeFont = getMetricizeFont();
   const m = metricizeFont!(fontFamily);
+  const a = fontSize * m.ascentRatio;
+  if (excludeLeading) {
+    return a;
+  }
   const leading = calLeading(fontFamily, fontSize, lineHeight);
-  return leading * 0.5 + fontSize * m.ascentRatio;
+  return leading * 0.5 + a;
 }
 
 export function calLeading(fontFamily: string, fontSize: number, lineHeight: number) {
@@ -332,8 +336,7 @@ function getBaseline(node: INode, oy: number) {
     const res = node.result!;
     const frags = res.frags as TextBox[];
     const last = frags[frags.length - 1]!;
-    const computedStyle = node.computedStyle;
-    return last.baseline - oy;
+    return last.y + last.baseline - oy;
   }
 }
 

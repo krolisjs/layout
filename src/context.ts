@@ -391,9 +391,6 @@ export class LineBoxContext {
         if (type !== ContentBoxType.INLINE_BLOCK) {
           const d = leading * 0.5;
           frag.y += d;
-          if (type === ContentBoxType.TEXT) {
-            frag.baseline += d;
-          }
         }
       }
       else if (style.verticalAlign === VerticalAlign.BASELINE) {
@@ -403,9 +400,6 @@ export class LineBoxContext {
         else {
           const d = maxUpper! - calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
           frag.y += d;
-          if (type === ContentBoxType.TEXT) {
-            frag.baseline += d;
-          }
         }
       }
       else if (style.verticalAlign === VerticalAlign.BOTTOM) {
@@ -415,9 +409,6 @@ export class LineBoxContext {
         else {
           const d = hBase - computedStyle.lineHeight;
           frag.y += d;
-          if (type === ContentBoxType.TEXT) {
-            frag.baseline += d;
-          }
         }
       }
     }

@@ -42,8 +42,8 @@ export type InlineBlock = {
 } & Frag;
 
 export type TextBox = Frag & {
-  baseline: number;
-  content: string;
+  baseline: number; // 相对于自身y的值，应该没有leading的干扰
+  content: string; // 这一行的内容
 };
 
 export type Result = Block | InlineBlock | Inline | Text;
@@ -260,7 +260,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     contentArea = node.contentArea = calContentArea(fontFamily, fontSize);
   }
   const leading = (lineHeight - contentArea) * 0.5;
-  const baseline = calBaseline(fontFamily, fontSize, lineHeight);
+  const baseline = calBaseline(fontFamily, fontSize, lineHeight, true);
   // 不在行首时要检查换行，有可能本行一个字符都排不下
   if (!lbc.current.begin) {
     const c = node.content[0];
@@ -332,7 +332,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       y: cy + leading,
       w: width,
       h: contentArea,
-      baseline: cy + baseline,
+      baseline,
       content: content.slice(i, i + num),
     };
     frags.push(textBox);
@@ -360,7 +360,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       cy += lineHeight;
       lbc.newLine(cx, cy);
     }
-    addEmptyLine(cx, cy + leading, contentArea, cy + baseline, node, frags, lbc);
+    addEmptyLine(cx, cy + leading, contentArea, baseline, node, frags, lbc);
   }
   lbc.popText(node);
   res.w = maxW;
