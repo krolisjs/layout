@@ -264,7 +264,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   const res = preset(node, cs, 'text', global) as Text;
   node.result = res;
   const computedStyle = node.computedStyle;
-  const { fontFamily, fontSize, letterSpacing, lineHeight } = computedStyle;
+  const { fontFamily, fontSize, fontWeight, fontStyle, letterSpacing, lineHeight } = computedStyle;
   // inline的上下margin无效，但不修改值只是无视它
   let cx = cs.cx + getMbpLeft(computedStyle);
   let cy = cs.cy;
@@ -286,8 +286,8 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       fontFamily,
       fontSize,
       lineHeight,
-      style.fontWeight,
-      style.fontStyle,
+      fontWeight,
+      fontStyle,
       letterSpacing,
     );
     const w = m.width;
@@ -340,8 +340,8 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       fontFamily,
       fontSize,
       lineHeight,
-      style.fontWeight,
-      style.fontStyle,
+      fontWeight,
+      fontStyle,
       letterSpacing,
     );
     const textBox: TextBox = {

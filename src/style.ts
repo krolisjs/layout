@@ -112,7 +112,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     borderLeftWidth: { v: 0, u: Unit.PX },
     fontFamily: 'inherit',
     fontStyle: FontStyle.INHERIT,
-    fontWeight: 0,
+    fontWeight: 400,
     fontSize: { v: 0, u: Unit.INHERIT },
     lineHeight: { v: 0, u: Unit.INHERIT },
     letterSpacing: { v: 0, u: Unit.INHERIT },
