@@ -36,8 +36,9 @@ export enum Unit {
   VH = 12,
   VMAX = 13,
   VMIN = 14,
-  MIN_CONTENT = 15,
+  MIN_CONTENT = 15, // 以下3个暂时无实现
   MAX_CONTENT = 16,
+  FIT_CONTENT = 17,
 }
 
 export enum BoxSizing {

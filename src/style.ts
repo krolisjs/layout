@@ -156,6 +156,12 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
       u: Unit.MAX_CONTENT,
     };
   }
+  if (v === 'fitContent') {
+    return {
+      v: 0,
+      u: Unit.FIT_CONTENT,
+    };
+  }
   let n = parseFloat(v as string) || 0;
   if (/%$/.test(v as string)) {
     return {

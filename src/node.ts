@@ -399,6 +399,10 @@ export class Element extends Node implements IElementNode {
       }
     }
     scs = inlineBlock(this, cs, global, res);
+    // inlineBlock宽时auto时，生成的pbw是null，此时因为预测量已经获取
+    if (scs.pbw === null) {
+      scs.pbw = res.w;
+    }
     this.constraints = scs;
     const slbc = new LineBoxContext(scs.cx, scs.cy, this);
     this.lineBoxContext = slbc;
@@ -689,7 +693,9 @@ export class Element extends Node implements IElementNode {
     else {
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
-        const o = children[i].shrink2Fit(cs, global);
+        const child = children[i];
+        calComputedStyle(child, cs, global);
+        const o = child.shrink2Fit(cs, global);
         min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }

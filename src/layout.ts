@@ -138,6 +138,7 @@ function bib(node: IElementNode, cs: Constraints, res: Block | InlineBlock) {
     pbh: res.h,
   };
   if (style.width.u === Unit.AUTO) {
+    // 这里block的auto视作撑满，inlineBlock在进入布局时无效，预测量完后在layInlineBlock里自己改
     if (res.type === 'block') {
       scs.pbw = scs.aw = res.w = Math.max(0, cs.aw - getMbpH(computedStyle));
     }
@@ -432,19 +433,19 @@ export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
       min += getMbpRight(computedStyle);
     }
   }
-  // 逐字遍历，需做缓存
+  // 最小值逐字遍历，需做缓存
   else {
     const cache: Record<string, number> = {};
     for (let i = 0, len = content.length; i < len; i++) {
       const c = content[i];
       let width = 0;
       // 最大单字可能已求得，可省略
-      if (min < computedStyle.fontSize && !i && i !== len - 1) {
+      if (min < computedStyle.fontSize) {
         if (cache[c] !== undefined) {
           width = cache[c];
         }
         else {
-          width = measureText(c, computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, computedStyle.fontWeight, computedStyle.fontStyle, computedStyle.letterSpacing).width;
+          width = cache[c] = measureText(c, computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, computedStyle.fontWeight, computedStyle.fontStyle, computedStyle.letterSpacing).width;
         }
       }
       if (!i) {

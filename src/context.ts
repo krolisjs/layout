@@ -381,7 +381,7 @@ export class LineBoxContext {
       hBase = Math.max(hBase, maxUpper + maxLower);
     }
     current.h = hBase;
-    // 遍历所有的设置
+    // 遍历所有的设置偏移
     for (let i = 0, len = list.length; i < len; i++) {
       const { node, frag, type } = list[i];
       const style = node.style;
