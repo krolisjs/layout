@@ -21,28 +21,28 @@ import { LineBoxContext } from './context';
 export type Frag = { x: number; y: number; w: number; h: number };
 
 export type Block = {
-  type: 'block',
-  frags: null,
+  type: 'block';
+  frags: null;
 } & Frag;
 
 export type Inline = {
-  type: 'inline',
-  frags: Frag[],
+  type: 'inline';
+  frags: Frag[];
 } & Frag;
 
 export type Text = {
-  type: 'text',
+  type: 'text';
+  baseline: number; // 相对于TextBox的y的值
   // 包含所有折行后的矩形，按行序排列
   frags: TextBox[];
 } & Frag;
 
 export type InlineBlock = {
-  type: 'inlineBlock',
-  frags: null,
+  type: 'inlineBlock';
+  frags: null;
 } & Frag;
 
 export type TextBox = Frag & {
-  baseline: number; // 相对于自身y的值，应该没有leading的干扰
   content: string; // 这一行的内容
 };
 
@@ -78,14 +78,28 @@ export function normalizeConstraints(ic: InputConstraints) {
 export function preset(node: INode, cs: Constraints, type: Result['type'], global: Global) {
   const style = node.style;
   const computedStyle = node.computedStyle;
-  const res: any = {
-    type,
-    frags: ['block', 'inlineBlock'].includes(type) ? null : [],
-    x: cs.cx,
-    y: cs.cy,
-    w: 0,
-    h: 0,
-  };
+  let res: Result;
+  if (type === 'text') {
+    res = {
+      type,
+      frags: [],
+      x: cs.cx,
+      y: cs.cy,
+      w: 0,
+      h: 0,
+      baseline: calBaseline(computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, true),
+    }
+  }
+  else {
+    res = {
+      type,
+      frags: ['block', 'inlineBlock'].includes(type) ? null : [],
+      x: cs.cx,
+      y: cs.cy,
+      w: 0,
+      h: 0,
+    } as (Block | Inline | InlineBlock);
+  }
 
   if (style.width.u !== Unit.AUTO) {
     res.w = Math.max(0, calLength(style.width, cs.pbw || 0, global.rem, computedStyle.fontSize));
@@ -113,7 +127,10 @@ export function preset(node: INode, cs: Constraints, type: Result['type'], globa
     res.y += getMbpTop(computedStyle);
     return res as InlineBlock;
   }
-  return type === 'inline' ? (res as Inline) : (res as Text);
+  if (type === 'inline') {
+    return res as Inline;
+  }
+  return res as Text;
 }
 
 // block和inlineBlock复用
@@ -261,7 +278,6 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     contentArea = node.contentArea = calContentArea(fontFamily, fontSize);
   }
   const leading = (lineHeight - contentArea) * 0.5;
-  const baseline = calBaseline(fontFamily, fontSize, lineHeight, true);
   // 不在行首时要检查换行，有可能本行一个字符都排不下
   if (!lbc.current.begin) {
     const c = node.content[0];
@@ -300,7 +316,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
         cy += lineHeight;
         lbc.newLine(cx, cy);
         if (newLineLB) {
-          addEmptyLine(cx, cy + leading, contentArea, baseline, node, frags, lbc);
+          addEmptyLine(cx, cy + leading, contentArea, node, frags, lbc);
         }
       }
       // 后续普通的字符自动用新的行y坐标，如果这是最后一个字符，后面逻辑识别生成新行
@@ -333,7 +349,6 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       y: cy + leading,
       w: width,
       h: contentArea,
-      baseline,
       content: content.slice(i, i + num),
     };
     frags.push(textBox);
@@ -361,7 +376,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       cy += lineHeight;
       lbc.newLine(cx, cy);
     }
-    addEmptyLine(cx, cy + leading, contentArea, baseline, node, frags, lbc);
+    addEmptyLine(cx, cy + leading, contentArea, node, frags, lbc);
   }
   lbc.popText(node);
   res.w = maxW;
@@ -377,13 +392,12 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   cs.cy = cy;
 }
 
-function addEmptyLine(cx: number, cy: number, h: number, baseline: number, node: ITextNode, frags: TextBox[], lbc: LineBoxContext) {
+function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags: TextBox[], lbc: LineBoxContext) {
   const empty: TextBox = {
     x: cx,
     y: cy,
     w: 0,
     h,
-    baseline,
     content: '\n', // 统一标准化
   };
   frags.push(empty);

@@ -593,8 +593,9 @@ describe('normal-flow', () => {
       y: 65,
       w: 224,
       h: 22,
+      baseline: 14,
       frags: [
-        { x: 0, y: 65, w: 224, h: 22, baseline: 14, content: 'This test has:' },
+        { x: 0, y: 65, w: 224, h: 22, content: 'This test has:' },
       ],
     });
     expect(node.children[1].mixedResult).toMatchObject({
@@ -609,10 +610,11 @@ describe('normal-flow', () => {
       y: 17,
       w: 16,
       h: 70,
+      baseline: 14,
       frags: [
-        { x: 256, y: 17, w: 16, h: 22, baseline: 14, content: '1' },
-        { x: 256, y: 41, w: 16, h: 22, baseline: 14, content: '2' },
-        { x: 256, y: 65, w: 16, h: 22, baseline: 14, content: '3' },
+        { x: 256, y: 17, w: 16, h: 22, content: '1' },
+        { x: 256, y: 41, w: 16, h: 22, content: '2' },
+        { x: 256, y: 65, w: 16, h: 22, content: '3' },
       ],
     });
   });

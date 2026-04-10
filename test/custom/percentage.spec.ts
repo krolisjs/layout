@@ -116,3 +116,11 @@ describe('percentage-width', () => {
     });
   });
 });
+
+describe('percentage-height', () => {
+  let inputConstraints: InputConstraints;
+
+  beforeEach(() => {
+    inputConstraints = createTestInputConstraints();
+  });
+});

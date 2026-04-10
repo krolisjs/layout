@@ -1,5 +1,5 @@
 import { Display, FontStyle, NodeType, Overflow, Position, Unit } from './constants';
-import type { Constraints, TextBox } from './layout';
+import type { Constraints, Text, TextBox } from './layout';
 import type { Global, IElementNode, INode } from './node';
 import type { ComputedStyle, Length } from './style';
 import { getMetricizeFont } from './text';
@@ -336,7 +336,7 @@ function getBaseline(node: INode, oy: number) {
     const res = node.result!;
     const frags = res.frags as TextBox[];
     const last = frags[frags.length - 1]!;
-    return last.y + last.baseline - oy;
+    return last.y + (res as Text).baseline - oy;
   }
 }
 
