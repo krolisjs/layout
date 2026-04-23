@@ -173,3 +173,21 @@ export function smartMeasure(
   // }
   return { num: hypotheticalNum, width, breakLine };
 }
+
+export type Segment = {
+  segment: string;
+  index: number;
+  isWordLike: boolean;
+};
+
+export type SegmentText = (text: string) => Segment;
+
+let segmentText: SegmentText | null = null;
+
+export function getSegmentText() {
+  return segmentText;
+}
+
+export function setSegmentText(st: SegmentText) {
+  segmentText = st;
+}
