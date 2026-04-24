@@ -44,7 +44,14 @@ import type {
   JStyle,
   Style,
 } from './style';
-import { getMeasureText, getMetricizeFont, setMeasureText, setMetricizeFont } from './text';
+import {
+  getMeasureText,
+  getMetricizeFont,
+  setMeasureText,
+  setMetricizeFont,
+  getSegmentText,
+  setSegmentText,
+} from './text';
 import type { FontMetrics, MeasureText, MetricizeFont, TextMeasures } from './text';
 
 export {
@@ -56,6 +63,7 @@ export {
   getDefaultStyle,
   getMeasureText,
   getMetricizeFont,
+  getSegmentText,
   LineBoxContext,
   Node,
   NodeType,
@@ -64,6 +72,7 @@ export {
   Position,
   setMeasureText,
   setMetricizeFont,
+  setSegmentText,
   Overflow,
   TextNode,
   Unit,

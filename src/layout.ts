@@ -3,6 +3,7 @@ import {
   CJK_REG_EXTENDED,
   getMeasureText,
   getMetricizeFont,
+  getSegmentText,
   lineBreak,
   smartMeasure,
 } from './text';
@@ -260,7 +261,10 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   if (!metricizeFont) {
     throw new Error('Text must be passed to the metricizeFont method.');
   }
-  const style = node.style;
+  const segmentText = getSegmentText();
+  if (!segmentText) {
+    throw new Error('Text must be passed to the segmentText method.');
+  }
   const res = preset(node, cs, 'text', global) as Text;
   node.result = res;
   const computedStyle = node.computedStyle;
