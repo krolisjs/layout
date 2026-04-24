@@ -30,9 +30,6 @@ export function getMbpBottom(computedStyle: ComputedStyle) {
 
 export function calNormalLineHeight(fontFamily: string, fontSize: number) {
   const metricizeFont = getMetricizeFont();
-  if (!metricizeFont) {
-    throw new Error('Text must be passed to the metricizeFont method.');
-  }
   const m = metricizeFont(fontFamily);
   return fontSize * (m.ascentRatio + m.descentRatio + (m.lineGapRatio || 0));
 }
@@ -55,9 +52,6 @@ export function calLeading(fontFamily: string, fontSize: number, lineHeight: num
 
 export function calContentArea(fontFamily: string, fontSize: number) {
   const metricizeFont = getMetricizeFont();
-  if (!metricizeFont) {
-    throw new Error('Text must be passed to the metricizeFont method.');
-  }
   const m = metricizeFont(fontFamily);
   return fontSize * Math.max(0, m.ascentRatio + m.descentRatio);
 }

@@ -2,7 +2,6 @@ import { BoxSizing, Position, Unit } from './constants';
 import {
   CJK_REG_EXTENDED,
   getMeasureText,
-  getMetricizeFont,
   getSegmentText,
   lineBreak,
   smartMeasure,
@@ -254,17 +253,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     return;
   }
   const measureText = getMeasureText();
-  if (!measureText) {
-    throw new Error('Text must be passed to the measureText method.');
-  }
-  const metricizeFont = getMetricizeFont();
-  if (!metricizeFont) {
-    throw new Error('Text must be passed to the metricizeFont method.');
-  }
   const segmentText = getSegmentText();
-  if (!segmentText) {
-    throw new Error('Text must be passed to the segmentText method.');
-  }
   const res = preset(node, cs, 'text', global) as Text;
   node.result = res;
   const computedStyle = node.computedStyle;
@@ -410,9 +399,6 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags:
 
 export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
   const measureText = getMeasureText();
-  if (!measureText) {
-    throw new Error('Text must be passed to the measureText method.');
-  }
   const content = node.content;
   const computedStyle = node.computedStyle;
   let min = 0, max = 0;

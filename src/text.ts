@@ -15,6 +15,9 @@ export type MeasureText = (
 let measureText: MeasureText | null = null;
 
 export function getMeasureText() {
+  if (!measureText) {
+    throw new Error('Text must be passed to the measureText method.');
+  }
   return measureText;
 }
 
@@ -34,6 +37,9 @@ export type MetricizeFont = (fontFamily: string) => FontMetrics;
 let metricizeFont: MetricizeFont | null = null;
 
 export function getMetricizeFont() {
+  if (!metricizeFont) {
+    throw new Error('Text must be passed to the metricizeFont method.');
+  }
   return metricizeFont;
 }
 
@@ -180,11 +186,14 @@ export type Segment = {
   isWordLike: boolean;
 };
 
-export type SegmentText = (text: string) => Segment;
+export type SegmentText = (text: string) => Segment[];
 
 let segmentText: SegmentText | null = null;
 
 export function getSegmentText() {
+  if (!segmentText) {
+    throw new Error('Text must be passed to the segmentText method.');
+  }
   return segmentText;
 }
 
