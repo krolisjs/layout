@@ -1,5 +1,5 @@
 import type { JStyle } from '../dist/index.js';
-import { Element, setMeasureText, setMetricizeFont, TextNode } from '../dist/index.js';
+import { Element, setMeasureText, setMetricizeFont, setSegmentText, TextNode } from '../dist/index.js';
 
 type Item = {
   style?: Partial<JStyle>;
@@ -42,6 +42,14 @@ export function createTestInputConstraints() {
       descentRatio: 0.5,
       lineGapRatio: 0.125,
     };
+  });
+  const is = new Intl.Segmenter([], { granularity: 'word' });
+  setSegmentText(text => {
+    return Array.from(is.segment(text)).map(item => ({
+      segment: item.segment,
+      index: item.index,
+      isWordLike: !!item.isWordLike,
+    }));
   });
   return { aw: 10000, ah: 10000 };
 }

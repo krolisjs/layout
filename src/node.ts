@@ -18,13 +18,11 @@ import {
 import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
 import { LineBoxContext, MarginContext } from './context';
 import {
-  calBaseline,
   calComputedStyle,
   calLength,
   getMbpH,
   getMbpLeft,
   getMbpTop,
-  getMbpV,
   hasBottomBarrier,
   hasTopBarrier,
   isBFC,

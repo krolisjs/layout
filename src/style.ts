@@ -53,10 +53,12 @@ export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
   display: 'none' | 'block' | 'inline' | 'inlineBlock' | 'flex' | 'inlineFlex' | 'grid' | 'inlineGrid';
   position: 'static' | 'relative' | 'absolute';
+  margin?: CssLength | CssLength[] | string;
   marginTop: CssLength;
   marginRight: CssLength;
   marginBottom: CssLength;
   marginLeft: CssLength;
+  padding?: CssLength | CssLength[] | string;
   paddingTop: CssLength;
   paddingRight: CssLength;
   paddingBottom: CssLength;
@@ -130,6 +132,47 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
   }
   return dft;
 };
+
+/**
+ * 解析 margin/padding 简写字符串，返回四个方向的值 [top, right, bottom, left]
+ * 支持 1-4 个值的简写格式：
+ * - 1个值：四个方向相同
+ * - 2个值：上下、左右
+ * - 3个值：上、左右、下
+ * - 4个值：上、右、下、左
+ */
+export function parseMarginPadding(v: CssLength | CssLength[] | string): CssLength[] {
+  if (typeof v === 'string') {
+    const list = v.trim().split(/\s+/);
+    if (list.length === 1) {
+      list[1] = list[2] = list[3] = list[0];
+    }
+    else if (list.length === 2) {
+      list[2] = list[0];
+      list[3] = list[1];
+    }
+    else if (list.length === 3) {
+      list[3] = list[1];
+    }
+    return list;
+  }
+  if (Array.isArray(v)) {
+    if (!v.length) {
+      return [0, 0, 0, 0];
+    }
+    if (v.length === 1) {
+      return [v[0], v[0], v[0], v[0]];
+    }
+    if (v.length === 2) {
+      return [v[0], v[1], v[0], v[1]];
+    }
+    if (v.length === 3) {
+      return [v[0], v[1], v[2], v[1]];
+    }
+    return v;
+  }
+  return [v, v, v, v];
+}
 
 export function calCssLength(v: CssLength, number2Px = false): Length {
   if (v === 'auto' || v === 'normal') {
@@ -213,8 +256,49 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
   }
 }
 
-export const normalizeStyle = (style: Partial<JStyle | Style> = {}) => {
+function abbr(style: Partial<JStyle | Style> = {}) {
+  const margin = (style as JStyle).margin;
+  const padding = (style as JStyle).padding;
+  if (margin || padding) {
+    const res = Object.assign({}, style);
+    if (margin) {
+      const [top, right, bottom, left] = parseMarginPadding(margin);
+      if (res.marginTop === undefined) {
+        res.marginTop = top;
+      }
+      if (res.marginRight === undefined) {
+        res.marginRight = right;
+      }
+      if (res.marginBottom === undefined) {
+        res.marginBottom = bottom;
+      }
+      if (res.marginLeft === undefined) {
+        res.marginLeft = left;
+      }
+    }
+    if (padding) {
+      const [top, right, bottom, left] = parseMarginPadding(padding);
+      if (res.paddingTop === undefined) {
+        res.paddingTop = top;
+      }
+      if (res.paddingRight === undefined) {
+        res.paddingRight = right;
+      }
+      if (res.paddingBottom === undefined) {
+        res.paddingBottom = bottom;
+      }
+      if (res.paddingLeft === undefined) {
+        res.paddingLeft = left;
+      }
+    }
+    return res;
+  }
+  return style;
+}
+
+export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
   const res: Partial<Style> = {};
+  const style = abbr(st);
   if (style.boxSizing !== undefined) {
     if (typeof style.boxSizing === 'number') {
       res.boxSizing = style.boxSizing;
