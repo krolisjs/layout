@@ -9,7 +9,7 @@ describe('abbr', () => {
     inputConstraints = createTestInputConstraints();
   });
 
-  it('margin', () => {
+  it('margin-001', () => {
     const node = genNode({
       style: {
         margin: '1px 2px 3px 4px',
@@ -24,7 +24,82 @@ describe('abbr', () => {
     });
   });
 
-  it('padding', () => {
+  it('margin-002', () => {
+    const node = genNode({
+      style: {
+        margin: 1,
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      marginTop: 1,
+      marginRight: 1,
+      marginBottom: 1,
+      marginLeft: 1,
+    });
+  });
+
+  it('margin-003', () => {
+    const node = genNode({
+      style: {
+        margin: [1],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      marginTop: 1,
+      marginRight: 1,
+      marginBottom: 1,
+      marginLeft: 1,
+    });
+  });
+
+  it('margin-004', () => {
+    const node = genNode({
+      style: {
+        margin: [1, 2],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      marginTop: 1,
+      marginRight: 2,
+      marginBottom: 1,
+      marginLeft: 2,
+    });
+  });
+
+  it('margin-005', () => {
+    const node = genNode({
+      style: {
+        margin: [1, 2, 3],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      marginTop: 1,
+      marginRight: 2,
+      marginBottom: 3,
+      marginLeft: 2,
+    });
+  });
+
+  it('margin-006', () => {
+    const node = genNode({
+      style: {
+        margin: [1, 2, 3, 4],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      marginTop: 1,
+      marginRight: 2,
+      marginBottom: 3,
+      marginLeft: 4,
+    });
+  });
+
+  it('padding-001', () => {
     const node = genNode({
       style: {
         padding: '1px 2px 3px 4px',
