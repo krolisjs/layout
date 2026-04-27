@@ -68,13 +68,13 @@ export enum Overflow {
   AUTO = 4,
 }
 
-// export enum WordBreak {
-//   INHERIT = 0,
-//   NORMAL = 1,
-//   BREAK_ALL = 2,
-//   KEEP_ALL = 3,
-// }
-//
+export enum WordBreak {
+  INHERIT = 0,
+  NORMAL = 1,
+  BREAK_ALL = 2,
+  KEEP_ALL = 3,
+}
+
 // export enum OverflowWrap {
 //   INHERIT = 0,
 //   NORMAL = 1,

@@ -1,4 +1,4 @@
-import { BoxSizing, Display, FontStyle, Overflow, Position, Unit, VerticalAlign } from './constants';
+import { BoxSizing, Display, FontStyle, Overflow, Position, Unit, VerticalAlign, WordBreak } from './constants';
 
 export type Length = {
   v: number;
@@ -39,7 +39,7 @@ export type Style = {
   maxWidth: Length;
   minHeight: Length;
   maxHeight: Length;
-  // wordBreak: WordBreak;
+  wordBreak: WordBreak;
   // overflowWrap: OverflowWrap;
 };
 
@@ -85,7 +85,7 @@ export type JStyle = {
   maxWidth: CssLengthMMF;
   minHeight: CssLengthMMF;
   maxHeight: CssLengthMMF;
-  // wordBreak: 'normal' | 'breakAll' | 'keepAll';
+  wordBreak: 'normal' | 'breakAll' | 'keepAll';
   // overflowWrap: 'normal' | 'breakWord';
 };
 
@@ -124,7 +124,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     maxWidth: { v: 0, u: Unit.AUTO },
     minHeight: { v: 0, u: Unit.AUTO },
     maxHeight: { v: 0, u: Unit.AUTO },
-    // wordBreak: WordBreak.INHERIT,
+    wordBreak: WordBreak.INHERIT,
     // overflowWrap: OverflowWrap.INHERIT,
   };
   if (style) {
@@ -505,6 +505,7 @@ export type ComputedStyle = {
   maxWidth: number | null;
   minHeight: number | null;
   maxHeight: number | null;
+  wordBreak: WordBreak;
 };
 
 export function getDefaultComputedStyle(style?: Style) {
@@ -542,6 +543,7 @@ export function getDefaultComputedStyle(style?: Style) {
     maxWidth: 0,
     minHeight: 0,
     maxHeight: 0,
+    wordBreak: WordBreak.INHERIT,
   };
   // 一些可以在布局前提前计算出的
   if (style) {

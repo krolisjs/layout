@@ -1,4 +1,4 @@
-import { Display, FontStyle, NodeType, Overflow, Position, Unit } from './constants';
+import { Display, FontStyle, NodeType, Overflow, Position, Unit, WordBreak } from './constants';
 import type { Constraints, Text, TextBox } from './layout';
 import type { Global, IElementNode, INode } from './node';
 import type { ComputedStyle, Length } from './style';
@@ -169,6 +169,21 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
   }
   else {
     computedStyle.fontStyle = style.fontStyle;
+  }
+
+  computedStyle.overflow = style.overflow;
+  computedStyle.verticalAlign = style.verticalAlign;
+
+  if (style.wordBreak === WordBreak.INHERIT) {
+    if (parent) {
+      computedStyle.wordBreak = parent.computedStyle.wordBreak;
+    }
+    else {
+      computedStyle.wordBreak = WordBreak.NORMAL;
+    }
+  }
+  else {
+    computedStyle.wordBreak = style.wordBreak;
   }
 
   ([

@@ -47,9 +47,9 @@ import type {
 import {
   getMeasureText,
   getMetricizeFont,
+  getSegmentText,
   setMeasureText,
   setMetricizeFont,
-  getSegmentText,
   setSegmentText,
 } from './text';
 import type { FontMetrics, MeasureText, MetricizeFont, TextMeasures } from './text';

@@ -64,6 +64,9 @@ export const lineBreak = /[\n\r\u2028\u2029]/;
 
 export const CJK_REG_EXTENDED = /[\u4E00-\u9FFF\u3400-\u4DBF\u3040-\u30FF\uAC00-\uD7AF\u3000-\u303F\uFF00-\uFFEF]|\uD840[\uDC00-\uDFFF]|[\uD841-\uD87A][\uDC00-\uDFFF]|\uD87B[\uDC00-\uDEAF]/u;
 
+// 涵盖了 汉字、平假名、片假名、韩文
+export const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
 // 智能测量，防止逐字遍历性能缺失
 export function smartMeasure(
   measureText: MeasureText,
@@ -186,7 +189,7 @@ export type Segment = {
   isWordLike: boolean;
 };
 
-export type SegmentText = (text: string) => Segment[];
+export type SegmentText = (text: string, granularity?: string) => Segment[];
 
 let segmentText: SegmentText | null = null;
 
