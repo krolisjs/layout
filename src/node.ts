@@ -1,4 +1,4 @@
-import { BoxSizing, Display, NodeType, Overflow, Position, Unit } from './constants';
+import { BoxSizing, Display, NodeType, Position, Unit } from './constants';
 import { getDefaultComputedStyle, getDefaultStyle } from './style';
 import type { ComputedStyle, JStyle, Style } from './style';
 import {
@@ -28,6 +28,7 @@ import {
   isBFC,
   isFixed,
 } from './compute';
+import type { Segment } from './text';
 
 export interface INode {
   readonly id: number;
@@ -67,6 +68,7 @@ export interface ITextNode extends INode {
   readonly nodeType: NodeType.Text;
   content: string;
   result: Text | null;
+  segments: Segment[] | null;
 }
 
 export type IAllNode = IElementNode | ITextNode;
@@ -799,15 +801,13 @@ export class TextNode extends Node implements ITextNode {
   declare nodeType: NodeType.Text;
   declare result: Text | null;
   content = '';
+  segments = null;
 
   constructor(content: string, style?: Partial<JStyle | Style>) {
+    // text默认inline，和标准不同，text可以单独存在，而非依附Dom
     super(NodeType.Text, Object.assign({
       display: Display.INLINE,
     }, style));
-    // text默认inline，和标准不同，text可以单独存在，而非依附Dom
-    // if (!style || !style.display) {
-    //   this.style.display = Display.INLINE;
-    // }
     this.content = content;
   }
 

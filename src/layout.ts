@@ -1,11 +1,13 @@
-import { BoxSizing, Position, Unit } from './constants';
+import { BoxSizing, Position, Unit, WordBreak } from './constants';
 import {
   CJK_REG_EXTENDED,
+  CJK_RE,
   getMeasureText,
   getSegmentText,
-  lineBreak,
-  smartMeasure,
+  LINE_REG,
+  estimateMeasure,
 } from './text';
+import type { Segment } from './text';
 import type { Global, IElementNode, INode, ITextNode } from './node';
 import {
   calContentArea,
@@ -247,33 +249,65 @@ export function inlineBlock(node: IElementNode, cs: Constraints, global: Global,
   return bib(node, cs, res);
 }
 
+function getSegments(node: ITextNode) {
+  const content = node.content;
+  if (!content) {
+    return [];
+  }
+  if (node.segments) {
+    return node.segments;
+  }
+  // 利用api先按单词分词，比如Intl.Segmenter的word模式
+  const segmentText = getSegmentText();
+  const words = segmentText(content, 'word');
+  const wordBreak = node.computedStyle.wordBreak;
+  // 普通情况cjk按字拆分，拉丁语系则根据wordBreak情况，emoji等isWordLike为false
+  const segs: Segment[] = [];
+  for (let i = 0, len = words.length; i < len; i++) {
+    const item = words[i];
+    if (item.isWordLike) {
+      if (wordBreak !== WordBreak.KEEP_ALL && CJK_RE.test(item.segment) || wordBreak === WordBreak.BREAK_ALL) {
+        segs.push(...segmentText(item.segment, 'grapheme'));
+      }
+      else {
+        segs.push(item);
+      }
+    }
+    else {
+      segs.push(item);
+    }
+  }
+  return node.segments = segs;
+}
+
 export function text(node: ITextNode, cs: Constraints, global: Global, lbc: LineBoxContext) {
+  const content = node.content;
   // 忽略空文字节点
-  if (!node.content) {
+  if (!content) {
     return;
   }
   const measureText = getMeasureText();
-  const segmentText = getSegmentText();
-  const res = preset(node, cs, 'text', global) as Text;
-  node.result = res;
+  const segs = getSegments(node);
+  // 拿到最基本的字符单元后
   const computedStyle = node.computedStyle;
   const { fontFamily, fontSize, fontWeight, fontStyle, letterSpacing, lineHeight } = computedStyle;
+  const res = preset(node, cs, 'text', global) as Text;
+  node.result = res;
   // inline的上下margin无效，但不修改值只是无视它
   let cx = cs.cx + getMbpLeft(computedStyle);
   let cy = cs.cy;
   let aw = cs.aw;
   let maxW = 0;
   const frags: TextBox[] = res.frags;
-  const content = node.content;
   // 每个textBox还要额外的计算内容区域高度，设置上下平分leading
   let contentArea = node.contentArea;
   if (contentArea === null) {
     contentArea = node.contentArea = calContentArea(fontFamily, fontSize);
   }
   const leading = (lineHeight - contentArea) * 0.5;
-  // 不在行首时要检查换行，有可能本行一个字符都排不下
+  // 不在行首时要检查换行，有可能本行一个字符单元都排不下
   if (!lbc.current.begin) {
-    const c = node.content[0];
+    const c = segs[0].segment;
     const m = measureText(
       c,
       fontFamily,
@@ -284,7 +318,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       letterSpacing,
     );
     const w = m.width;
-    if (cs.cx + w - cs.ox > cs.aw) {
+    if (cs.cx + w - cs.ox > cs.aw + 1e-9) {
       lbc.prepareNextLine();
       lbc.endLine(); // 这里传个标识符绝对有下一行新的，这样刚开始的inline父节点会变到下一行
       cx = cs.ox;
@@ -298,9 +332,11 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   let newLineAuto = false;
   // 循环获取满足宽度下的字符串
   let i = 0;
-  let length = content.length;
+  let length = segs.length;
+  console.error(segs);
   while (i < length) {
-    if (lineBreak.test(content[i])) {
+    const seg = segs[i];
+    if (!seg.isWordLike && LINE_REG.test(seg.segment)) {
       i++;
       // 连续的换行符，每个产生一个空行
       if (newLineLB || !newLineAuto) {
@@ -324,10 +360,11 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     const {
       num,
       width,
-      breakLine, // 长度不足需要换行，不考虑\n
-    } = smartMeasure(
+      breakLine, // 长度不足需要换行，非手动\n
+    } = estimateMeasure(
       measureText,
       content,
+      segs,
       i,
       aw,
       fontFamily,
@@ -337,13 +374,15 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       fontStyle,
       letterSpacing,
     );
+    const end = segs[i + num];
     const textBox: TextBox = {
       x: cx,
       y: cy + leading,
       w: width,
       h: contentArea,
-      content: content.slice(i, i + num),
+      content: content.slice(segs[i].index, end ? end.index : content.length),
     };
+    console.warn(i, num, seg.index, textBox);
     frags.push(textBox);
     i += num;
     lbc.addText(textBox, node);
@@ -403,7 +442,7 @@ export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
   const computedStyle = node.computedStyle;
   let min = 0, max = 0;
   // 最大值需按行拆分求
-  const list = content.split(lineBreak);
+  const list = content.split(LINE_REG);
   for (let i = 0, len = list.length; i < len; i++) {
     let { width } = measureText(list[i], computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, computedStyle.fontWeight, computedStyle.fontStyle, computedStyle.letterSpacing);
     if (!i) {
