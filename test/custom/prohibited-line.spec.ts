@@ -81,4 +81,28 @@ describe('prohibited-line', () => {
     });
   });
 
+  it('at lease 1', () => {
+    const node = genNode({
+      style: {
+        width: 32,
+      },
+      children: [
+        {
+          content: '（（',
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      frags: [
+        {
+          content: '（',
+        },
+        {
+          content: '（',
+        },
+      ],
+    });
+  });
+
 });

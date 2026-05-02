@@ -229,7 +229,7 @@ export function estimateMeasure(
     }
   }
   // 检查\n，防止手动换行
-  if (hypotheticalNum > 1 && length > start + hypotheticalNum) {
+  if (hypotheticalNum > 1 && length >= start + hypotheticalNum) {
     for (i = start + 1; i < start + hypotheticalNum; i++) {
       const item = segs[i];
       if (!item.isWordLike && LINE_REG.test(item.segment)) {
@@ -238,7 +238,7 @@ export function estimateMeasure(
     }
   }
   // 避头避尾标点，防止单行只有它一个情况忽略掉
-  if (hypotheticalNum > 1 && length > start + hypotheticalNum) {
+  if (hypotheticalNum > 1 && length >= start + hypotheticalNum) {
     const i = findSafeBreakIndex(segs, start, start + hypotheticalNum - 1);
     hypotheticalNum = i + 1 - start;
   }
