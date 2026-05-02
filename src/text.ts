@@ -200,6 +200,13 @@ export function estimateMeasure(
       }
     }
   }
+  // 检查\n，防止手动换行
+  for (i = start + 1; i < start + hypotheticalNum; i++) {
+    const item = segs[i];
+    if (!item.isWordLike && LINE_REG.test(item.segment)) {
+      hypotheticalNum = i - start;
+    }
+  }
   return { num: hypotheticalNum, width, breakLine };
 }
 

@@ -249,18 +249,13 @@ export function inlineBlock(node: IElementNode, cs: Constraints, global: Global,
   return bib(node, cs, res);
 }
 
-function getSegments(node: ITextNode) {
-  const content = node.content;
+function getSegments(content: string, wordBreak: WordBreak) {
   if (!content) {
     return [];
-  }
-  if (node.segments) {
-    return node.segments;
   }
   // 利用api先按单词分词，比如Intl.Segmenter的word模式
   const segmentText = getSegmentText();
   const words = segmentText(content, 'word');
-  const wordBreak = node.computedStyle.wordBreak;
   // 普通情况cjk按字拆分，拉丁语系则根据wordBreak情况，emoji等isWordLike为false
   const segs: Segment[] = [];
   for (let i = 0, len = words.length; i < len; i++) {
@@ -285,7 +280,15 @@ function getSegments(node: ITextNode) {
       segs.push(item);
     }
   }
-  return node.segments = segs;
+  return segs;
+}
+
+function getNodeSegments(node: ITextNode) {
+  if (node.segments) {
+    return node.segments;
+  }
+  const computedStyle = node.computedStyle;
+  return node.segments = getSegments(node.content, computedStyle.wordBreak);
 }
 
 export function text(node: ITextNode, cs: Constraints, global: Global, lbc: LineBoxContext) {
@@ -295,7 +298,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
     return;
   }
   const measureText = getMeasureText();
-  const segs = getSegments(node);
+  const segs = getNodeSegments(node);
   // 拿到最基本的字符单元后
   const computedStyle = node.computedStyle;
   const { fontFamily, fontSize, fontWeight, fontStyle, letterSpacing, lineHeight } = computedStyle;
@@ -444,72 +447,50 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags:
 }
 
 export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
-  const measureText = getMeasureText();
   const content = node.content;
+  if (!content) {
+    return { min: 0, max: 0 };
+  }
+  const measureText = getMeasureText();
   const computedStyle = node.computedStyle;
-  let min = 0, max = 0;
-  // 最大值需按行拆分求
-  const list = content.split(LINE_REG);
-  for (let i = 0, len = list.length; i < len; i++) {
-    let { width } = measureText(list[i], computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, computedStyle.fontWeight, computedStyle.fontStyle, computedStyle.letterSpacing);
+  const {
+    fontFamily,
+    fontSize,
+    lineHeight,
+    fontWeight,
+    fontStyle,
+    letterSpacing,
+  } = node.computedStyle;
+  const segs = getNodeSegments(node);
+  let min = Infinity, max = 0, sum = 0;
+  for (let i = 0, len = segs.length; i < len; i++) {
+    const { segment, isWordLike } = segs[i];
+    // 手动\n换行，sum归零
+    if (!isWordLike && LINE_REG.test(segment)) {
+      max = Math.max(max, sum);
+      sum = 0;
+      continue;
+    }
+    let { width } = measureText(
+      segment,
+      fontFamily,
+      fontSize,
+      lineHeight,
+      fontWeight,
+      fontStyle,
+      letterSpacing,
+    );
     if (!i) {
       width += getMbpLeft(computedStyle);
     }
     if (i === len - 1) {
       width += getMbpRight(computedStyle);
     }
-    max = Math.max(max, width);
-  }
-  // 最小值优化，如果包含CJK字符直接用fontSize
-  if (CJK_REG_EXTENDED.test(content)) {
-    min = computedStyle.fontSize + computedStyle.letterSpacing;
-  }
-  // 非CJK如果有W/M特殊优化
-  else if (content.includes('W')) {
-    min = measureText('W', computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, computedStyle.fontWeight, computedStyle.fontStyle, computedStyle.letterSpacing).width;
-    if (content[0] === 'W') {
-      min += getMbpLeft(computedStyle);
-    }
-    if (content[content.length - 1] === 'W') {
-      min += getMbpRight(computedStyle);
-    }
-  }
-  else if (content.includes('M')) {
-    min = measureText('M', computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, computedStyle.fontWeight, computedStyle.fontStyle, computedStyle.letterSpacing).width;
-    if (content[0] === 'M') {
-      min += getMbpLeft(computedStyle);
-    }
-    if (content[content.length - 1] === 'M') {
-      min += getMbpRight(computedStyle);
-    }
-  }
-  // 最小值逐字遍历，需做缓存
-  else {
-    const cache: Record<string, number> = {};
-    for (let i = 0, len = content.length; i < len; i++) {
-      const c = content[i];
-      let width = 0;
-      // 最大单字可能已求得，可省略
-      if (min < computedStyle.fontSize) {
-        if (cache[c] !== undefined) {
-          width = cache[c];
-        }
-        else {
-          width = cache[c] = measureText(c, computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight, computedStyle.fontWeight, computedStyle.fontStyle, computedStyle.letterSpacing).width;
-        }
-      }
-      if (!i) {
-        width += getMbpLeft(computedStyle);
-      }
-      if (i === len - 1) {
-        width += getMbpRight(computedStyle);
-      }
-      if (min) {
-        min = Math.min(min, width);
-      }
-      else {
-        min = width;
-      }
+    min = Math.min(min, width);
+    sum += width;
+    // 最后一个特殊
+    if (i === len - 1) {
+      max = Math.max(max, sum);
     }
   }
   return { min, max };

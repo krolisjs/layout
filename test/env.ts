@@ -43,9 +43,17 @@ export function createTestInputConstraints() {
       lineGapRatio: 0.125,
     };
   });
-  const is = new Intl.Segmenter([], { granularity: 'word' });
-  setSegmentText(text => {
-    return Array.from(is.segment(text)).map(item => ({
+  const sw = new Intl.Segmenter([], { granularity: 'word' });
+  const sg = new Intl.Segmenter([], { granularity: 'grapheme' });
+  setSegmentText((text, granularity) => {
+    if (granularity === 'grapheme') {
+      return Array.from(sg.segment(text)).map(item => ({
+        segment: item.segment,
+        index: item.index,
+        isWordLike: !!item.isWordLike,
+      }));
+    }
+    return Array.from(sw.segment(text)).map(item => ({
       segment: item.segment,
       index: item.index,
       isWordLike: !!item.isWordLike,
