@@ -228,6 +228,7 @@ export function estimateMeasure(
       }
     }
   }
+  let old = hypotheticalNum;
   // 检查\n，防止手动换行
   if (hypotheticalNum > 1 && length >= start + hypotheticalNum) {
     for (i = start + 1; i < start + hypotheticalNum; i++) {
@@ -241,6 +242,24 @@ export function estimateMeasure(
   if (hypotheticalNum > 1 && length >= start + hypotheticalNum) {
     const i = findSafeBreakIndex(segs, start, start + hypotheticalNum - 1);
     hypotheticalNum = i + 1 - start;
+  }
+  if (old !== hypotheticalNum) {
+    const end = segs[start + hypotheticalNum];
+    const s = content.slice(startIndex, end ? end.index : content.length);
+    if (cache.hasOwnProperty(s)) {
+      width = cache[s];
+    }
+    else {
+      width = measureText(
+        s,
+        fontFamily,
+        fontSize,
+        lineHeight,
+        fontWeight,
+        fontStyle,
+        letterSpacing,
+      ).width;
+    }
   }
   return { num: hypotheticalNum, width, breakLine };
 }

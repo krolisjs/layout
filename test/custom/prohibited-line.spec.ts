@@ -25,9 +25,11 @@ describe('prohibited-line', () => {
       frags: [
         {
           content: '我',
+          w: 16,
         },
         {
           content: '“说',
+          w: 32,
         },
       ],
     });
@@ -49,9 +51,11 @@ describe('prohibited-line', () => {
       frags: [
         {
           content: '我',
+          w: 16,
         },
         {
           content: '说。',
+          w: 32,
         },
       ],
     });
@@ -73,9 +77,11 @@ describe('prohibited-line', () => {
       frags: [
         {
           content: '我',
+          w: 16,
         },
         {
           content: '（。',
+          w: 32,
         },
       ],
     });
@@ -97,9 +103,11 @@ describe('prohibited-line', () => {
       frags: [
         {
           content: '（',
+          w: 16,
         },
         {
           content: '（',
+          w: 16,
         },
       ],
     });
