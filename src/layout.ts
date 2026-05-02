@@ -1,6 +1,5 @@
 import { BoxSizing, Position, Unit, WordBreak } from './constants';
 import {
-  CJK_REG_EXTENDED,
   CJK_RE,
   getMeasureText,
   getSegmentText,

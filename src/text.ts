@@ -47,25 +47,53 @@ export function setMetricizeFont(mf: MetricizeFont) {
   metricizeFont = mf;
 }
 
-function regexIndexOf(str: string, regex: RegExp, startPos = 0) {
-  // 确保正则带有 'g' 标志，以便我们可以控制 lastIndex
-  const internalRegex = new RegExp(
-    regex.source,
-    regex.flags.includes('g') ? regex.flags : regex.flags + 'g'
-  );
-
-  internalRegex.lastIndex = startPos;
-  const match = internalRegex.exec(str);
-
-  return match ? match.index : -1;
-}
-
+// 各种换行符
 export const LINE_REG = /\r\n|[\n\r\u2028\u2029]/;
-
-export const CJK_REG_EXTENDED = /[\u4E00-\u9FFF\u3400-\u4DBF\u3040-\u30FF\uAC00-\uD7AF\u3000-\u303F\uFF00-\uFFEF]|\uD840[\uDC00-\uDFFF]|[\uD841-\uD87A][\uDC00-\uDFFF]|\uD87B[\uDC00-\uDEAF]/u;
 
 // 涵盖了 汉字、平假名、片假名、韩文
 export const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
+// 包含各种形式的左部括弧、左引号、以及前置符号
+const PROHIBITED_AT_LINE_END = /[({\[〈《「『【〔〖（［｛“‘'"@#$%^&*_+=|\\~]/;
+
+// 避头标点：各种结束括号、引号、逗号、句号等
+const PROHIBITED_AT_LINE_START = /[!,.:;?\]})〉》」』】〕〗）］｝’”"、。？！，：；]/;
+
+// 前置条件一定end>start，end包含
+function findSafeBreakIndex(segs: Segment[], start: number, end: number) {
+  let i = end;
+  // 先向左看避尾，一行至少保留一个，所以不看start
+  while (i > start) {
+    const item = segs[i];
+    if (item.isWordLike || !PROHIBITED_AT_LINE_END.test(item.segment)) {
+      break;
+    }
+    i--;
+  }
+  // 没有动再看右边避头，如果动了则挤到下行的肯定是避尾标点，所以不用判断
+  if (i === end && segs.length > end + 1) {
+    const next = segs[end + 1];
+    // 下一个是避头的话，需要向左看把单元挤到下一行去，如果左边恰好是避尾则继续向左，直到start
+    if (!next.isWordLike && PROHIBITED_AT_LINE_START.test(next.segment)) {
+      i--;
+      while (i > start) {
+        const item = segs[i];
+        if (item.isWordLike || !PROHIBITED_AT_LINE_END.test(item.segment)) {
+          break;
+        }
+        i--;
+      }
+      // 除非start也是避尾才忽略
+      if (i === start) {
+        const first = segs[i];
+        if (!first.isWordLike && PROHIBITED_AT_LINE_END.test(first.segment)) {
+          i = end;
+        }
+      }
+    }
+  }
+  return i;
+}
 
 export function estimateMeasure(
   measureText: MeasureText,
@@ -201,11 +229,18 @@ export function estimateMeasure(
     }
   }
   // 检查\n，防止手动换行
-  for (i = start + 1; i < start + hypotheticalNum; i++) {
-    const item = segs[i];
-    if (!item.isWordLike && LINE_REG.test(item.segment)) {
-      hypotheticalNum = i - start;
+  if (hypotheticalNum > 1 && length > start + hypotheticalNum) {
+    for (i = start + 1; i < start + hypotheticalNum; i++) {
+      const item = segs[i];
+      if (!item.isWordLike && LINE_REG.test(item.segment)) {
+        hypotheticalNum = i - start;
+      }
     }
+  }
+  // 避头避尾标点，防止单行只有它一个情况忽略掉
+  if (hypotheticalNum > 1 && length > start + hypotheticalNum) {
+    const i = findSafeBreakIndex(segs, start, start + hypotheticalNum - 1);
+    hypotheticalNum = i + 1 - start;
   }
   return { num: hypotheticalNum, width, breakLine };
 }
