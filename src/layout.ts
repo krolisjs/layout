@@ -267,7 +267,15 @@ function getSegments(node: ITextNode) {
     const item = words[i];
     if (item.isWordLike) {
       if (wordBreak !== WordBreak.KEEP_ALL && CJK_RE.test(item.segment) || wordBreak === WordBreak.BREAK_ALL) {
-        segs.push(...segmentText(item.segment, 'grapheme'));
+        const gs = segmentText(item.segment, 'grapheme');
+        for (let j = 0, len = gs.length; j < len; j++) {
+          const g = gs[j];
+          segs.push({
+            segment: g.segment,
+            index: item.index + g.index,
+            isWordLike: g.isWordLike,
+          });
+        }
       }
       else {
         segs.push(item);
@@ -333,7 +341,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   // 循环获取满足宽度下的字符串
   let i = 0;
   let length = segs.length;
-  console.error(segs);
+  // console.error(segs);
   while (i < length) {
     const seg = segs[i];
     if (!seg.isWordLike && LINE_REG.test(seg.segment)) {
@@ -382,7 +390,6 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       h: contentArea,
       content: content.slice(segs[i].index, end ? end.index : content.length),
     };
-    console.warn(i, num, seg.index, textBox);
     frags.push(textBox);
     i += num;
     lbc.addText(textBox, node);
