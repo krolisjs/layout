@@ -257,10 +257,21 @@ function getSegments(content: string, wordBreak: WordBreak) {
   const words = segmentText(content, 'word');
   // 普通情况cjk按字拆分，拉丁语系则根据wordBreak情况，emoji等isWordLike为false
   const segs: Segment[] = [];
+  let last: Segment | null = null;
   for (let i = 0, len = words.length; i < len; i++) {
     const item = words[i];
     if (item.isWordLike) {
-      if (wordBreak !== WordBreak.KEEP_ALL && CJK_RE.test(item.segment) || wordBreak === WordBreak.BREAK_ALL) {
+      // keepAll特殊，所有的word都连续拼接起来
+      if (wordBreak === WordBreak.KEEP_ALL) {
+        if (last) {
+          last.segment += item.segment;
+        }
+        else {
+          segs.push(item);
+          last = item;
+        }
+      }
+      else if (CJK_RE.test(item.segment) || wordBreak === WordBreak.BREAK_ALL) {
         const gs = segmentText(item.segment, 'grapheme');
         for (let j = 0, len = gs.length; j < len; j++) {
           const g = gs[j];
@@ -277,6 +288,7 @@ function getSegments(content: string, wordBreak: WordBreak) {
     }
     else {
       segs.push(item);
+      last = null;
     }
   }
   return segs;

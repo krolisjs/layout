@@ -468,6 +468,19 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
       }[style.overflow] || Overflow.VISIBLE;
     }
   }
+  if (style.wordBreak !== undefined) {
+    if (typeof style.wordBreak === 'number') {
+      res.wordBreak = style.wordBreak;
+    }
+    else {
+      res.wordBreak = {
+        inherit: WordBreak.INHERIT,
+        breakAll: WordBreak.BREAK_ALL,
+        keepAll: WordBreak.KEEP_ALL,
+        normal: WordBreak.NORMAL,
+      }[style.wordBreak] || WordBreak.INHERIT;
+    };
+  }
   return res;
 };
 
@@ -555,6 +568,7 @@ export function getDefaultComputedStyle(style?: Style) {
     dft.verticalAlign = style.verticalAlign;
     dft.overflow = style.overflow;
     dft.fontWeight = style.fontWeight;
+    dft.wordBreak = style.wordBreak;
     ([
       'marginTop',
       'marginRight',

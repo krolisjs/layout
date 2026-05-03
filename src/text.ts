@@ -165,6 +165,9 @@ export function estimateMeasure(
       if (i === j - 1 || i - start === hypotheticalNum - 1) {
         width = mw;
         hypotheticalNum = i - start;
+        if (hypotheticalNum <= 0) {
+          hypotheticalNum = 1;
+        }
         break;
       }
       // 2分设置j到目前的位置-1作为右边界，动态调整假设数量
