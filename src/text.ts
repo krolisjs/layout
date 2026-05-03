@@ -59,7 +59,7 @@ const PROHIBITED_AT_LINE_END = /[({\[〈《「『【〔〖（［｛“‘'"@#$%^
 // 避头标点：各种结束括号、引号、逗号、句号等
 const PROHIBITED_AT_LINE_START = /[!,.:;?\]})〉》」』】〕〗）］｝’”"、。？！，：；]/;
 
-// 前置条件一定end>start，end包含
+// 前置条件一定end>=start，end包含
 function findSafeBreakIndex(segs: Segment[], start: number, end: number) {
   let i = end;
   // 先向左看避尾，一行至少保留一个，所以不看start
@@ -70,12 +70,15 @@ function findSafeBreakIndex(segs: Segment[], start: number, end: number) {
     }
     i--;
   }
+  const length = segs.length;
   // 没有动再看右边避头，如果动了则挤到下行的肯定是避尾标点，所以不用判断
-  if (i === end && segs.length > end + 1) {
+  if (i === end && length > end + 1) {
     const next = segs[end + 1];
     // 下一个是避头的话，需要向左看把单元挤到下一行去，如果左边恰好是避尾则继续向左，直到start
     if (!next.isWordLike && PROHIBITED_AT_LINE_START.test(next.segment)) {
-      i--;
+      if (i > start) {
+        i--;
+      }
       while (i > start) {
         const item = segs[i];
         if (item.isWordLike || !PROHIBITED_AT_LINE_END.test(item.segment)) {
@@ -83,8 +86,20 @@ function findSafeBreakIndex(segs: Segment[], start: number, end: number) {
         }
         i--;
       }
+      // start=end只有1个的时候需要向后看把所有避头包含
+      if (start === end) {
+        i = Math.min(length - 1, end + 2);
+        while (i < length) {
+          const item = segs[i];
+          if (item.isWordLike || !PROHIBITED_AT_LINE_START.test(item.segment)) {
+            i--;
+            break;
+          }
+          i++;
+        }
+      }
       // 除非start也是避尾才忽略
-      if (i === start) {
+      else if (i === start) {
         const first = segs[i];
         if (!first.isWordLike && PROHIBITED_AT_LINE_END.test(first.segment)) {
           i = end;
@@ -123,8 +138,8 @@ export function estimateMeasure(
     hypotheticalNum = 1;
   }
   // 超过内容长度范围也不行
-  else if (hypotheticalNum > j) {
-    hypotheticalNum = j;
+  else if (hypotheticalNum > j - i) {
+    hypotheticalNum = j - i;
   }
   // 类似2分的一个循环，hypotheticalNum会动态不断调整
   while (i < j) {
@@ -242,7 +257,7 @@ export function estimateMeasure(
     }
   }
   // 避头避尾标点，防止单行只有它一个情况忽略掉
-  if (hypotheticalNum > 1 && length >= start + hypotheticalNum) {
+  if (length >= start + hypotheticalNum) {
     const i = findSafeBreakIndex(segs, start, start + hypotheticalNum - 1);
     hypotheticalNum = i + 1 - start;
   }

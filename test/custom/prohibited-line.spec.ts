@@ -61,6 +61,33 @@ describe('prohibited-line', () => {
     });
   });
 
+  it('keepAll with long', () => {
+    const node = genNode({
+      style: {
+        width: 100,
+        wordBreak: 'keepAll',
+      },
+      children: [
+        {
+          content: '我的名字叫做你猜，再猜',
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      frags: [
+        {
+          content: '我的名字叫做你猜，',
+          w: 144,
+        },
+        {
+          content: '再猜',
+          w: 32,
+        },
+      ],
+    });
+  });
+
   it('start & end', () => {
     const node = genNode({
       style: {
