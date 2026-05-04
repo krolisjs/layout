@@ -35,6 +35,8 @@ import {
   calCssLength,
   getDefaultStyle,
   normalizeStyle,
+  parseFont,
+  parseMarginPadding,
 } from './style';
 import type {
   ComputedStyle,
@@ -69,6 +71,8 @@ export {
   NodeType,
   normalizeConstraints,
   normalizeStyle,
+  parseFont,
+  parseMarginPadding,
   Position,
   setMeasureText,
   setMetricizeFont,

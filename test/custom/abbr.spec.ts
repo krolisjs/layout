@@ -114,4 +114,35 @@ describe('abbr', () => {
     });
   });
 
+  it('font-001', () => {
+    const node = genNode({
+      style: {
+        font: 'italic bold 12px Arial',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      fontStyle: 2,
+      fontWeight: 700,
+      fontSize: 12,
+      fontFamily: 'Arial',
+    });
+  });
+
+  it('font-002', () => {
+    const node = genNode({
+      style: {
+        font: 'normal 12px/2 Arial',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      fontStyle: 1,
+      fontWeight: 400,
+      fontSize: 12,
+      lineHeight: 24,
+      fontFamily: 'Arial',
+    });
+  });
+
 });

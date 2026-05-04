@@ -73,6 +73,7 @@ export type JStyle = {
   borderRightWidth: CssLength;
   borderBottomWidth: CssLength;
   borderLeftWidth: CssLength;
+  font?: string;
   fontFamily: string;
   fontStyle: 'inherit' | 'normal' | 'italic' | 'oblique';
   fontWeight: number | 'inherit' | 'thin' | 'lighter' | 'light' | 'medium' | 'semiBold' | 'bold' | 'extraBold' | 'black' | 'normal';
@@ -174,6 +175,75 @@ export function parseMarginPadding(v: CssLength | CssLength[] | string): CssLeng
   return [v, v, v, v];
 }
 
+export function parseFont(v: string) {
+  const res: {
+    fontSize?: CssFontSize;
+    fontFamily?: string;
+    fontStyle?: 'normal' | 'italic' | 'oblique';
+    fontWeight?: number | 'inherit' | 'thin' | 'lighter' | 'light' | 'medium' | 'semiBold' | 'bold' | 'extraBold' | 'black' | 'normal';
+    lineHeight?: CssFontSize;
+  } = {};
+  if (!/([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)(\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)?)?\s+\S+/.test(v)) {
+    return res;
+  }
+  let s = v.trim();
+  if (/^(normal|italic|oblique)\s+/.test(s)) {
+    if (/^(normal)\s+/.test(s)) {
+      res.fontStyle = 'normal';
+    }
+    else if (/^(italic)\s+/.test(s)) {
+      res.fontStyle = 'italic';
+    }
+    else {
+      res.fontStyle = 'oblique';
+    }
+    s = s.replace(/^(normal|italic|oblique)\s+/, '');
+  }
+  if (/^(thin|lighter|light|medium|semiBold|bold|extraBold|black|normal|\d+)\s+/.test(s)) {
+    if (/^(thin)\s+/.test(s)) {
+      res.fontWeight = 'thin';
+    }
+    else if (/^(lighter)\s+/.test(s)) {
+      res.fontWeight = 'lighter';
+    }
+    else if (/^(light)\s+/.test(s)) {
+      res.fontWeight = 'light';
+    }
+    else if (/^(medium)\s+/.test(s)) {
+      res.fontWeight = 'medium';
+    }
+    else if (/^(semiBold)\s+/.test(s)) {
+      res.fontWeight = 'semiBold';
+    }
+    else if (/^(bold)\s+/.test(s)) {
+      res.fontWeight = 'bold';
+    }
+    else if (/^(extraBold)\s+/.test(s)) {
+      res.fontWeight = 'extraBold';
+    }
+    else if (/^(black)\s+/.test(s)) {
+      res.fontWeight = 'black';
+    }
+    else if (/^(normal)\s+/.test(s)) {
+      res.fontWeight = 'normal';
+    }
+    else {
+      res.fontWeight = +(/^(\d+)\s+/.exec(s)![1]);
+    }
+    s = s.replace(/\b(thin|lighter|light|medium|semiBold|bold|extraBold|black|normal)\s+/, '');
+  }
+  const fs = /([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)/.exec(s)!;
+  res.fontSize = fs[0].trim() as CssFontSize;
+  s = s.replace(/([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)/, '');
+  const lh = /\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)?/.exec(s);
+  if (lh) {
+    res.lineHeight = lh[0].trim().slice(1).trim() as CssFontSize;
+    s = s.replace(/\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)?/, '');
+  }
+  res.fontFamily = s.trim();
+  return res;
+}
+
 export function calCssLength(v: CssLength, number2Px = false): Length {
   if (v === 'auto' || v === 'normal') {
     return {
@@ -259,7 +329,8 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
 function abbr(style: Partial<JStyle | Style> = {}) {
   const margin = (style as JStyle).margin;
   const padding = (style as JStyle).padding;
-  if (margin || padding) {
+  const font = (style as JStyle).font;
+  if (margin || padding || font) {
     const res = Object.assign({}, style);
     if (margin) {
       const [top, right, bottom, left] = parseMarginPadding(margin);
@@ -289,6 +360,24 @@ function abbr(style: Partial<JStyle | Style> = {}) {
       }
       if (res.paddingLeft === undefined) {
         res.paddingLeft = left;
+      }
+    }
+    if (font) {
+      const o = parseFont(font);
+      if (res.fontStyle === undefined && o.fontStyle) {
+        res.fontStyle = o.fontStyle;
+      }
+      if (res.fontWeight === undefined && o.fontWeight) {
+        res.fontWeight = o.fontWeight;
+      }
+      if (res.fontSize === undefined && o.fontSize) {
+        res.fontSize = o.fontSize;
+      }
+      if (res.lineHeight === undefined && o.lineHeight) {
+        res.lineHeight = o.lineHeight;
+      }
+      if (res.fontFamily === undefined && o.fontFamily) {
+        res.fontFamily = o.fontFamily;
       }
     }
     return res;
