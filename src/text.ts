@@ -110,6 +110,36 @@ function findSafeBreakIndex(segs: Segment[], start: number, end: number) {
   return i;
 }
 
+function getCacheWidth(
+  measureText: MeasureText,
+  s: string,
+  fontFamily: string,
+  fontSize: number,
+  lineHeight: number,
+  fontWeight = 400,
+  fontStyle = FontStyle.NORMAL,
+  letterSpacing = 0,
+  cache: Record<string, number>,
+) {
+  let mw: number;
+  if (cache.hasOwnProperty(s)) {
+    mw = cache[s];
+  }
+  else {
+    mw = measureText(
+      s,
+      fontFamily,
+      fontSize,
+      lineHeight,
+      fontWeight,
+      fontStyle,
+      letterSpacing,
+    ).width;
+    cache[s] = mw;
+  }
+  return mw;
+}
+
 export function estimateMeasure(
   measureText: MeasureText,
   content: string,
@@ -122,8 +152,8 @@ export function estimateMeasure(
   fontWeight = 400,
   fontStyle = FontStyle.NORMAL,
   letterSpacing = 0,
+  cache: Record<string, number>,
 ) {
-  const cache: Record<string, number> = {};
   const length = segs.length;
   const startIndex = segs[start].index;
   let i = start,
@@ -145,22 +175,17 @@ export function estimateMeasure(
   while (i < j) {
     const end = segs[start + hypotheticalNum];
     const s = content.slice(startIndex, end ? end.index : content.length);
-    let mw: number;
-    if (cache.hasOwnProperty(s)) {
-      mw = cache[s];
-    }
-    else {
-      mw = measureText(
-        s,
-        fontFamily,
-        fontSize,
-        lineHeight,
-        fontWeight,
-        fontStyle,
-        letterSpacing,
-      ).width;
-      cache[s] = mw;
-    }
+    const mw = getCacheWidth(
+      measureText,
+      s,
+      fontFamily,
+      fontSize,
+      lineHeight,
+      fontWeight,
+      fontStyle,
+      letterSpacing,
+      cache,
+    );
     // 凑巧情况，汉字整数倍宽
     if (mw === aw) {
       width = aw;
@@ -210,22 +235,17 @@ export function estimateMeasure(
       if (i === j - 1) {
         const end = segs[j];
         const s = content.slice(startIndex, end ? end.index : content.length);
-        let mw: number;
-        if (cache.hasOwnProperty(s)) {
-          mw = cache[s];
-        }
-        else {
-          mw = measureText(
-            s,
-            fontFamily,
-            fontSize,
-            lineHeight,
-            fontWeight,
-            fontStyle,
-            letterSpacing,
-          ).width;
-          cache[s] = mw;
-        }
+        const mw = getCacheWidth(
+          measureText,
+          s,
+          fontFamily,
+          fontSize,
+          lineHeight,
+          fontWeight,
+          fontStyle,
+          letterSpacing,
+          cache,
+        );
         if (mw > aw + 1e-9) {
         }
         else {
@@ -264,20 +284,17 @@ export function estimateMeasure(
   if (old !== hypotheticalNum) {
     const end = segs[start + hypotheticalNum];
     const s = content.slice(startIndex, end ? end.index : content.length);
-    if (cache.hasOwnProperty(s)) {
-      width = cache[s];
-    }
-    else {
-      width = measureText(
-        s,
-        fontFamily,
-        fontSize,
-        lineHeight,
-        fontWeight,
-        fontStyle,
-        letterSpacing,
-      ).width;
-    }
+    width = getCacheWidth(
+      measureText,
+      s,
+      fontFamily,
+      fontSize,
+      lineHeight,
+      fontWeight,
+      fontStyle,
+      letterSpacing,
+      cache,
+    );
   }
   return { num: hypotheticalNum, width, breakLine };
 }

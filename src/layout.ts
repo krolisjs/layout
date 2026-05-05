@@ -352,6 +352,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
   let newLineLB = false;
   // 非\n换行标识
   let newLineAuto = false;
+  const cache: Record<string, number> = {};
   // 循环获取满足宽度下的字符串
   let i = 0;
   let length = segs.length;
@@ -395,6 +396,7 @@ export function text(node: ITextNode, cs: Constraints, global: Global, lbc: Line
       fontWeight,
       fontStyle,
       letterSpacing,
+      cache,
     );
     const end = segs[i + num];
     const textBox: TextBox = {
