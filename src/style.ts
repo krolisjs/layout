@@ -43,7 +43,7 @@ export type Style = {
   // overflowWrap: OverflowWrap;
 };
 
-export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` | `${number}rem` | 'inherit' | 'normal';
+export type CssFontSize = number | `${number}px` | `${number}%` | `${number}in` | `${number}rem` | `${number}cm` | `${number}pc` | `${number}pt` | 'inherit' | 'normal';
 
 export type CssLength = Omit<CssFontSize, 'inherit'> | 'auto' | `${number}em`;
 
@@ -69,6 +69,7 @@ export type JStyle = {
   left: CssLength;
   width: CssLengthMMF;
   height: CssLengthMMF;
+  border?: string;
   borderTopWidth: CssLength;
   borderRightWidth: CssLength;
   borderBottomWidth: CssLength;
@@ -183,7 +184,7 @@ export function parseFont(v: string) {
     fontWeight?: number | 'inherit' | 'thin' | 'lighter' | 'light' | 'medium' | 'semiBold' | 'bold' | 'extraBold' | 'black' | 'normal';
     lineHeight?: CssFontSize;
   } = {};
-  if (!/([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)(\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)?)?\s+\S+/.test(v)) {
+  if (!/([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|rem)(\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|em|rem)?)?\s+\S+/.test(v)) {
     return res;
   }
   let s = v.trim();
@@ -232,16 +233,23 @@ export function parseFont(v: string) {
     }
     s = s.replace(/\b(thin|lighter|light|medium|semiBold|bold|extraBold|black|normal)\s+/, '');
   }
-  const fs = /([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)/.exec(s)!;
+  const fs = /([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|rem)/.exec(s)!;
   res.fontSize = fs[0].trim() as CssFontSize;
-  s = s.replace(/([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)/, '');
-  const lh = /\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)?/.exec(s);
+  s = s.replace(/([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|rem)/, '');
+  const lh = /\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|em|rem)?/.exec(s);
   if (lh) {
     res.lineHeight = lh[0].trim().slice(1).trim() as CssFontSize;
-    s = s.replace(/\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|rem)?/, '');
+    s = s.replace(/\s*\/\s*([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|em|rem)?/, '');
   }
   res.fontFamily = s.trim();
   return res;
+}
+
+export function parseBorder(v: string) {
+  const m = /([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|em|rem)/.exec(v);
+  if (m) {
+    return m[0] as CssLength;
+  }
 }
 
 export function calCssLength(v: CssLength, number2Px = false): Length {
@@ -330,7 +338,8 @@ function abbr(style: Partial<JStyle | Style> = {}) {
   const margin = (style as JStyle).margin;
   const padding = (style as JStyle).padding;
   const font = (style as JStyle).font;
-  if (margin || padding || font) {
+  const border = (style as JStyle).border;
+  if (margin || padding || font || border) {
     const res = Object.assign({}, style);
     if (margin) {
       const [top, right, bottom, left] = parseMarginPadding(margin);
@@ -378,6 +387,15 @@ function abbr(style: Partial<JStyle | Style> = {}) {
       }
       if (res.fontFamily === undefined && o.fontFamily) {
         res.fontFamily = o.fontFamily;
+      }
+    }
+    if (border) {
+      const o = parseBorder(border);
+      if (o) {
+        res.borderTopWidth = o;
+        res.borderRightWidth = o;
+        res.borderBottomWidth = o;
+        res.borderLeftWidth = o;
       }
     }
     return res;

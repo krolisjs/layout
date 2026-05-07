@@ -145,4 +145,19 @@ describe('abbr', () => {
     });
   });
 
+  it('border-001', () => {
+    const node = genNode({
+      style: {
+        border: '1px solid #000',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      borderTopWidth: 1,
+      borderRightWidth: 1,
+      borderBottomWidth: 1,
+      borderLeftWidth: 1,
+    });
+  });
+
 });
