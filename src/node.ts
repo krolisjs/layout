@@ -203,6 +203,8 @@ export abstract class Node implements INode {
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
 
+  abstract shrink2FitItem(cs: Constraints, global: Global): { min: number, max: number };
+
   protected getContainingNode() {
     let parent = this.parent;
     while (parent) {
@@ -337,6 +339,9 @@ export class Element extends Node implements IElementNode {
       else if (display === Display.INLINE_BLOCK) {
         this.layInlineBlock(cs, absMap, global, mc, lbc, offset);
       }
+      else if (display === Display.FLEX) {
+        this.layFlex(cs, absMap, global, mc, lbc, offset);
+      }
       // 默认block
       else {
         this.layBlock(cs, absMap, global, mc, lbc, offset);
@@ -420,6 +425,8 @@ export class Element extends Node implements IElementNode {
     applyRelative(this, offset);
     lbc.addInlineBlock(this);
   }
+
+  private layFlex(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {}
 
   private layBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     // block自身的约束、自身的lineBoxContext是新的
@@ -648,33 +655,35 @@ export class Element extends Node implements IElementNode {
     applyRelative(this, offset);
   }
 
+  // inlineBlock/abs在自适应尺寸前提下时，求min/max
   shrink2Fit(cs: Constraints, global: Global) {
     let min = 0, max = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      const style = child.style;
-      // 测量阶段递归的子节点absolute忽略
-      if (style.position !== Position.ABSOLUTE) {
-        calComputedStyle(child, cs, global);
-        if (child.nodeType === NodeType.Text) {
-          const o = child.shrink2Fit(cs, global);
-          min = Math.max(min, o.min);
-          max = Math.max(max, o.max);
-        }
-        else if (style.display === Display.INLINE) {
-          const o = (child as Element).shrink2FitInline(cs, global);
-          min = Math.max(min, o.min);
-          max = Math.max(max, o.max);
-        }
-        else {
-          const o = (child as Element).shrink2FitBlock(cs, global);
-          min = Math.max(min, o.min);
-          max = Math.max(max, o.max);
-        }
-      }
+      calComputedStyle(child, cs, global);
+      const o = child.shrink2FitItem(cs, global);
+      min = Math.max(min, o.min);
+      max = Math.max(max, o.max);
     }
     return { min, max };
+  }
+
+  shrink2FitItem(cs: Constraints, global: Global) {
+    const style = this.style;
+    if (style.position === Position.ABSOLUTE) {
+      return { min: 0, max: 0 };
+    }
+    if (style.display === Display.INLINE) {
+      return this.shrink2FitInline(cs, global);
+    }
+    else if (style.display === Display.INLINE_BLOCK) {
+      return this.shrink2FitBlock(cs, global);
+    }
+    // 默认block
+    else {
+      return this.shrink2FitBlock(cs, global);
+    }
   }
 
   private shrink2FitBlock(cs: Constraints, global: Global) {
@@ -718,6 +727,8 @@ export class Element extends Node implements IElementNode {
     }
     return { min, max };
   }
+
+  calBasis(cs: Constraints, global: Global) {}
 
   // 将absolute节点记录下来，等到其包围块节点布局结束后有了确定的尺寸再布局，没有就是相对root
   private recordAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global) {
@@ -837,6 +848,10 @@ export class TextNode extends Node implements ITextNode {
   }
 
   shrink2Fit(cs: Constraints, global: Global) {
+    return minMaxText(this, cs, global);
+  }
+
+  shrink2FitItem(cs: Constraints, global: Global) {
     return minMaxText(this, cs, global);
   }
 }
