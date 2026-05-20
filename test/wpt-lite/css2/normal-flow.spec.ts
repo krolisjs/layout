@@ -978,4 +978,34 @@ describe('normal-flow', () => {
       h: 66,
     });
   });
+
+  it('custom-inlineBlock-inline-001', () => {
+    const node = genNode({
+      style: {
+        display: 'inlineBlock',
+      },
+      children: [
+        {
+          style: {
+            display: 'block',
+          },
+          children: [
+            {
+              content: '12',
+            },
+            {
+              content: 'ab',
+            },
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 64,
+      h: 24,
+    });
+  });
 });

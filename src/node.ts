@@ -1,6 +1,7 @@
 import { BoxSizing, Display, NodeType, Position, Unit } from './constants';
-import { getDefaultComputedStyle, getDefaultStyle } from './style';
 import type { ComputedStyle, JStyle, Style } from './style';
+import { getDefaultComputedStyle, getDefaultStyle } from './style';
+import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
 import {
   afterFlowBox,
   applyRelative,
@@ -15,7 +16,6 @@ import {
   preset,
   text,
 } from './layout';
-import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
 import { LineBoxContext, MarginContext } from './context';
 import {
   calComputedStyle,
@@ -658,18 +658,30 @@ export class Element extends Node implements IElementNode {
   // inlineBlock/abs在自适应尺寸前提下时，求min/max
   shrink2Fit(cs: Constraints, global: Global) {
     let min = 0, max = 0;
+    let maxCount = 0;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      calComputedStyle(child, cs, global);
+      const style = child.style;
+      if (style.position === Position.ABSOLUTE) {
+        continue;
+      }
       const o = child.shrink2FitItem(cs, global);
       min = Math.max(min, o.min);
-      max = Math.max(max, o.max);
+      if (style.display === Display.INLINE || style.display === Display.INLINE_BLOCK) {
+        maxCount += o.max;
+      }
+      else {
+        max = Math.max(max, o.max, maxCount);
+        maxCount = 0;
+      }
     }
+    max = Math.max(max, maxCount);
     return { min, max };
   }
 
   shrink2FitItem(cs: Constraints, global: Global) {
+    calComputedStyle(this, cs, global);
     const style = this.style;
     if (style.position === Position.ABSOLUTE) {
       return { min: 0, max: 0, hasBlockChild: false };
@@ -678,6 +690,7 @@ export class Element extends Node implements IElementNode {
       return this.shrink2FitInline(cs, global);
     }
     else if (style.display === Display.INLINE_BLOCK) {
+      // 复用block逻辑一样
       return this.shrink2FitBlock(cs, global);
     }
     // 默认block
@@ -688,6 +701,7 @@ export class Element extends Node implements IElementNode {
 
   private shrink2FitBlock(cs: Constraints, global: Global) {
     let min = 0, max = 0;
+    let maxCount = 0;
     const style = this.style;
     const computedStyle = this.computedStyle;
     // block如果定宽则直接返回（不考虑%），否则递归
@@ -703,11 +717,21 @@ export class Element extends Node implements IElementNode {
       const children = this.children;
       for (let i = 0, len = children.length; i < len; i++) {
         const child = children[i];
-        calComputedStyle(child, cs, global);
+        const style = child.style;
+        if (style.position === Position.ABSOLUTE) {
+          continue;
+        }
         const o = child.shrink2FitItem(cs, global);
         min = Math.max(min, o.min);
-        max = Math.max(max, o.max);
+        if (style.display === Display.INLINE || style.display === Display.INLINE_BLOCK) {
+          maxCount += o.max;
+        }
+        else {
+          max = Math.max(max, o.max, maxCount);
+          maxCount = 0;
+        }
       }
+      max = Math.max(max, maxCount);
       const mbp = getMbpH(computedStyle);
       min += mbp;
       max += mbp;
@@ -723,6 +747,9 @@ export class Element extends Node implements IElementNode {
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
       const style = child.style;
+      if (style.position === Position.ABSOLUTE) {
+        continue;
+      }
       // inline包含block时计算很特殊，block会把区域切割开来，需要计算每个区域
       const o = child.shrink2FitItem(cs, global);
       min = Math.max(min, o.min);
@@ -737,6 +764,10 @@ export class Element extends Node implements IElementNode {
       }
     }
     max = Math.max(max, maxCount);
+    const computedStyle = this.computedStyle;
+    const mbp = getMbpH(computedStyle);
+    min += mbp;
+    max += mbp;
     return { min, max, hasBlockChild };
   }
 
@@ -853,6 +884,7 @@ export class TextNode extends Node implements ITextNode {
       applyRelative(this, offset);
     }
     else if (display === Display.INLINE_BLOCK) {}
+    else {}
   }
 
   layAbs(cs: Constraints, absMap: WeakMap<Node, Abs[]>, global: Global, offset: Offset) {
@@ -860,10 +892,12 @@ export class TextNode extends Node implements ITextNode {
   }
 
   shrink2Fit(cs: Constraints, global: Global) {
+    calComputedStyle(this, cs, global);
     return minMaxText(this, cs, global);
   }
 
   shrink2FitItem(cs: Constraints, global: Global) {
+    calComputedStyle(this, cs, global);
     return minMaxText(this, cs, global);
   }
 }
