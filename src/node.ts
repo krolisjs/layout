@@ -203,7 +203,7 @@ export abstract class Node implements INode {
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
 
-  abstract shrink2FitItem(cs: Constraints, global: Global): { min: number, max: number };
+  abstract shrink2FitItem(cs: Constraints, global: Global): { min: number, max: number, hasBlockChild: boolean };
 
   protected getContainingNode() {
     let parent = this.parent;
@@ -672,7 +672,7 @@ export class Element extends Node implements IElementNode {
   shrink2FitItem(cs: Constraints, global: Global) {
     const style = this.style;
     if (style.position === Position.ABSOLUTE) {
-      return { min: 0, max: 0 };
+      return { min: 0, max: 0, hasBlockChild: false };
     }
     if (style.display === Display.INLINE) {
       return this.shrink2FitInline(cs, global);
@@ -704,7 +704,7 @@ export class Element extends Node implements IElementNode {
       for (let i = 0, len = children.length; i < len; i++) {
         const child = children[i];
         calComputedStyle(child, cs, global);
-        const o = child.shrink2Fit(cs, global);
+        const o = child.shrink2FitItem(cs, global);
         min = Math.max(min, o.min);
         max = Math.max(max, o.max);
       }
@@ -712,20 +712,32 @@ export class Element extends Node implements IElementNode {
       min += mbp;
       max += mbp;
     }
-    return { min, max };
+    return { min, max, hasBlockChild: false };
   }
 
   private shrink2FitInline(cs: Constraints, global: Global) {
     let min = 0, max = 0;
+    let maxCount = 0;
+    let hasBlockChild = false;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      // TODO inline包含block时计算不一样
-      const o = child.shrink2Fit(cs, global);
+      const style = child.style;
+      // inline包含block时计算很特殊，block会把区域切割开来，需要计算每个区域
+      const o = child.shrink2FitItem(cs, global);
       min = Math.max(min, o.min);
-      max += o.max;
+      // 撞上block分割行了，计算之前累计max和block自身，然后重新开始统计
+      if (style.display === Display.BLOCK || o.hasBlockChild) {
+        hasBlockChild = true;
+        max = Math.max(max, o.max, maxCount);
+        maxCount = 0;
+      }
+      else {
+        maxCount += o.max;
+      }
     }
-    return { min, max };
+    max = Math.max(max, maxCount);
+    return { min, max, hasBlockChild };
   }
 
   calBasis(cs: Constraints, global: Global) {}
