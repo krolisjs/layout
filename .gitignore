@@ -11,5 +11,4 @@ coverage/
 dist/
 types/
 .rollup.cache/
-demo/
 src/*.js

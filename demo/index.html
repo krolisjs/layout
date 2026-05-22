@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>layout</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=0"/>
+  <style>
+  </style>
+</head>
+<body>
+<div style="display: inline-block; background: #00F">
+  12
+  <div style="display: inline; background: #FFF">
+    34
+    <div style="width:60px;height:20px;background:#F00"></div>
+    56
+  </div>
+</div>
+<div id="res" style="position: relative"></div>
+<script src="../dist/index.iife.js"></script>
+<script>
+  const os = new OffscreenCanvas(1, 1);
+  const ctx = os.getContext('2d');
+  krolisLayout.setMeasureText((content, fontFamily, fontSize, lineHeight) => {
+    ctx.font = `${fontSize}px/${lineHeight}px ${fontFamily}`;
+    const m = ctx.measureText(content);
+    // console.log(content, ctx.font, `${fontSize}px/${lineHeight}px ${fontFamily}`, m.width);
+    return m;
+  });
+  krolisLayout.setMetricizeFont(() => {
+    return {
+      ascentRatio: 0.875,
+      descentRatio: 0.5,
+      lineGapRatio: 0.125,
+    };
+  });
+  const sw = new Intl.Segmenter([], { granularity: 'word' });
+  const sg = new Intl.Segmenter([], { granularity: 'grapheme' });
+  krolisLayout.setSegmentText((text, granularity) => {
+    if (granularity === 'grapheme') {
+      return Array.from(sg.segment(text)).map(item => ({
+        segment: item.segment,
+        index: item.index,
+        isWordLike: !!item.isWordLike,
+      }));
+    }
+    return Array.from(sw.segment(text)).map(item => ({
+      segment: item.segment,
+      index: item.index,
+      isWordLike: !!item.isWordLike,
+    }));
+  });
+
+  function genNode(item) {
+    if ('content' in item) {
+      return new krolisLayout.TextNode(item.content, item.style);
+    }
+    else {
+      const n = new krolisLayout.Element(item.style);
+      if (Array.isArray(item.children)) {
+        item.children.forEach(child => {
+          const c = genNode(child);
+          n.appendChild(c);
+        });
+      }
+      return n;
+    }
+  }
+
+  const node = genNode({
+    style: {
+      display: 'inlineBlock',
+    },
+    children: [
+      {
+        content: '12',
+      },
+      {
+        style: {
+          display: 'inline',
+        },
+        children: [
+          { content: '34' },
+          {
+            style: {
+              display: 'block',
+              width: 60,
+              height: 20,
+            },
+          },
+          { content: '56' },
+        ],
+      },
+    ],
+  });
+  node.lay({ aw: 500, ah: 500 });
+
+  const $res = document.querySelector('#res');
+  function print(node) {
+    const { result, mixedResult, children } = node;
+    console.log(node.id, result);
+    const hue = (node.id * 137.5) % 360;
+    const color = `hsl(${hue}, 70%, 60%)`;
+    if (mixedResult.type === 'text') {
+      mixedResult.frags.forEach((frag) => {
+        const span = document.createElement('span');
+        span.title = node.id;
+        span.style.position = 'absolute';
+        span.style.left = frag.x + 'px';
+        span.style.top = frag.y + 'px';
+        span.style.width = frag.w + 'px';
+        span.style.height = frag.h + 'px';
+        span.style.background = color;
+        span.innerText = frag.content;
+        $res.appendChild(span);
+      });
+    }
+    else {
+      const div = document.createElement('div');
+      div.title = node.id;
+      div.style.position = 'absolute';
+      div.style.left = mixedResult.x + 'px';
+      div.style.top = mixedResult.y + 'px';
+      div.style.width = mixedResult.w + 'px';
+      div.style.height = mixedResult.h + 'px';
+      if (mixedResult.frags) {
+        div.style.background = 'rgba(0,0,0,0.1)';
+      }
+      else {
+        div.style.background = color;
+      }
+      $res.appendChild(div);
+    }
+    if (children) {
+      children.forEach((item) => {
+        print(item);
+      });
+    }
+  }
+
+  print(node);
+</script>
+</body>
+</html>
