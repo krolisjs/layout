@@ -3,6 +3,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "declaration": true,
+    "rootDir": "src",
     "declarationDir": "dist",
     "emitDeclarationOnly": false,
     "noEmit": true,
