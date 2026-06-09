@@ -8,14 +8,6 @@
   </style>
 </head>
 <body>
-<div style="display: inline-block; background: #00F">
-  12
-  <div style="display: inline; background: #FFF">
-    34
-    <div style="width:60px;height:20px;background:#F00"></div>
-    56
-  </div>
-</div>
 <div id="res" style="position: relative"></div>
 <script src="../dist/index.iife.js"></script>
 <script>
@@ -88,7 +80,7 @@
               height: 20,
             },
           },
-          { content: '56' },
+          { content: '567' },
         ],
       },
     ],
@@ -98,7 +90,7 @@
   const $res = document.querySelector('#res');
   function print(node) {
     const { result, mixedResult, children } = node;
-    console.log(node.id, result);
+    console.log('res', node.id, result);
     const hue = (node.id * 137.5) % 360;
     const color = `hsl(${hue}, 70%, 60%)`;
     if (mixedResult.type === 'text') {

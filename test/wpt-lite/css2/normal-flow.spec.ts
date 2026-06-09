@@ -1032,7 +1032,7 @@ describe('normal-flow', () => {
               },
             },
             {
-              content: '56',
+              content: '567',
             },
           ],
         },
@@ -1040,6 +1040,9 @@ describe('normal-flow', () => {
     });
     node.lay(inputConstraints);
     expect(node.mixedResult).toMatchObject({
+      w: 60,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
       w: 60,
     });
   });

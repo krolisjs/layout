@@ -203,7 +203,7 @@ export abstract class Node implements INode {
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
 
-  abstract shrink2FitItem(cs: Constraints, global: Global): { min: number, max: number, hasBlockChild: boolean };
+  abstract shrink2FitItem(cs: Constraints, global: Global): { min: number, max: number, firstLineMax: number, lastLineMax: number, hasBlockChild: boolean };
 
   protected getContainingNode() {
     let parent = this.parent;
@@ -655,7 +655,7 @@ export class Element extends Node implements IElementNode {
     applyRelative(this, offset);
   }
 
-  // inlineBlock/abs在自适应尺寸前提下时，求min/max
+  // inlineBlock/abs在自适应尺寸前提下时，求min/max，这是个入口方法
   shrink2Fit(cs: Constraints, global: Global) {
     let min = 0, max = 0;
     let maxCount = 0;
@@ -663,12 +663,34 @@ export class Element extends Node implements IElementNode {
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
       const style = child.style;
+      // 所有情况递归absolute都无效不影响
       if (style.position === Position.ABSOLUTE) {
         continue;
       }
       const o = child.shrink2FitItem(cs, global);
       min = Math.max(min, o.min);
-      if (style.display === Display.INLINE || style.display === Display.INLINE_BLOCK) {
+      // 作为入口，本身是inlineBlock/abs的block，直接子节点是inline，注意其可能被子block切割的情况
+      if (style.display === Display.INLINE) {
+        // 有切割，且是有效切割的情况（inline首个子节点是空并且发生了切割可以无视）
+        if (o.firstLineMax > 0) {
+          maxCount += o.firstLineMax;
+          max = Math.max(max, o.max, maxCount);
+          maxCount = 0;
+          // 尾切割直接count统计等后面循环计算
+          maxCount = o.lastLineMax;
+        }
+        // 没有切割，或者子block出现在inline开头的切割
+        else {
+          if (o.lastLineMax) {
+            max = Math.max(max, o.max, maxCount);
+            maxCount = o.lastLineMax;
+          }
+          else {
+            maxCount += o.max;
+          }
+        }
+      }
+      else if (style.display === Display.INLINE_BLOCK) {
         maxCount += o.max;
       }
       else {
@@ -680,20 +702,15 @@ export class Element extends Node implements IElementNode {
     return { min, max };
   }
 
+  // 按照自身display情况递归调用
   shrink2FitItem(cs: Constraints, global: Global) {
     calComputedStyle(this, cs, global);
     const style = this.style;
-    if (style.position === Position.ABSOLUTE) {
-      return { min: 0, max: 0, hasBlockChild: false };
-    }
+    // 不可能有absolute，前置判断必须过滤
     if (style.display === Display.INLINE) {
       return this.shrink2FitInline(cs, global);
     }
-    else if (style.display === Display.INLINE_BLOCK) {
-      // 复用block逻辑一样
-      return this.shrink2FitBlock(cs, global);
-    }
-    // 默认block
+    // 默认block，inlineBlock相同
     else {
       return this.shrink2FitBlock(cs, global);
     }
@@ -723,9 +740,29 @@ export class Element extends Node implements IElementNode {
         }
         const o = child.shrink2FitItem(cs, global);
         min = Math.max(min, o.min);
-        if (style.display === Display.INLINE || style.display === Display.INLINE_BLOCK) {
+        // 这里和入口很像，逻辑参考shrink2Fit
+        if (style.display === Display.INLINE) {
+          if (o.firstLineMax > 0) {
+            maxCount += o.firstLineMax;
+            max = Math.max(max, o.max, maxCount);
+            maxCount = 0;
+            maxCount = o.lastLineMax;
+          }
+          else {
+            if (o.lastLineMax) {
+              max = Math.max(max, o.max, maxCount);
+              maxCount = o.lastLineMax;
+            }
+            else {
+              maxCount += o.max;
+            }
+          }
+        }
+        // 继续加载当前行上
+        else if (style.display === Display.INLINE_BLOCK) {
           maxCount += o.max;
         }
+        // block会中断重新统计
         else {
           max = Math.max(max, o.max, maxCount);
           maxCount = 0;
@@ -736,13 +773,17 @@ export class Element extends Node implements IElementNode {
       min += mbp;
       max += mbp;
     }
-    return { min, max, hasBlockChild: false };
+    // block没有inline的隔断情况，是一个整体，因此头尾返回0，无用信息
+    return { min, max, firstLineMax: -1, lastLineMax: 0, hasBlockChild: false };
   }
 
   private shrink2FitInline(cs: Constraints, global: Global) {
     let min = 0, max = 0;
     let maxCount = 0;
     let hasBlockChild = false;
+    // 首行初始标识-1，非首行计算过后为非负值，空节点是0；
+    // 传给父级时，假如子inline被block切割没有首行，它也会被置为0，虽然理论应该是-1，但此时数学计算等价，所以可以为0
+    let firstLineMax = -1;
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
@@ -753,14 +794,60 @@ export class Element extends Node implements IElementNode {
       // inline包含block时计算很特殊，block会把区域切割开来，需要计算每个区域
       const o = child.shrink2FitItem(cs, global);
       min = Math.max(min, o.min);
+      if (style.display === Display.INLINE) {
+        // 本身是首行
+        if (firstLineMax === -1) {
+          // 子inline返回首尾行说明发生block截断，否则无视
+          if (o.firstLineMax > -1 || o.lastLineMax) {
+            if (o.firstLineMax > -1) {
+              firstLineMax = o.firstLineMax;
+            }
+            max = o.max;
+            if (o.lastLineMax) {
+              maxCount = o.lastLineMax;
+            }
+          }
+          // 子inline无截断，保持目前首行状态，同时统计累加
+          else {
+            maxCount += o.max;
+            firstLineMax = maxCount;
+          }
+        }
+        // 不是首行了
+        else {
+          if (o.firstLineMax > -1 || o.lastLineMax) {
+            // 子inline截断有首行，先累加，然后取累加值和max对比
+            if (o.firstLineMax > -1) {
+              maxCount += o.firstLineMax;
+            }
+            max = Math.max(max, maxCount, o.max);
+            // 是否有截断尾行，赋值maxCount等后续判断
+            if (o.lastLineMax) {
+              maxCount = o.lastLineMax;
+            }
+            else {
+              maxCount = 0;
+            }
+          }
+          else {
+            maxCount += o.max;
+          }
+        }
+      }
+      else if (style.display === Display.INLINE_BLOCK) {
+        maxCount += o.max;
+        // 标识非首行0，即便返回给上级
+        if (firstLineMax === -1) {
+          firstLineMax = 0;
+        }
+      }
       // 撞上block分割行了，计算之前累计max和block自身，然后重新开始统计
-      if (style.display === Display.BLOCK || o.hasBlockChild) {
-        hasBlockChild = true;
+      else {
         max = Math.max(max, o.max, maxCount);
         maxCount = 0;
-      }
-      else {
-        maxCount += o.max;
+        if (firstLineMax === -1) {
+          firstLineMax = 0;
+        }
       }
     }
     max = Math.max(max, maxCount);
@@ -768,7 +855,7 @@ export class Element extends Node implements IElementNode {
     const mbp = getMbpH(computedStyle);
     min += mbp;
     max += mbp;
-    return { min, max, hasBlockChild };
+    return { min, max, firstLineMax, lastLineMax: maxCount, hasBlockChild };
   }
 
   calBasis(cs: Constraints, global: Global) {}
@@ -900,4 +987,6 @@ export class TextNode extends Node implements ITextNode {
     calComputedStyle(this, cs, global);
     return minMaxText(this, cs, global);
   }
+
+
 }
