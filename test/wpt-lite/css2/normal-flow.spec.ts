@@ -1224,6 +1224,7 @@ describe('normal-flow', () => {
                   style: {
                     display: 'block',
                     width: 500, // 💥 中间怪兽 500px
+                    height: 20,
                   },
                 },
                 { content: 'b' },
@@ -1231,6 +1232,7 @@ describe('normal-flow', () => {
                   style: {
                     display: 'block',
                     width: 100,
+                    height: 20,
                   },
                 },
                 { content: 'c' },
@@ -1243,10 +1245,95 @@ describe('normal-flow', () => {
     });
     node.lay(inputConstraints);
     expect(node.mixedResult).toMatchObject({
-      w: 208,
+      w: 500,
     });
     expect(node.children[0].mixedResult).toMatchObject({
-      w: 208,
+      w: 500,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      y: 1,
+      w: 16,
+    });
+    expect(node.children[0].children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 1,
+      w: 500,
+    });
+    expect(node.children[0].children[1].children[0].mixedResult).toMatchObject({
+      x: 16,
+      y: 1,
+      w: 16,
+    });
+    expect(node.children[0].children[1].children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 24,
+      w: 500,
+    });
+    expect(node.children[0].children[1].children[2].mixedResult).toMatchObject({
+      x: 0,
+      y: 45,
+      w: 16,
+    });
+    expect(node.children[0].children[1].children[3].mixedResult).toMatchObject({
+      x: 0,
+      y: 68,
+      w: 100,
+    });
+    expect(node.children[0].children[1].children[4].mixedResult).toMatchObject({
+      x: 0,
+      y: 89,
+      w: 16,
+    });
+    expect(node.children[0].children[2].mixedResult).toMatchObject({
+      x: 16,
+      y: 89,
+      w: 320,
+    });
+  });
+
+  it('custom-inlineBlock-inline-block-007', () => {
+    const node = genNode({
+      style: {
+        display: 'inlineBlock', // 入口
+      },
+      children: [
+        {
+          style: { display: 'inline' }, // #test-inline
+          children: [
+            { content: 'aaa' }, // 3个字 = 48px
+            { style: { display: 'block', width: 800, height: 20 } }, // 800px 怪兽 Block
+            { content: 'bbb' }, // 3个字 = 48px
+            { style: { display: 'block', width: 100, height: 20 } }, // 100px 普通 Block
+            { content: 'ccc' }  // 3个字 = 48px
+          ]
+        }
+      ]
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 800,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      w: 800,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      w: 48,
+    });
+    expect(node.children[0].children[1].mixedResult).toMatchObject({
+      y: 24,
+      w: 800,
+    });
+    expect(node.children[0].children[2].mixedResult).toMatchObject({
+      y: 45,
+      w: 48,
+    });
+    expect(node.children[0].children[3].mixedResult).toMatchObject({
+      y: 68,
+      w: 100,
+    });
+    expect(node.children[0].children[4].mixedResult).toMatchObject({
+      y: 89,
+      w: 48,
     });
   });
 });
