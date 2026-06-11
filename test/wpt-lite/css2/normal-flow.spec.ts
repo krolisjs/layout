@@ -1201,4 +1201,52 @@ describe('normal-flow', () => {
       w: 208,
     });
   });
+
+  it('custom-inlineBlock-inline-block-006', () => {
+    const node = genNode({
+      style: {
+        display: 'inlineBlock',
+      },
+      children: [
+        {
+          style: {
+            display: 'inline', // #parent-inline
+          },
+          children: [
+            { content: 'x' }, // 💥 加上这个前缀！让后面的节点在父级循环里走“不是首行了”的分支
+            {
+              style: {
+                display: 'inline', // #child-inline
+              },
+              children: [
+                { content: 'a' },
+                {
+                  style: {
+                    display: 'block',
+                    width: 500, // 💥 中间怪兽 500px
+                  },
+                },
+                { content: 'b' },
+                {
+                  style: {
+                    display: 'block',
+                    width: 100,
+                  },
+                },
+                { content: 'c' },
+              ],
+            },
+            { content: '12345678901234567890' }, // 后缀 320px
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 208,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      w: 208,
+    });
+  });
 });
