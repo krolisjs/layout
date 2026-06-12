@@ -88,6 +88,14 @@ type Abs = {
   cy: number;
 };
 
+type ShrinkMeasure = {
+  min: number;
+  max: number;
+  first: number;
+  last: number;
+  split: boolean;
+};
+
 let id = 0;
 
 export abstract class Node implements INode {
@@ -649,32 +657,7 @@ export class Element extends Node implements IElementNode {
   }
 
   shrink2Fit(cs: Constraints, global: Global) {
-    let min = 0, max = 0;
-    const children = this.children;
-    for (let i = 0, len = children.length; i < len; i++) {
-      const child = children[i];
-      const style = child.style;
-      // 测量阶段递归的子节点absolute忽略
-      if (style.position !== Position.ABSOLUTE) {
-        calComputedStyle(child, cs, global);
-        if (child.nodeType === NodeType.Text) {
-          const o = child.shrink2Fit(cs, global);
-          min = Math.max(min, o.min);
-          max = Math.max(max, o.max);
-        }
-        else if (style.display === Display.INLINE) {
-          const o = (child as Element).shrink2FitInline(cs, global);
-          min = Math.max(min, o.min);
-          max = Math.max(max, o.max);
-        }
-        else {
-          const o = (child as Element).shrink2FitBlock(cs, global);
-          min = Math.max(min, o.min);
-          max = Math.max(max, o.max);
-        }
-      }
-    }
-    return { min, max };
+    return this.shrink2FitBlockContent(cs, global);
   }
 
   private shrink2FitBlock(cs: Constraints, global: Global) {
@@ -691,14 +674,9 @@ export class Element extends Node implements IElementNode {
       max = w;
     }
     else {
-      const children = this.children;
-      for (let i = 0, len = children.length; i < len; i++) {
-        const child = children[i];
-        calComputedStyle(child, cs, global);
-        const o = child.shrink2Fit(cs, global);
-        min = Math.max(min, o.min);
-        max = Math.max(max, o.max);
-      }
+      const o = this.shrink2FitBlockContent(cs, global);
+      min = o.min;
+      max = o.max;
       const mbp = getMbpH(computedStyle);
       min += mbp;
       max += mbp;
@@ -707,16 +685,125 @@ export class Element extends Node implements IElementNode {
   }
 
   private shrink2FitInline(cs: Constraints, global: Global) {
+    const { min, max } = this.shrink2FitInlineContent(cs, global);
+    return { min, max };
+  }
+
+  private shrink2FitBlockContent(cs: Constraints, global: Global) {
     let min = 0, max = 0;
+    let lineMax = 0;
     const children = this.children;
+
+    const flushLine = () => {
+      max = Math.max(max, lineMax);
+      lineMax = 0;
+    };
+
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      // TODO inline包含block时计算不一样
-      const o = child.shrink2Fit(cs, global);
-      min = Math.max(min, o.min);
-      max += o.max;
+      const style = child.style;
+      // 测量阶段递归的子节点absolute忽略
+      if (style.position === Position.ABSOLUTE) {
+        continue;
+      }
+      calComputedStyle(child, cs, global);
+      if (this.isInlineLevelInFlow(child)) {
+        const o = this.shrink2FitInlineLevelChild(child, cs, global);
+        min = Math.max(min, o.min);
+        if (o.split) {
+          lineMax += o.first;
+          max = Math.max(max, lineMax, o.max);
+          lineMax = o.last;
+        }
+        else {
+          lineMax += o.max;
+        }
+      }
+      else {
+        flushLine();
+        const o = (child as Element).shrink2FitBlock(cs, global);
+        min = Math.max(min, o.min);
+        max = Math.max(max, o.max);
+      }
     }
+    flushLine();
     return { min, max };
+  }
+
+  private shrink2FitInlineContent(cs: Constraints, global: Global): ShrinkMeasure {
+    let min = 0, max = 0, current = 0;
+    let first = 0, last = 0, split = false;
+    const children = this.children;
+
+    const breakLine = () => {
+      if (!split) {
+        first = current;
+      }
+      max = Math.max(max, current);
+      current = 0;
+      split = true;
+    };
+
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      const style = child.style;
+      // 测量阶段递归的子节点absolute忽略
+      if (style.position === Position.ABSOLUTE) {
+        continue;
+      }
+      calComputedStyle(child, cs, global);
+      if (this.isInlineLevelInFlow(child)) {
+        const o = this.shrink2FitInlineLevelChild(child, cs, global);
+        min = Math.max(min, o.min);
+        if (o.split) {
+          current += o.first;
+          if (!split) {
+            first = current;
+          }
+          max = Math.max(max, current, o.max);
+          current = o.last;
+          split = true;
+        }
+        else {
+          current += o.max;
+        }
+      }
+      else {
+        const o = (child as Element).shrink2FitBlock(cs, global);
+        min = Math.max(min, o.min);
+        breakLine();
+        max = Math.max(max, o.max);
+      }
+    }
+
+    if (split) {
+      last = current;
+      max = Math.max(max, last);
+    }
+    else {
+      first = last = max = current;
+    }
+    return { min, max, first, last, split };
+  }
+
+  private shrink2FitInlineLevelChild(child: Node, cs: Constraints, global: Global): ShrinkMeasure {
+    if (child.nodeType === NodeType.Text) {
+      const o = child.shrink2Fit(cs, global);
+      return { ...o, first: o.max, last: o.max, split: false };
+    }
+    if (child.style.display === Display.INLINE) {
+      return (child as Element).shrink2FitInlineContent(cs, global);
+    }
+    const o = (child as Element).shrink2FitBlock(cs, global);
+    return { ...o, first: o.max, last: o.max, split: false };
+  }
+
+  private isInlineLevelInFlow(child: Node) {
+    if (child.nodeType === NodeType.Text) {
+      return true;
+    }
+    const display = child.style.display;
+    return display === Display.INLINE || display === Display.INLINE_BLOCK;
   }
 
   // 将absolute节点记录下来，等到其包围块节点布局结束后有了确定的尺寸再布局，没有就是相对root
