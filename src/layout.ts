@@ -462,7 +462,7 @@ function addEmptyLine(cx: number, cy: number, h: number, node: ITextNode, frags:
 export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
   const content = node.content;
   if (!content) {
-    return { min: 0, max: 0, firstLineMax: -1, lastLineMax: 0, hasBlockChild: false };
+    return { min: 0, max: 0, firstLineMax: -1, lastLineMax: 0 };
   }
   const measureText = getMeasureText();
   const computedStyle = node.computedStyle;
@@ -506,7 +506,7 @@ export function minMaxText(node: ITextNode, cs: Constraints, global: Global) {
       max = Math.max(max, sum);
     }
   }
-  return { min, max, firstLineMax: -1, lastLineMax: 0, hasBlockChild: false };
+  return { min, max, firstLineMax: -1, lastLineMax: 0 };
 }
 
 export function offsetX(res: Result, x: number) {

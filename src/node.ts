@@ -203,7 +203,7 @@ export abstract class Node implements INode {
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
 
-  abstract shrink2FitItem(cs: Constraints, global: Global): { min: number, max: number, firstLineMax: number, lastLineMax: number, hasBlockChild: boolean };
+  abstract shrink2FitItem(cs: Constraints, global: Global): { min: number, max: number, firstLineMax: number, lastLineMax: number };
 
   protected getContainingNode() {
     let parent = this.parent;
@@ -774,13 +774,12 @@ export class Element extends Node implements IElementNode {
       max += mbp;
     }
     // block没有inline的隔断情况，是一个整体，因此头尾返回0，无用信息
-    return { min, max, firstLineMax: -1, lastLineMax: 0, hasBlockChild: false };
+    return { min, max, firstLineMax: -1, lastLineMax: 0 };
   }
 
   private shrink2FitInline(cs: Constraints, global: Global) {
     let min = 0, max = 0;
     let maxCount = 0;
-    let hasBlockChild = false;
     // 首行初始标识-1，非首行计算过后为非负值，空节点是0；
     // 传给父级时，假如子inline被block切割没有首行，它也会被置为0，虽然理论应该是-1，但此时数学计算等价，所以可以为0
     let firstLineMax = -1;
@@ -855,7 +854,7 @@ export class Element extends Node implements IElementNode {
     const mbp = getMbpH(computedStyle);
     min += mbp;
     max += mbp;
-    return { min, max, firstLineMax, lastLineMax: maxCount, hasBlockChild };
+    return { min, max, firstLineMax, lastLineMax: maxCount };
   }
 
   calBasis(cs: Constraints, global: Global) {}
