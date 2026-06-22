@@ -794,6 +794,19 @@ describe('normal-flow', () => {
     });
   });
 
+  it('custom-inline-ib', () => {
+    const node = genNode({
+      style: { display: 'inline' },
+      children: [
+        { style: { display: 'inlineBlock', width: 200, height: 10 } },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 200,
+    });
+  });
+
   it('inlines-002', () => {
     const node = genNode({
       style: {
@@ -1404,9 +1417,6 @@ describe('normal-flow', () => {
     expect(node.mixedResult).toMatchObject({
       w: 232,
     });
-    // expect(node.children[1].mixedResult).toMatchObject({
-    //   w: 200,
-    // });
   });
 
   // it('custom-inlineBlock-inline-block-011', () => {
