@@ -1419,257 +1419,200 @@ describe('normal-flow', () => {
     });
   });
 
-  // it('custom-inlineBlock-inline-block-011', () => {
-  //   // inlineBlock > [text(32), inline > [text(16), inlineBlock(200), block(50), text(48)]]
-  //   // 首行 = 32 + 16 + 200 = 248, block = 50, 尾行 = 48
-  //   // 预期 max = 248
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { content: 'x' }, // 16px
-  //           { style: { display: 'inlineBlock', width: 200, height: 10 } },
-  //           { style: { display: 'block', width: 50, height: 10 } },
-  //           { content: 'abc' }, // 48px
-  //         ],
-  //       },
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 248,
-  //   });
-  // });
-  //
-  // it('custom-inlineBlock-inline-block-012', () => {
-  //   // inlineBlock > [text(32), inline > [inlineBlock(200), text(16), block(50), text(48)]]
-  //   // 首行 = 32 + 200 + 16 = 248, block = 50, 尾行 = 48
-  //   // 预期 max = 248
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { style: { display: 'inlineBlock', width: 200, height: 10 } },
-  //           { content: 'x' }, // 16px
-  //           { style: { display: 'block', width: 50, height: 10 } },
-  //           { content: 'abc' }, // 48px
-  //         ],
-  //       },
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 248,
-  //   });
-  // });
-  //
-  // // ========== Bug: inline含inlineBlock但无block切割时，父级无法正确累加 ==========
-  // // shrink2FitInline中inlineBlock设firstLineMax=0，导致入口方法误判为有切割
-  //
-  // it('custom-inlineBlock-inline-block-013', () => {
-  //   // inlineBlock > [text(32), inline > [inlineBlock(200), text(48)]]
-  //   // 无block切割，所有内容在同一行：32 + 200 + 48 = 280
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { style: { display: 'inlineBlock', width: 200, height: 10 } },
-  //           { content: 'abc' }, // 48px
-  //         ],
-  //       },
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 280,
-  //   });
-  // });
-  //
-  // it('custom-inlineBlock-inline-block-014', () => {
-  //   // inlineBlock > [text(32), inline > [inlineBlock(200)]]
-  //   // 无block切割，所有内容在同一行：32 + 200 = 232
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { style: { display: 'inlineBlock', width: 200, height: 10 } },
-  //         ],
-  //       },
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 232,
-  //   });
-  // });
-  //
-  // // ========== Bug: inline > [block] 时 firstLineMax=0/lastLineMax=0 被误判为无切割 ==========
-  // // 当inline只包含block（首尾行都为空），入口方法走maxCount+=o.max分支，
-  // // 错误地将block宽度累加到当前行
-  //
-  // it('custom-inlineBlock-inline-block-015', () => {
-  //   // inlineBlock > [text(32), inline > [block(200)], text(48)]
-  //   // block切割：行1=32, block=200, 行2=48
-  //   // 预期 max = 200
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { style: { display: 'block', width: 200, height: 10 } },
-  //         ],
-  //       },
-  //       { content: 'abc' }, // 48px
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 200,
-  //   });
-  // });
-  //
-  // it('custom-inlineBlock-inline-block-016', () => {
-  //   // inlineBlock > [text(32), inline > [block(50)], text(48)]
-  //   // block切割：行1=32, block=50, 行2=48
-  //   // 预期 max = max(32, 50, 48) = 50
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { style: { display: 'block', width: 50, height: 10 } },
-  //         ],
-  //       },
-  //       { content: 'abc' }, // 48px
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 50,
-  //   });
-  // });
-  //
-  // // ========== Bug: 嵌套inline中inlineBlock + block切割的传播 ==========
-  //
-  // it('custom-inlineBlock-inline-block-017', () => {
-  //   // inlineBlock > [text(32), inline > [inline > [inlineBlock(200), block(50)], text(48)]]
-  //   // 内层inline: firstLineMax=0(因为ib), block切割
-  //   // 外层inline处理内层inline时，应该识别出切割
-  //   // 首行 = 32 + 200 = 232, block = 50, 尾行 = 48
-  //   // 预期 max = 232
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           {
-  //             style: { display: 'inline' },
-  //             children: [
-  //               { style: { display: 'inlineBlock', width: 200, height: 10 } },
-  //               { style: { display: 'block', width: 50, height: 10 } },
-  //             ],
-  //           },
-  //           { content: 'abc' }, // 48px
-  //         ],
-  //       },
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 232,
-  //   });
-  // });
-  //
-  // it('custom-inlineBlock-inline-block-018', () => {
-  //   // inlineBlock > [text(32), inline > [inlineBlock(200), block(50), text(48)], text(64)]
-  //   // 首行 = 32 + 200 = 232, block = 50, 尾行 = 48 + 64 = 112
-  //   // 预期 max = 232
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       { content: '12' }, // 32px
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { style: { display: 'inlineBlock', width: 200, height: 10 } },
-  //           { style: { display: 'block', width: 50, height: 10 } },
-  //           { content: 'abc' }, // 48px
-  //         ],
-  //       },
-  //       { content: '1234' }, // 64px
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 232,
-  //   });
-  // });
-  //
-  // // ========== 对照组：确认正常情况仍然正确 ==========
-  //
-  // it('custom-inlineBlock-inline-block-019', () => {
-  //   // inlineBlock > [inline > [inlineBlock(100), inlineBlock(150), block(50), text(48)]]
-  //   // 首行 = 100 + 150 = 250, block = 50, 尾行 = 48
-  //   // 预期 max = 250（这个case已经通过，作为对照）
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { style: { display: 'inlineBlock', width: 100, height: 10 } },
-  //           { style: { display: 'inlineBlock', width: 150, height: 10 } },
-  //           { style: { display: 'block', width: 50, height: 10 } },
-  //           { content: 'abc' }, // 48px
-  //         ],
-  //       },
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 250,
-  //   });
-  // });
-  //
-  // it('custom-inlineBlock-inline-block-020', () => {
-  //   // inlineBlock > [inline > [text(48), block(50), inlineBlock(200), text(32)]]
-  //   // 首行 = 48, block = 50, 尾行 = 200 + 32 = 232
-  //   // 预期 max = 232
-  //   const node = genNode({
-  //     style: { display: 'inlineBlock' },
-  //     children: [
-  //       {
-  //         style: { display: 'inline' },
-  //         children: [
-  //           { content: 'abc' }, // 48px
-  //           { style: { display: 'block', width: 50, height: 10 } },
-  //           { style: { display: 'inlineBlock', width: 200, height: 10 } },
-  //           { content: '12' }, // 32px
-  //         ],
-  //       },
-  //     ],
-  //   });
-  //   node.lay(inputConstraints);
-  //   expect(node.mixedResult).toMatchObject({
-  //     w: 232,
-  //   });
-  // });
+  it('custom-inlineBlock-inline-block-011', () => {
+    const node = genNode({
+      style: { display: 'inlineBlock' },
+      children: [
+        { content: '12' }, // 32px
+        {
+          style: { display: 'inline' },
+          children: [
+            { content: 'x' }, // 16px
+            { style: { display: 'inlineBlock', width: 200, height: 10 } },
+            { style: { display: 'block', width: 50, height: 10 } },
+            { content: 'abc' }, // 48px
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 248,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      w: 248,
+      frags: [
+        { x: 32, w: 216 },
+        { x: 0, w: 48 },
+      ],
+    });
+  });
+
+  it('custom-inlineBlock-inline-block-012', () => {
+    const node = genNode({
+      style: { display: 'inlineBlock' },
+      children: [
+        { content: '12' }, // 32px
+        {
+          style: { display: 'inline' },
+          children: [
+            { style: { display: 'inlineBlock', width: 200, height: 10 } },
+            { content: 'x' }, // 16px
+            { style: { display: 'block', width: 50, height: 10 } },
+            { content: 'abc' }, // 48px
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 248,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      w: 248,
+      frags: [
+        { x: 32, w: 216 },
+        { x: 0, w: 48 },
+      ],
+    });
+  });
+
+  it('custom-inlineBlock-inline-block-013', () => {
+    const node = genNode({
+      style: { display: 'inlineBlock' },
+      children: [
+        { content: '12' }, // 32px
+        {
+          style: { display: 'inline' },
+          children: [
+            { style: { display: 'inlineBlock', width: 200, height: 10 } },
+            { content: 'abc' }, // 48px
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 280,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      w: 248,
+    });
+  });
+
+  it('custom-inlineBlock-inline-block-016', () => {
+    const node = genNode({
+      style: { display: 'inlineBlock' },
+      children: [
+        { content: '12' }, // 32px
+        {
+          style: { display: 'inline' },
+          children: [
+            { style: { display: 'block', width: 50, height: 10 } },
+          ],
+        },
+        { content: 'abc' }, // 48px
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 50,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      w: 50,
+    });
+  });
+
+  it('custom-inlineBlock-inline-block-017', () => {
+    const node = genNode({
+      style: { display: 'inlineBlock' },
+      children: [
+        { content: '12' }, // 32px
+        {
+          style: { display: 'inline' },
+          children: [
+            {
+              style: { display: 'inline' },
+              children: [
+                { style: { display: 'inlineBlock', width: 200, height: 10 } },
+                { style: { display: 'block', width: 50, height: 10 } },
+              ],
+            },
+            { content: 'abc' }, // 48px
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 232,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      w: 232,
+    });
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
+      w: 232,
+      frags: [
+        { x: 32, w: 200 },
+      ],
+    });
+  });
+
+  it('custom-inlineBlock-inline-block-019', () => {
+    const node = genNode({
+      style: { display: 'inlineBlock' },
+      children: [
+        {
+          style: { display: 'inline' },
+          children: [
+            { style: { display: 'inlineBlock', width: 100, height: 10 } },
+            { style: { display: 'inlineBlock', width: 150, height: 10 } },
+            { style: { display: 'block', width: 50, height: 10 } },
+            { content: 'abc' }, // 48px
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 250,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      w: 250,
+      frags: [
+        { x: 0, y: 1, w: 250 },
+        { x: 0, y: 35, w: 48 },
+      ],
+    });
+  });
+
+  it('custom-inlineBlock-inline-block-020', () => {
+    const node = genNode({
+      style: { display: 'inlineBlock' },
+      children: [
+        {
+          style: { display: 'inline' },
+          children: [
+            { content: 'abc' }, // 48px
+            { style: { display: 'block', width: 50, height: 10 } },
+            { style: { display: 'inlineBlock', width: 200, height: 10 } },
+            { content: '12' }, // 32px
+          ],
+        },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      w: 232,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      w: 232,
+      frags: [
+        { x: 0, y: 1, w: 48 },
+        { x: 0, y: 35, w: 232 },
+      ],
+    });
+  });
 });
