@@ -188,13 +188,15 @@ export class LineBoxContext {
     current.begin = false; // 不再是行首
     const list = current.list;
     const lv = this.inlineStack.length;
-    this.current.list.push({ type: ContentBoxType.INLINE_BLOCK, lv, node, frag: null, added: true });
-    // 这个和addText有点像
+    list.push({ type: ContentBoxType.INLINE_BLOCK, lv, node, frag: null, added: true });
+    // 这个和addText有点像，当前行中的inline节点如果是node的父节点，则添加内容
+    const nodeRes = node.result!;
+    const nodeRight = nodeRes.x + nodeRes.w + getMbpRight(node.computedStyle);
     for (let i = list.length - 2; i >= 0; i--) {
       const item = list[i];
       if (item.type === ContentBoxType.INLINE && item.lv < lv) {
         const res = item.node.result as Inline;
-        item.frag.w = res.x + res.w + getMbpRight(item.node.computedStyle) - item.frag.x;
+        item.frag.w = nodeRight - item.frag.x;
         if (!item.added) {
           item.added = true;
           res.frags.push(item.frag);
