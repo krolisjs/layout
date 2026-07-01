@@ -10,13 +10,15 @@
 <body>
 <div id="res" style="position: relative"></div>
 <script src="../dist/index.iife.js"></script>
+<script src="../dist/inject.iife.js"></script>
 <script>
   const os = new OffscreenCanvas(1, 1);
   const ctx = os.getContext('2d');
-  krolisLayout.setMeasureText((content, fontFamily, fontSize, lineHeight) => {
+  krolisLayout.setMeasureText((content, fontFamily, fontSize, lineHeight, fontWeight, fontStyle, letterSpacing) => {
+    // return { width: content.length * 16 };
     ctx.font = `${fontSize}px/${lineHeight}px ${fontFamily}`;
+    ctx.letterSpacing = letterSpacing + 'px';
     const m = ctx.measureText(content);
-    // console.log(content, ctx.font, `${fontSize}px/${lineHeight}px ${fontFamily}`, m.width);
     return m;
   });
   krolisLayout.setMetricizeFont(() => {
@@ -60,29 +62,9 @@
   }
 
   const node = genNode({
-    style: {
-      display: 'inlineBlock',
-    },
+    style: { letterSpacing: 20 },
     children: [
-      {
-        content: '12',
-      },
-      {
-        style: {
-          display: 'inline',
-        },
-        children: [
-          { content: '34' },
-          {
-            style: {
-              display: 'block',
-              width: 60,
-              height: 20,
-            },
-          },
-          { content: '567' },
-        ],
-      },
+      { content: 'abc' }
     ],
   });
   node.lay({ aw: 500, ah: 500 });

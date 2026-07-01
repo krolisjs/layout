@@ -43,6 +43,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js",
       "script": "./dist/index.iife.js"
+    },
+    "./inject": {
+      "types": "./dist/inject.d.ts",
+      "import": "./dist/inject.js",
+      "default": "./dist/inject.js"
     }
   },
   "engines": {

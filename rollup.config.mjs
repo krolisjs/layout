@@ -44,4 +44,38 @@ export default [
       dts(),
     ],
   },
+  {
+    input: 'src/inject.ts',
+    output: [
+      {
+        file: 'dist/inject.js',
+        format: 'es',
+        sourcemap: true,
+      },
+      {
+        file: 'dist/inject.iife.js',
+        format: 'iife',
+        sourcemap: true,
+        name: 'krolisLayoutInject',
+      },
+    ],
+    plugins: [
+      typescript({
+        outputToFilesystem: false,
+        declaration: false,
+        declarationDir: undefined,
+        target: 'ES2018',
+      }),
+    ],
+  },
+  {
+    input: 'src/inject.ts',
+    output: {
+      file: 'dist/inject.d.ts',
+      format: 'es',
+    },
+    plugins: [
+      dts(),
+    ],
+  },
 ];
