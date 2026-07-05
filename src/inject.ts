@@ -1,6 +1,5 @@
 import { FontStyle } from './constants';
-import { setMeasureText } from './text';
-import type { MeasureText } from './text';
+import type { MeasureText, SegmentText } from './text';
 
 // 提供浏览器/node环境下默认的注入依赖，如字体测量
 
@@ -57,3 +56,28 @@ export const defaultMeasureText: MeasureText = (
   ctx.letterSpacing = letterSpacing + 'px';
   return ctx.measureText(content);
 };
+
+let sw: Intl.Segmenter | null = null;
+let sg: Intl.Segmenter | null = null;
+
+function getSegmenter(granularity?: string) {
+  if (granularity === 'grapheme') {
+    if (sg) {
+      return sg;
+    }
+    return sg = new Intl.Segmenter([], { granularity: 'grapheme' });
+  }
+  if (sw) {
+    return sw;
+  }
+  return sw = new Intl.Segmenter([], { granularity: 'word' });
+}
+
+export const defaultSegmentText: SegmentText = (text: string, granularity?: string) => {
+  const seg = getSegmenter(granularity);
+  return Array.from(seg.segment(text)).map(item => ({
+    segment: item.segment,
+    index: item.index,
+    isWordLike: !!item.isWordLike,
+  }));
+}
