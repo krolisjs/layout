@@ -48,13 +48,14 @@ console.log(text.rect); // { x: 2, y: 0, rects: { x: 2, y: 50, ... } }
 
 /**
  * If text measurement is involved,
- * please call setMeasureText/setMetricizeFont first to set the font metrics method.
+ * please call setMeasureText/setMetricizeFont/setSegmentText first to set the font metrics method.
  * The measureText method of the Canvas context on the web only returns width,
- * the baseline must be retrieved from font metrics information.
+ * the baseline must be retrieved from font metrics information,
+ * and text segmentation can use Intl.Segmenter.
  */
 /**
- * 如果涉及到文字测量，请先调用setMeasureText/setMetricizeFont设置字体度量方法。
- * web上常见的canvas的context的measureText方法仅返回width，baseline需要从字体信息中读取。
+ * 如果涉及到文字测量，请先调用setMeasureText/setMetricizeFont/setSegmentText设置字体度量方法。
+ * web上常见的canvas的context的measureText方法仅返回width，baseline需要从字体信息中读取，分词可以使用Intl.Segmenter。
  */
 setMeasureText((
   content: string,
@@ -72,6 +73,21 @@ setMetricizeFont((fontFamily: string) => ({
   lineGapRatio?: number,
   xHeightRatio?: number,
 }));
+
+setSegmentText((text: string, granularity?: string) => ([{
+  segment: string,
+  index: number,
+  isWordLike: boolean,
+}]));
+
+/**
+ * The measurement functions mentioned above have built-in default implementations for browser and Node.js environments.
+ */
+/**
+ * 上面说的测量功能，内置提供了浏览器/nodejs环境上默认实现
+ */
+import { defaultMeasureText, defaultSegmentText } from '@krolis/layout/inject';
+import { parse } from '@krolis/opentype';
 ```
 
 ## Dev
