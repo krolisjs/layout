@@ -310,6 +310,10 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
       computedStyle[k] = Math.max(0, calLength(style[k], cs.pbw || 0, global.rem, computedStyle.fontSize));
     }
   });
+
+  (['flexGrow', 'flexShrink'] as const).forEach(k => {
+    computedStyle[k] = Math.max(0, style[k]);
+  });
 }
 
 function getBaseline(node: INode, oy: number) {

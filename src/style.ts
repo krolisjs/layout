@@ -52,13 +52,15 @@ export type CssLength = Omit<CssFontSize, 'inherit'> | 'auto' | `${number}em`;
 
 export type CssLengthMMF = CssLength | 'minContent' | 'maxContent' | 'fitContent';
 
+export type CssLengthMMFC = CssLengthMMF | 'content';
+
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
   display: 'none' | 'block' | 'inline' | 'inlineBlock' | 'flex' | 'inlineFlex' | 'grid' | 'inlineGrid';
   flexGrow: number;
   flexShrink: number;
-  flexBasis: CssLength | 'content';
-  flex?: string | [number, number, CssLength | 'content'];
+  flexBasis: CssLengthMMFC;
+  flex?: string | [number, number, CssLengthMMFC] | [number] | [number, number] | [number, CssLengthMMFC] | [number] | [CssLengthMMFC];
   position: 'static' | 'relative' | 'absolute';
   margin?: CssLength | CssLength[] | string;
   marginTop: CssLength;
@@ -153,7 +155,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
  * - 3个值：上、左右、下
  * - 4个值：上、右、下、左
  */
-function parseMarginPadding(v: CssLength | CssLength[] | string): CssLength[] {
+export function parseMarginPadding(v: CssLength | CssLength[] | string): CssLength[] {
   if (typeof v === 'string') {
     const list = v.trim().split(/\s+/);
     if (list.length === 1) {
@@ -255,14 +257,14 @@ export function parseFont(v: string) {
   return res;
 }
 
-function parseBorder(v: string) {
+export function parseBorder(v: string) {
   const m = /([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|em|rem)/.exec(v);
   if (m) {
     return m[0] as CssLength;
   }
 }
 
-function parseFlex(v: string) {
+export function parseFlex(v: string) {
   if (v === 'none') {
     return { g: 0, s: 0, b: 'auto' };
   }
@@ -442,10 +444,10 @@ function abbr(style: Partial<JStyle | Style> = {}) {
     }
     if (flex) {
       if (Array.isArray(flex)) {
-        res.flexGrow = +flex[0] || 0;
-        const fs = +flex[1] as number | undefined;
-        res.flexShrink = fs ?? 1;
-        res.flexBasis = flex[2] || 'auto';
+        const o = parseFlex(flex.join(' '));
+        res.flexGrow = o.g;
+        res.flexShrink = o.s;
+        res.flexBasis = o.b;
       }
       else {
         const o = parseFlex(flex.trim());
@@ -659,7 +661,7 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
         keepAll: WordBreak.KEEP_ALL,
         normal: WordBreak.NORMAL,
       }[style.wordBreak] || WordBreak.INHERIT;
-    };
+    }
   }
   return res;
 };
@@ -667,6 +669,9 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
 export type ComputedStyle = {
   boxSizing: BoxSizing;
   display: Display;
+  flexGrow: number;
+  flexShrink: number;
+  flexBasis: number;
   position: Position;
   top: number;
   right: number;
@@ -705,6 +710,9 @@ export function getDefaultComputedStyle(style?: Style) {
   const dft: ComputedStyle = {
     boxSizing: BoxSizing.CONTENT_BOX,
     display: Display.BLOCK,
+    flexGrow: 0,
+    flexShrink: 1,
+    flexBasis: 0,
     position: Position.STATIC,
     marginTop: 0,
     marginRight: 0,
@@ -738,10 +746,12 @@ export function getDefaultComputedStyle(style?: Style) {
     maxHeight: 0,
     wordBreak: WordBreak.INHERIT,
   };
-  // 一些可以在布局前提前计算出的
+  // 一些可以在布局前提前计算出的，一些则不可以（如width%)
   if (style) {
     dft.boxSizing = style.boxSizing;
     dft.display = style.display;
+    dft.flexGrow = style.flexGrow;
+    dft.flexShrink = style.flexShrink;
     dft.position = style.position;
     dft.fontFamily = style.fontFamily;
     dft.fontStyle = style.fontStyle;
@@ -775,10 +785,27 @@ export function getDefaultComputedStyle(style?: Style) {
       'maxWidth',
       'minHeight',
       'maxHeight',
+      'flexBasis',
     ] as const).forEach(k => {
       const v = style[k];
+      // 绝对值px和相对0可以提前知道
       if (v.u === Unit.PX) {
         dft[k] = v.v;
+      }
+      else if (v.u === Unit.IN) {
+        dft[k] = v.v * 96;
+      }
+      else if (v.u === Unit.CM) {
+        dft[k] = v.v * 96 / 2.54;
+      }
+      else if (v.u === Unit.PT) {
+        dft[k] = v.v * 96 / 72;
+      }
+      else if (v.u === Unit.PC) {
+        dft[k] = v.v * 16;
+      }
+      else if (v.v === 0 && [Unit.PERCENT, Unit.EM, Unit.REM, Unit.PC, Unit.PT, Unit.CM, Unit.IN, Unit.VW, Unit.VH, Unit.VMAX, Unit.VMIN].includes(v.u)) {
+        dft[k] = 0;
       }
     });
   }

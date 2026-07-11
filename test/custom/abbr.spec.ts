@@ -160,4 +160,172 @@ describe('abbr', () => {
     });
   });
 
+  it('flex-001', () => {
+    const node = genNode({
+      style: {
+        flex: 'none',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 0,
+      flexShrink: 0,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-002', () => {
+    const node = genNode({
+      style: {
+        flex: 'auto',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-003', () => {
+    const node = genNode({
+      style: {
+        flex: '1',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-004', () => {
+    const node = genNode({
+      style: {
+        flex: '1 2',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 1,
+      flexShrink: 2,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-005', () => {
+    const node = genNode({
+      style: {
+        flex: '1 20px',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 20,
+    });
+  });
+
+  it('flex-006', () => {
+    const node = genNode({
+      style: {
+        flex: '1 2 30%',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 1,
+      flexShrink: 2,
+      // flexBasis: 0,
+    });
+  });
+
+  it('flex-007', () => {
+    const node = genNode({
+      style: {
+        flex: 'content',
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 0,
+      flexShrink: 1,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-008', () => {
+    const node = genNode({
+      style: {
+        flex: [2],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 2,
+      flexShrink: 1,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-009', () => {
+    const node = genNode({
+      style: {
+        flex: [2, 3],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 2,
+      flexShrink: 3,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-010', () => {
+    const node = genNode({
+      style: {
+        flex: [2, '4px'],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 2,
+      flexShrink: 1,
+      flexBasis: 4,
+    });
+  });
+
+  it('flex-011', () => {
+    const node = genNode({
+      style: {
+        flex: [2, 3, 0],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 2,
+      flexShrink: 3,
+      flexBasis: 0,
+    });
+  });
+
+  it('flex-012', () => {
+    const node = genNode({
+      style: {
+        flex: [2, 3, 'content'],
+      },
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({
+      flexGrow: 2,
+      flexShrink: 3,
+      flexBasis: 0,
+    });
+  });
+
 });
