@@ -39,6 +39,7 @@ export enum Unit {
   MIN_CONTENT = 15, // 以下3个暂时无实现
   MAX_CONTENT = 16,
   FIT_CONTENT = 17,
+  CONTENT = 18, // flexBasis
 }
 
 export enum BoxSizing {

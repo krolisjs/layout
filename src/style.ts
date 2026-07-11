@@ -8,6 +8,9 @@ export type Length = {
 export type Style = {
   boxSizing: BoxSizing;
   display: Display;
+  flexGrow: number;
+  flexShrink: number;
+  flexBasis: Length;
   position: Position;
   top: Length;
   right: Length;
@@ -52,6 +55,10 @@ export type CssLengthMMF = CssLength | 'minContent' | 'maxContent' | 'fitContent
 export type JStyle = {
   boxSizing: 'contentBox' | 'borderBox';
   display: 'none' | 'block' | 'inline' | 'inlineBlock' | 'flex' | 'inlineFlex' | 'grid' | 'inlineGrid';
+  flexGrow: number;
+  flexShrink: number;
+  flexBasis: CssLength | 'content';
+  flex?: string | [number, number, CssLength | 'content'];
   position: 'static' | 'relative' | 'absolute';
   margin?: CssLength | CssLength[] | string;
   marginTop: CssLength;
@@ -95,6 +102,9 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
   const dft: Style = {
     boxSizing: BoxSizing.CONTENT_BOX,
     display: Display.BLOCK,
+    flexGrow: 0,
+    flexShrink: 1,
+    flexBasis: { v: 0, u: Unit.AUTO },
     position: Position.STATIC,
     marginTop: { v: 0, u: Unit.PX },
     marginRight: { v: 0, u: Unit.PX },
@@ -143,7 +153,7 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
  * - 3个值：上、左右、下
  * - 4个值：上、右、下、左
  */
-export function parseMarginPadding(v: CssLength | CssLength[] | string): CssLength[] {
+function parseMarginPadding(v: CssLength | CssLength[] | string): CssLength[] {
   if (typeof v === 'string') {
     const list = v.trim().split(/\s+/);
     if (list.length === 1) {
@@ -245,10 +255,41 @@ export function parseFont(v: string) {
   return res;
 }
 
-export function parseBorder(v: string) {
+function parseBorder(v: string) {
   const m = /([-+]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:e[-+]?\d+)?)(px|%|in|cm|pc|pt|vw|vh|em|rem)/.exec(v);
   if (m) {
     return m[0] as CssLength;
+  }
+}
+
+function parseFlex(v: string) {
+  if (v === 'none') {
+    return { g: 0, s: 0, b: 'auto' };
+  }
+
+  else if(v === 'auto') {
+    return { g: 1, s: 1, b: 'auto' };
+  }
+  else if(/^[\d.]+\s+[\d.]+\s+(auto|none|content)/.test(v) || /^[\d.]+\s+[\d.]+\s+[\d.]+(px|%|in|cm|pc|pt|vw|vh|em|rem)*/.test(v)) {
+    const arr = v.split(/\s+/);
+    return { g: parseFloat(arr[0]), s: parseFloat(arr[1]), b: arr[2] || 0 };
+  }
+  else if(/^[\d.]+\s+[\d.]+$/.test(v)) {
+    const arr = v.split(/\s+/);
+    return { g: parseFloat(arr[0]), s: parseFloat(arr[1]), b: 0 };
+  }
+  else if(/^[\d.]+\s+[\d.]+(px|%|in|cm|pc|pt|vw|vh|em|rem)+/.test(v)) {
+    const arr = v.split(/\s+/);
+    return { g: parseFloat(arr[0]), s: 1, b: arr[1] };
+  }
+  else if(/^[\d.]+$/.test(v)) {
+    return { g: parseFloat(v), s: 1, b: 0 };
+  }
+  else if(/^[\d.]+(px|%|in|cm|pc|pt|vw|vh|em|rem)+/i.test(v)) {
+    return { g: 1, s: 1, b: v };
+  }
+  else {
+    return { g: 0, s: 1, b: 'auto' };
   }
 }
 
@@ -339,7 +380,8 @@ function abbr(style: Partial<JStyle | Style> = {}) {
   const padding = (style as JStyle).padding;
   const font = (style as JStyle).font;
   const border = (style as JStyle).border;
-  if (margin || padding || font || border) {
+  const flex = (style as JStyle).flex;
+  if (margin || padding || font || border || flex) {
     const res = Object.assign({}, style);
     if (margin) {
       const [top, right, bottom, left] = parseMarginPadding(margin);
@@ -372,7 +414,7 @@ function abbr(style: Partial<JStyle | Style> = {}) {
       }
     }
     if (font) {
-      const o = parseFont(font);
+      const o = parseFont(font.trim());
       if (res.fontStyle === undefined && o.fontStyle) {
         res.fontStyle = o.fontStyle;
       }
@@ -390,12 +432,26 @@ function abbr(style: Partial<JStyle | Style> = {}) {
       }
     }
     if (border) {
-      const o = parseBorder(border);
+      const o = parseBorder(border.trim());
       if (o) {
         res.borderTopWidth = o;
         res.borderRightWidth = o;
         res.borderBottomWidth = o;
         res.borderLeftWidth = o;
+      }
+    }
+    if (flex) {
+      if (Array.isArray(flex)) {
+        res.flexGrow = +flex[0] || 0;
+        const fs = +flex[1] as number | undefined;
+        res.flexShrink = fs ?? 1;
+        res.flexBasis = flex[2] || 'auto';
+      }
+      else {
+        const o = parseFlex(flex.trim());
+        res.flexGrow = o.g;
+        res.flexShrink = o.s;
+        res.flexBasis = o.b;
       }
     }
     return res;
@@ -444,6 +500,23 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
     }
     else {
       res.display = Display.BLOCK;
+    }
+  }
+  if (style.flexGrow !== undefined) {
+    res.flexGrow = Math.max(0, style.flexGrow);
+  }
+  if (style.flexShrink !== undefined) {
+    res.flexShrink = Math.max(0, style.flexShrink);
+  }
+  if (style.flexBasis !== undefined) {
+    if (style.flexBasis === 'content') {
+      res.flexBasis = { v: 0, u: Unit.CONTENT };
+    }
+    else if (typeof style.flexBasis === 'object' && 'u' in style.flexBasis) {
+      res.flexBasis = style.flexBasis;
+    }
+    else {
+      res.flexBasis = calCssLength(style.flexBasis, true);
     }
   }
   if (style.position !== undefined) {
