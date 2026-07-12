@@ -76,6 +76,19 @@ export enum WordBreak {
   KEEP_ALL = 3,
 }
 
+export enum FlexWrap {
+  NOWRAP = 0,
+  WRAP = 1,
+  WRAP_REVERSE = 2,
+}
+
+export enum FlexDirection {
+  ROW = 0,
+  ROW_REVERSE = 1,
+  COLUMN = 2,
+  COLUMN_REVERSE = 3,
+}
+
 // export enum OverflowWrap {
 //   INHERIT = 0,
 //   NORMAL = 1,

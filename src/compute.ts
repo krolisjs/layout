@@ -108,6 +108,7 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
   return 0;
 }
 
+// 布局过程中对于继承和相对单位计算，缓存预先计算好，TODO 改名
 export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
   // 仅计算一次，移除DOM后重置
   if (node.computed) {
@@ -125,9 +126,6 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
     else {
       computedStyle.fontFamily = 'sans-serif';
     }
-  }
-  else {
-    computedStyle.fontFamily = style.fontFamily;
   }
 
   if (style.fontSize.u === Unit.INHERIT) {
@@ -155,9 +153,6 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
       computedStyle.fontWeight = 400;
     }
   }
-  else {
-    computedStyle.fontWeight = style.fontWeight;
-  }
 
   if (style.fontStyle === FontStyle.INHERIT) {
     if (parent) {
@@ -167,12 +162,6 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
       computedStyle.fontStyle = FontStyle.NORMAL;
     }
   }
-  else {
-    computedStyle.fontStyle = style.fontStyle;
-  }
-
-  computedStyle.overflow = style.overflow;
-  computedStyle.verticalAlign = style.verticalAlign;
 
   if (style.wordBreak === WordBreak.INHERIT) {
     if (parent) {
@@ -181,9 +170,6 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
     else {
       computedStyle.wordBreak = WordBreak.NORMAL;
     }
-  }
-  else {
-    computedStyle.wordBreak = style.wordBreak;
   }
 
   ([

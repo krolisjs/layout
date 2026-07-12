@@ -1,6 +1,8 @@
 import {
   BoxSizing,
   Display,
+  FlexDirection,
+  FlexWrap,
   FontStyle,
   NodeType,
   Overflow,
@@ -65,6 +67,8 @@ export {
   calCssLength,
   Display,
   Element,
+  FlexDirection,
+  FlexWrap,
   FontStyle,
   getDefaultStyle,
   getMeasureText,

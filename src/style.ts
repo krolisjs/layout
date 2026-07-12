@@ -1,4 +1,15 @@
-import { BoxSizing, Display, FontStyle, Overflow, Position, Unit, VerticalAlign, WordBreak } from './constants';
+import {
+  BoxSizing,
+  Display,
+  FlexDirection,
+  FlexWrap,
+  FontStyle,
+  Overflow,
+  Position,
+  Unit,
+  VerticalAlign,
+  WordBreak
+} from './constants';
 
 export type Length = {
   v: number;
@@ -11,6 +22,8 @@ export type Style = {
   flexGrow: number;
   flexShrink: number;
   flexBasis: Length;
+  flexWrap: FlexWrap;
+  flexDirection: FlexDirection;
   position: Position;
   top: Length;
   right: Length;
@@ -61,6 +74,8 @@ export type JStyle = {
   flexShrink: number;
   flexBasis: CssLengthMMFC;
   flex?: string | [number, number, CssLengthMMFC] | [number] | [number, number] | [number, CssLengthMMFC] | [number] | [CssLengthMMFC];
+  flexWrap: 'nowrap' | 'wrap' | 'wrapReverse';
+  flexDirection: 'row' | 'row-reverse' | 'column' | 'column-reverse';
   position: 'static' | 'relative' | 'absolute';
   margin?: CssLength | CssLength[] | string;
   marginTop: CssLength;
@@ -107,6 +122,8 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     flexGrow: 0,
     flexShrink: 1,
     flexBasis: { v: 0, u: Unit.AUTO },
+    flexWrap: FlexWrap.NOWRAP,
+    flexDirection: FlexDirection.ROW,
     position: Position.STATIC,
     marginTop: { v: 0, u: Unit.PX },
     marginRight: { v: 0, u: Unit.PX },
@@ -672,6 +689,8 @@ export type ComputedStyle = {
   flexGrow: number;
   flexShrink: number;
   flexBasis: number;
+  flexWrap: FlexWrap;
+  flexDirection: FlexDirection;
   position: Position;
   top: number;
   right: number;
@@ -713,6 +732,8 @@ export function getDefaultComputedStyle(style?: Style) {
     flexGrow: 0,
     flexShrink: 1,
     flexBasis: 0,
+    flexWrap: FlexWrap.NOWRAP,
+    flexDirection: FlexDirection.ROW,
     position: Position.STATIC,
     marginTop: 0,
     marginRight: 0,
@@ -752,6 +773,8 @@ export function getDefaultComputedStyle(style?: Style) {
     dft.display = style.display;
     dft.flexGrow = style.flexGrow;
     dft.flexShrink = style.flexShrink;
+    dft.flexWrap = style.flexWrap;
+    dft.flexDirection = style.flexDirection;
     dft.position = style.position;
     dft.fontFamily = style.fontFamily;
     dft.fontStyle = style.fontStyle;
