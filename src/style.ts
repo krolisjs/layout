@@ -581,7 +581,7 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
     else if (style.alignSelf === 'flexStart') {
       res.alignSelf = AlignSelf.FLEX_START;
     }
-    else if (style.alignItems === 'flexEnd') {
+    else if (style.alignSelf === 'flexEnd') {
       res.alignSelf = AlignSelf.FLEX_END;
     }
     else if (style.alignSelf === 'center') {

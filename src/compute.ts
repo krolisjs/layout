@@ -108,7 +108,7 @@ export function calLength(target: Length, pb: number, rem = 16, em = 16) {
   return 0;
 }
 
-// 布局过程中对于继承和相对单位计算，缓存预先计算好，TODO 改名
+// 布局过程中对于继承和相对单位计算，缓存预先计算好
 export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
   // 仅计算一次，移除DOM后重置
   if (node.computed) {

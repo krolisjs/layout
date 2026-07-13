@@ -96,7 +96,7 @@ export abstract class Node implements INode {
   readonly style: Style;
   readonly children: Node[] = [];
   readonly computedStyle: ComputedStyle;
-  computed = false; // 是否计算过ComputedStyle缓存
+  computed = false; // 是否计算过ComputedStyle缓存，布局/预布局前需要计算inherit和其它许多属性
   parent: Element | null = null;
   prev: Node | null = null;
   next: Node | null = null;
