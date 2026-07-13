@@ -571,7 +571,7 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
       res.alignItems = AlignItems.BASELINE;
     }
     else {
-      res.alignContent = AlignContent.NORMAL;
+      res.alignItems = AlignItems.NORMAL;
     }
   }
   if (style.alignSelf !== undefined) {
