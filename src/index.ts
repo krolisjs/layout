@@ -1,9 +1,13 @@
 import {
+  AlignContent,
+  AlignItems,
+  AlignSelf,
   BoxSizing,
   Display,
   FlexDirection,
   FlexWrap,
   FontStyle,
+  JustifyContent,
   NodeType,
   Overflow,
   Position,
@@ -63,6 +67,9 @@ import {
 import type { FontMetrics, MeasureText, MetricizeFont, TextMeasures } from './text';
 
 export {
+  AlignContent,
+  AlignItems,
+  AlignSelf,
   BoxSizing,
   calCssLength,
   Display,
@@ -74,6 +81,7 @@ export {
   getMeasureText,
   getMetricizeFont,
   getSegmentText,
+  JustifyContent,
   LineBoxContext,
   Node,
   NodeType,

@@ -89,6 +89,47 @@ export enum FlexDirection {
   COLUMN_REVERSE = 3,
 }
 
+export enum AlignItems {
+  NORMAL = 0,
+  STRETCH = 1,
+  FLEX_START = 2,
+  FLEX_END = 3,
+  CENTER = 4,
+  BASELINE = 5,
+}
+
+export enum AlignSelf {
+  AUTO = 0,
+  NORMAL = 1,
+  STRETCH = 2,
+  FLEX_START = 3,
+  FLEX_END = 4,
+  CENTER = 5,
+  BASELINE = 6,
+}
+
+export enum AlignContent {
+  NORMAL = 0,
+  STRETCH = 1,
+  FLEX_START = 2,
+  FLEX_END = 3,
+  CENTER = 4,
+  SPACE_BETWEEN = 5,
+  SPACE_AROUND = 6,
+  SPACE_EVENLY = 7,
+}
+
+export enum JustifyContent {
+  NORMAL = 0,
+  STRETCH = 1,
+  FLEX_START = 2,
+  FLEX_END = 3,
+  CENTER = 4,
+  SPACE_BETWEEN = 5,
+  SPACE_AROUND = 6,
+  SPACE_EVENLY = 7,
+}
+
 // export enum OverflowWrap {
 //   INHERIT = 0,
 //   NORMAL = 1,

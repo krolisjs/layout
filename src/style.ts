@@ -1,14 +1,18 @@
 import {
+  AlignContent,
+  AlignItems,
+  AlignSelf,
   BoxSizing,
   Display,
   FlexDirection,
   FlexWrap,
   FontStyle,
+  JustifyContent,
   Overflow,
   Position,
   Unit,
   VerticalAlign,
-  WordBreak
+  WordBreak,
 } from './constants';
 
 export type Length = {
@@ -24,6 +28,10 @@ export type Style = {
   flexBasis: Length;
   flexWrap: FlexWrap;
   flexDirection: FlexDirection;
+  alignItems: AlignItems;
+  alignSelf: AlignSelf;
+  alignContent: AlignContent;
+  justifyContent: JustifyContent;
   position: Position;
   top: Length;
   right: Length;
@@ -75,7 +83,11 @@ export type JStyle = {
   flexBasis: CssLengthMMFC;
   flex?: string | [number, number, CssLengthMMFC] | [number] | [number, number] | [number, CssLengthMMFC] | [number] | [CssLengthMMFC];
   flexWrap: 'nowrap' | 'wrap' | 'wrapReverse';
-  flexDirection: 'row' | 'row-reverse' | 'column' | 'column-reverse';
+  flexDirection: 'row' | 'rowReverse' | 'column' | 'columnReverse';
+  alignItems: 'normal' | 'stretch' | 'flexStart' | 'flexEnd' | 'center' | 'baseline';
+  alignSelf: 'auto' | 'normal' | 'stretch' | 'flexStart' | 'flexEnd' | 'center' | 'baseline';
+  alignContent: 'normal' | 'stretch' | 'flexStart' | 'flexEnd' | 'center' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly';
+  justifyContent: 'normal' | 'stretch' | 'flexStart' | 'flexEnd' | 'center' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly';
   position: 'static' | 'relative' | 'absolute';
   margin?: CssLength | CssLength[] | string;
   marginTop: CssLength;
@@ -124,6 +136,10 @@ export const getDefaultStyle = (style?: Partial<JStyle | Style>) => {
     flexBasis: { v: 0, u: Unit.AUTO },
     flexWrap: FlexWrap.NOWRAP,
     flexDirection: FlexDirection.ROW,
+    alignItems: AlignItems.NORMAL,
+    alignSelf: AlignSelf.AUTO,
+    alignContent: AlignContent.NORMAL,
+    justifyContent: JustifyContent.NORMAL,
     position: Position.STATIC,
     marginTop: { v: 0, u: Unit.PX },
     marginRight: { v: 0, u: Unit.PX },
@@ -538,6 +554,101 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
       res.flexBasis = calCssLength(style.flexBasis, true);
     }
   }
+  if (style.alignItems !== undefined) {
+    if (style.alignItems === 'stretch') {
+      res.alignItems = AlignItems.STRETCH;
+    }
+    else if (style.alignItems === 'flexStart') {
+      res.alignItems = AlignItems.FLEX_START;
+    }
+    else if (style.alignItems === 'flexEnd') {
+      res.alignItems = AlignItems.FLEX_END;
+    }
+    else if (style.alignItems === 'center') {
+      res.alignItems = AlignItems.CENTER;
+    }
+    else if (style.alignItems === 'baseline') {
+      res.alignItems = AlignItems.BASELINE;
+    }
+    else {
+      res.alignContent = AlignContent.NORMAL;
+    }
+  }
+  if (style.alignSelf !== undefined) {
+    if (style.alignSelf === 'stretch') {
+      res.alignSelf = AlignSelf.STRETCH;
+    }
+    else if (style.alignSelf === 'flexStart') {
+      res.alignSelf = AlignSelf.FLEX_START;
+    }
+    else if (style.alignItems === 'flexEnd') {
+      res.alignSelf = AlignSelf.FLEX_END;
+    }
+    else if (style.alignSelf === 'center') {
+      res.alignSelf = AlignSelf.CENTER;
+    }
+    else if (style.alignSelf === 'baseline') {
+      res.alignSelf = AlignSelf.BASELINE;
+    }
+    else if (style.alignSelf === 'normal') {
+      res.alignSelf = AlignSelf.NORMAL;
+    }
+    else {
+      res.alignSelf = AlignSelf.AUTO;
+    }
+  }
+  if (style.alignContent !== undefined) {
+    if (style.alignContent === 'stretch') {
+      res.alignContent = AlignContent.STRETCH;
+    }
+    else if (style.alignContent === 'flexStart') {
+      res.alignContent = AlignContent.FLEX_START;
+    }
+    else if (style.alignContent === 'flexEnd') {
+      res.alignContent = AlignContent.FLEX_END;
+    }
+    else if (style.alignContent === 'center') {
+      res.alignContent = AlignContent.CENTER;
+    }
+    else if (style.alignContent === 'spaceBetween') {
+      res.alignContent = AlignContent.SPACE_BETWEEN;
+    }
+    else if (style.alignContent === 'spaceAround') {
+      res.alignContent = AlignContent.SPACE_AROUND;
+    }
+    else if (style.alignContent === 'spaceEvenly') {
+      res.alignContent = AlignContent.SPACE_EVENLY;
+    }
+    else {
+      res.alignContent = AlignContent.NORMAL;
+    }
+  }
+  if (style.justifyContent !== undefined) {
+    if (style.justifyContent === 'stretch') {
+      res.justifyContent = JustifyContent.STRETCH;
+    }
+    else if (style.justifyContent === 'flexStart') {
+      res.justifyContent = JustifyContent.FLEX_START;
+    }
+    else if (style.justifyContent === 'flexEnd') {
+      res.justifyContent = JustifyContent.FLEX_END;
+    }
+    else if (style.justifyContent === 'center') {
+      res.justifyContent = JustifyContent.CENTER;
+    }
+    else if (style.justifyContent === 'spaceBetween') {
+      res.justifyContent = JustifyContent.SPACE_BETWEEN;
+    }
+    else if (style.justifyContent === 'spaceAround') {
+      res.justifyContent = JustifyContent.SPACE_AROUND;
+    }
+    else if (style.justifyContent === 'spaceEvenly') {
+      res.justifyContent = JustifyContent.SPACE_EVENLY;
+    }
+    else {
+      res.justifyContent = JustifyContent.NORMAL;
+    }
+  }
   if (style.position !== undefined) {
     if (typeof style.position === 'number') {
       res.position = style.position;
@@ -691,6 +802,10 @@ export type ComputedStyle = {
   flexBasis: number;
   flexWrap: FlexWrap;
   flexDirection: FlexDirection;
+  alignItems: AlignItems;
+  alignSelf: AlignSelf;
+  alignContent: AlignContent;
+  justifyContent: JustifyContent;
   position: Position;
   top: number;
   right: number;
@@ -734,6 +849,10 @@ export function getDefaultComputedStyle(style?: Style) {
     flexBasis: 0,
     flexWrap: FlexWrap.NOWRAP,
     flexDirection: FlexDirection.ROW,
+    alignItems: AlignItems.NORMAL,
+    alignSelf: AlignSelf.AUTO,
+    alignContent: AlignContent.NORMAL,
+    justifyContent: JustifyContent.NORMAL,
     position: Position.STATIC,
     marginTop: 0,
     marginRight: 0,
@@ -775,6 +894,10 @@ export function getDefaultComputedStyle(style?: Style) {
     dft.flexShrink = style.flexShrink;
     dft.flexWrap = style.flexWrap;
     dft.flexDirection = style.flexDirection;
+    dft.alignItems = style.alignItems;
+    dft.alignSelf = style.alignSelf;
+    dft.alignContent = style.alignContent;
+    dft.justifyContent = style.justifyContent;
     dft.position = style.position;
     dft.fontFamily = style.fontFamily;
     dft.fontStyle = style.fontStyle;
