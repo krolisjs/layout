@@ -81,7 +81,7 @@ export type JStyle = {
   flexGrow: number;
   flexShrink: number;
   flexBasis: CssLengthMMFC;
-  flex?: string | [number, number, CssLengthMMFC] | [number] | [number, number] | [number, CssLengthMMFC] | [number] | [CssLengthMMFC];
+  flex?: string | number | [number, number, CssLengthMMFC] | [number] | [number, number] | [number, CssLengthMMFC] | [number] | [CssLengthMMFC];
   flexWrap: 'nowrap' | 'wrap' | 'wrapReverse';
   flexDirection: 'row' | 'rowReverse' | 'column' | 'columnReverse';
   alignItems: 'normal' | 'stretch' | 'flexStart' | 'flexEnd' | 'center' | 'baseline';
@@ -483,7 +483,7 @@ function abbr(style: Partial<JStyle | Style> = {}) {
         res.flexBasis = o.b;
       }
       else {
-        const o = parseFlex(flex.trim());
+        const o = parseFlex(flex.toString().trim());
         res.flexGrow = o.g;
         res.flexShrink = o.s;
         res.flexBasis = o.b;
