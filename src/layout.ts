@@ -26,6 +26,11 @@ export type Block = {
   frags: null;
 } & Frag;
 
+export type Flex = {
+  type: 'flex';
+  frags: null;
+} & Frag;
+
 export type Inline = {
   type: 'inline';
   frags: Frag[];

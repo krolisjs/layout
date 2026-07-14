@@ -37,11 +37,16 @@ const root = new Node({
   width: 500,
 }, [child]);
 
+// Entry 入口
 root.lay({
   aw: 10000,
   ah: 10000,
-}); // Entry 入口
+});
 
+/**
+ * x/y/w/h are all internal positions or dimensions, excluding margin/border/padding.
+ * x/y/w/h均为不包含margin/border/padding的内部尺寸。
+*/
 console.log(root.rect); // { x: 0, y: 0, w: 500, h: 100, ... }
 console.log(child.rect); // { x: 0, y: 0, w: 500, h: 50, paddingTop: 50, ... }
 console.log(text.rect); // { x: 2, y: 0, rects: { x: 2, y: 50, ... } }

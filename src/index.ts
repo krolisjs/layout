@@ -19,10 +19,11 @@ import { normalizeConstraints } from './layout';
 import type {
   Block,
   Constraints,
+  Flex,
+  Frag,
   Inline,
   InlineBlock,
   InputConstraints,
-  Frag,
   Result,
   Text,
 } from './layout';
@@ -109,6 +110,8 @@ export type {
   CssLengthMMFC,
   ComputedStyle,
   Constraints,
+  Flex,
+  Frag,
   FontMetrics,
   IAllNode,
   IElementNode,
@@ -124,6 +127,5 @@ export type {
   JStyle,
   Style,
   Text,
-  Frag,
   Result,
 };
