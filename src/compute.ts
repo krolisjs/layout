@@ -210,6 +210,8 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
     'paddingRight',
     'paddingBottom',
     'paddingLeft',
+    'width',
+    'height',
     'minWidth',
     'maxWidth',
     'minHeight',

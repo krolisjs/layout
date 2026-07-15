@@ -301,7 +301,6 @@ export function parseFlex(v: string) {
   if (v === 'none') {
     return { g: 0, s: 0, b: 'auto' };
   }
-
   else if(v === 'auto') {
     return { g: 1, s: 1, b: 'auto' };
   }
