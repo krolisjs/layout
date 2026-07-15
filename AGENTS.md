@@ -33,7 +33,7 @@
 - 如果 package script 无法加载 `.ts` 测试，使用：
 
 ```bash
-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS='--loader ts-node/esm --no-warnings' npx mocha
+NODE_OPTIONS='--import tsx --no-warnings' npx mocha --extension ts
 ```
 
 - 支持 mocha 标准过滤：传入 spec 文件路径限定文件，`-g <pattern>` 限定用例，调试期间优先用过滤而非全量。

@@ -4,9 +4,9 @@
     "module": "ESNext",
     "rootDir": "src",
     "declaration": true,
-    "declarationDir": "dist",
-    "emitDeclarationOnly": false,
-    "noEmit": true,
+    "outDir": "dist",
+    "emitDeclarationOnly": true,
+    "noEmit": false,
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tsbuildinfo",
     "removeComments": false,
@@ -27,4 +27,7 @@
     "dist",
     "test"
   ],
+  "include": [
+    "src/**/*"
+  ]
 }

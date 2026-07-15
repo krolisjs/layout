@@ -17,5 +17,3 @@ jobs:
         run: npm run build
       - name: npm test
         run: npm run test
-        env:
-          NODE_OPTIONS: "--import ts-node/esm --no-warnings"
