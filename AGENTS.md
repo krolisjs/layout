@@ -27,7 +27,7 @@
 
 ## 构建与测试
 
-- 修改 `src` 后必须先运行 `npm run build`，因为测试从 `dist/index.js` 导入。
+- 测试通过 `tsx` 直接引用 `src/index.ts`，修改 `src` 后无需先构建 `dist` 即可运行测试；发布产物或声明校验仍使用 `npm run build`。
 - 不要手动编辑 `dist`。
 - 常规测试命令：`npm run test`
 - 如果 package script 无法加载 `.ts` 测试，使用：

@@ -1,6 +1,6 @@
 import { expect } from 'expect';
-import { createTestInputConstraints, genNode } from '../../env.ts';
-import type { InputConstraints } from '../../../dist/index.js';
+import { createTestInputConstraints, genNode } from '../../env';
+import type { InputConstraints } from '../../../src/';
 
 describe('normal-flow', () => {
   let inputConstraints: InputConstraints;

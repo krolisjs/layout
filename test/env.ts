@@ -1,5 +1,5 @@
-import type { JStyle } from '../dist/index.js';
-import { Element, setMeasureText, setMetricizeFont, setSegmentText, TextNode } from '../dist/index.js';
+import type { JStyle } from '../src';
+import { Element, setMeasureText, setMetricizeFont, setSegmentText, TextNode } from '../src';
 
 type Item = {
   style?: Partial<JStyle>;

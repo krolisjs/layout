@@ -206,6 +206,7 @@ export function beforeFlowBox(cs: Constraints, lbc: LineBoxContext) {
   }
 }
 
+// 同上，但flex/grid不需要
 export function afterFlowBox(cs: Constraints, node: IElementNode) {
   const scs = node.constraints!;
   const lbc = node.lineBoxContext!;
