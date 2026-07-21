@@ -1,4 +1,15 @@
-import { BoxSizing, Display, NodeType, Position, Unit } from './constants';
+import {
+  AlignItems,
+  AlignSelf,
+  BoxSizing,
+  Display,
+  FlexDirection, FlexWrap,
+  JustifyContent,
+  NodeType,
+  Overflow,
+  Position,
+  Unit
+} from './constants';
 import type { ComputedStyle, JStyle, Style } from './style';
 import { getDefaultComputedStyle, getDefaultStyle } from './style';
 import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
@@ -12,6 +23,7 @@ import {
   marginAuto,
   minMaxText,
   normalizeConstraints,
+  offsetXY,
   offsetY,
   preset,
   text,
@@ -20,9 +32,11 @@ import { LineBoxContext, MarginContext } from './context';
 import {
   calComputedStyle,
   calLength,
+  getInlineBlockBaseline,
   getMbpH,
   getMbpLeft,
   getMbpTop,
+  getMbpV,
   hasBottomBarrier,
   hasTopBarrier,
   isBFC,
@@ -42,7 +56,7 @@ export interface INode {
   next: INode | null;
   result: Result | null;
   contentArea: number | null;
-  collapse: boolean;
+  selfCollapsing: boolean;
   insertBefore(item: INode): void;
   insertAfter(item: INode): void;
   remove(): void;
@@ -88,6 +102,16 @@ type Abs = {
   cy: number;
 };
 
+type FlexItem = {
+  node: Node;
+  basis: number;
+  size: number;
+  cross: number;
+  outerCross: number;
+  x: number;
+  baseline: number;
+};
+
 let id = 0;
 
 export abstract class Node implements INode {
@@ -101,7 +125,7 @@ export abstract class Node implements INode {
   prev: Node | null = null;
   next: Node | null = null;
   result: Result | null = null; // 布局结果
-  collapse = false; // 是否空块可穿透缓存
+  selfCollapsing = false; // 是否空块可穿透缓存
   contentArea: number | null = null; // 文字内容高度缓存
 
   protected constructor(nodeType: NodeType, style?: Partial<JStyle | Style>) {
@@ -246,6 +270,96 @@ export abstract class Node implements INode {
     }
   }
 
+  offsetXY(x: number, y: number) {
+    if (!x && !y) {
+      return;
+    }
+    if (this.result) {
+      offsetXY(this.result, x, y);
+    }
+    const children = this.children;
+    for (let i = 0, len = children.length; i < len; i++) {
+      children[i].offsetXY(x, y);
+    }
+  }
+
+  // flex与计算获取假设主尺寸，并且clamp(max, min)
+  calHypo(cs: Constraints, global: Global, isRow: boolean) {
+    calComputedStyle(this, cs, global);
+    const { style, computedStyle } = this;
+    const { flexBasis, width, height, minWidth, maxWidth, minHeight, maxHeight } = style;
+    // 选取主轴
+    const main = isRow ? width : height;
+    const minMain = isRow ? minWidth : minHeight;
+    const maxMain = isRow ? maxWidth : maxHeight;
+    const pbw = isRow ? cs.pbw : cs.pbh;
+    let basis = 0;
+    // max/min有具体值则求得，否则为无穷/求shrink
+    let max = maxMain.u === Unit.AUTO ? Infinity : calLength(minMain, pbw || 0, global.rem, computedStyle.fontSize);
+    let min = minMain.u === Unit.AUTO ? 0 : calLength(minMain, pbw || 0, global.rem, computedStyle.fontSize);
+    // basis3种情况：auto、固定、content
+    const isBasisAuto = flexBasis.u === Unit.AUTO;
+    const isBasisFixed = isFixed(flexBasis, true, pbw);
+    let isBasisContent = flexBasis.u === Unit.CONTENT;
+    // flex的item固定basis计算
+    if (isBasisFixed) {
+      basis = calLength(flexBasis, pbw || 0, global.rem, computedStyle.fontSize);
+    }
+    // 已声明主轴尺寸的，当basis是auto时为主轴的值
+    else if (isBasisAuto && isFixed(main, true, pbw)) {
+      basis = calLength(main, pbw || 0, global.rem, computedStyle.fontSize);
+    }
+    // 非固定尺寸的basis为auto时降级为content
+    else if (isBasisAuto) {
+      isBasisContent = true;
+    }
+    // basis为content和min尺寸为auto时一次递归求shrink的max/min
+    if (isBasisContent || minMain.u === Unit.AUTO) {
+      if (isRow) {
+        const o = this.shrink2Fit(cs, global);
+        if (isBasisContent) {
+          basis = max = o.max;
+        }
+        if (minMain.u === Unit.AUTO) {
+          min = o.min;
+        }
+      }
+      else {
+      }
+    }
+    // 记录max/min，后面flex收缩要用到
+    if (isRow) {
+      computedStyle.maxWidth = max;
+      computedStyle.minWidth = min;
+    }
+    else {
+      computedStyle.maxHeight = max;
+      computedStyle.minHeight = min;
+    }
+    computedStyle.flexBasis = basis;
+    return Math.min(max, Math.max(basis, min));
+
+    // if (isFixed(style.flexBasis, true, cs.pbw)) {
+    //   basis = calLength(style.flexBasis, cs.pbw || 0, global.rem, computedStyle.fontSize);
+    //   if (style.boxSizing === BoxSizing.BORDER_BOX) {
+    //     basis -= computedStyle.borderLeftWidth + computedStyle.borderRightWidth
+    //       + computedStyle.paddingLeft + computedStyle.paddingRight;
+    //   }
+    // }
+    // else if (style.flexBasis.u === Unit.AUTO && isFixed(style.width, true, cs.pbw)) {
+    //   basis = calLength(style.width, cs.pbw || 0, global.rem, computedStyle.fontSize);
+    //   if (style.boxSizing === BoxSizing.BORDER_BOX) {
+    //     basis -= computedStyle.borderLeftWidth + computedStyle.borderRightWidth
+    //       + computedStyle.paddingLeft + computedStyle.paddingRight;
+    //   }
+    // }
+    // else {
+    //   basis = this.shrink2Fit(cs, global).max - getMbpH(computedStyle);
+    // }
+    // computedStyle.flexBasis = Math.max(0, basis);
+    // return { basis, min, max };
+  }
+
   get mixedResult() {
     return Object.assign({}, this.computedStyle, this.result);
   }
@@ -350,7 +464,7 @@ export class Element extends Node implements IElementNode {
       if (this === global.root && display === Display.INLINE) {
         lbc.endLine();
       }
-      // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
+      // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局 TODO 检查this是否包含块
       this.checkAbs(absMap, global, offset);
     }
   }
@@ -426,7 +540,393 @@ export class Element extends Node implements IElementNode {
     lbc.addInlineBlock(this);
   }
 
-  private layFlex(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {}
+  private layFlex(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
+    const scs = block(this, cs, global, lbc);
+    this.constraints = scs;
+    // flex的child没有inline，所以无需LineBoxContext
+    const style = this.style;
+    const computedStyle = this.computedStyle;
+    const res = this.result!;
+    // 必须在非flex下，即不是flexItem，和普通block类似时才发生margin合并
+    const parent = this.parent;
+    let marginCollapse = false;
+    if (parent
+      && [Display.BLOCK, Display.INLINE_BLOCK, Display.INLINE].includes(parent.style.display)
+      && style.overflow === Overflow.VISIBLE
+      && [Position.STATIC, Position.RELATIVE].includes(style.position)
+    ) {
+      marginCollapse = true;
+      const htb = hasTopBarrier(computedStyle);
+      if (htb) {
+        mc.append(computedStyle.marginTop, this);
+        mc.mergeTop();
+        mc.reset();
+      }
+      else {
+        mc.append(computedStyle.marginTop, this);
+      }
+    }
+    // 收集伸缩基数等
+    const growList: number[] = [];
+    const shrinkList: number[] = [];
+    const hypoList: number[] = [];
+    const isRow = [FlexDirection.ROW, FlexDirection.ROW_REVERSE].includes(style.flexDirection);
+    const children = this.children;
+    const flexChildren: Node[] = [];
+    for (let i = 0, len = children.length; i < len; i++) {
+      const child = children[i];
+      if (child.style.position === Position.ABSOLUTE) {
+        continue;
+      }
+      flexChildren.push(child);
+      const hypo = child.calHypo(scs, global, isRow);
+      const computedStyle = child.computedStyle;
+      growList.push(computedStyle.flexGrow);
+      shrinkList.push(computedStyle.flexShrink);
+      hypoList.push(hypo);
+    }
+    const isMultiLine = [FlexWrap.WRAP, FlexWrap.WRAP_REVERSE].includes(computedStyle.flexWrap);
+    console.log(growList, shrinkList, hypoList, isMultiLine);
+    const flexLines: Node[][] = [];
+    let line: Node[] = [];
+    const containerMain = isRow ? cs.aw : cs.ah;
+    let sum = 0;
+    // 判断是否需要分行，根据flexWrap+假设主尺寸hypoList来统计尺寸和计算
+    hypoList.forEach((hypo, i) => {
+      if (isMultiLine) {
+        if (sum + hypo > containerMain) {
+          // 确保行内至少有一个
+          if (line.length) {
+            flexLines.push(line);
+            line = [flexChildren[i]];
+            sum = hypo;
+          }
+          else {
+            flexLines.push([flexChildren[i]]);
+            sum = 0;
+          }
+        }
+        else {
+          line.push(flexChildren[i]);
+          sum += hypo;
+        }
+      }
+      else {
+        line.push(flexChildren[i]);
+      }
+    });
+    // 多行的话最后一行收集，单行的话直接存入
+    if (line.length) {
+      flexLines.push(line);
+    }
+    // 遍历每一行flex进行处理
+    let count = 0;
+    flexLines.forEach(line => {
+      const end = count + line.length;
+      this.layFlexLine(scs, global, line, isRow, containerMain,
+        growList.slice(count, end), shrinkList.slice(count, end), hypoList.slice(count, end),
+      );
+      count = end;
+    });
+
+    // this.resolveFlexMainSizes(items, scs.aw);
+    // const free = this.resolveFlexAutoMargins(items, scs.aw);
+    // const { offset: mainOffset, gap } = this.resolveJustifyContent(items.length, free);
+    // let cursor = scs.ox + mainOffset;
+    // for (let i = 0, len = items.length; i < len; i++) {
+    //   const item = items[i];
+    //   item.x = cursor;
+    //   cursor += item.size + getMbpH(item.node.computedStyle) + gap;
+    // }
+    //
+    // const fixedCross = style.height.u !== Unit.AUTO && !(style.height.u === Unit.PERCENT && cs.pbh === null);
+    // let lineCross = fixedCross ? res.h : 0;
+    // for (let i = 0, len = items.length; i < len; i++) {
+    //   const item = items[i];
+    //   const cross = this.getFlexCrossSize(item.node, scs, global, null);
+    //   this.layFlexItem(item.node, item.x, scs.oy, item.size, cross, absMap, global, offset);
+    //   item.cross = item.node.result!.h;
+    //   item.outerCross = item.cross + getMbpV(item.node.computedStyle);
+    //   lineCross = Math.max(lineCross, item.outerCross);
+    // }
+    //
+    // let maxBaseline = 0;
+    // let maxBaselineBelow = 0;
+    // for (let i = 0, len = items.length; i < len; i++) {
+    //   const item = items[i];
+    //   if (this.getFlexAlign(item.node) === AlignItems.BASELINE) {
+    //     item.baseline = this.getFlexBaseline(item.node);
+    //     maxBaseline = Math.max(maxBaseline, item.baseline);
+    //     maxBaselineBelow = Math.max(maxBaselineBelow, item.outerCross - item.baseline);
+    //   }
+    // }
+    // lineCross = Math.max(lineCross, maxBaseline + maxBaselineBelow);
+    //
+    // for (let i = 0, len = items.length; i < len; i++) {
+    //   const item = items[i];
+    //   const align = this.getFlexAlign(item.node);
+    //   if (align === AlignItems.STRETCH && this.isFlexCrossAuto(item.node, scs)) {
+    //     const cross = Math.max(0, lineCross - getMbpV(item.node.computedStyle));
+    //     this.layFlexItem(item.node, item.x, scs.oy, item.size, cross, absMap, global, offset);
+    //     item.cross = item.node.result!.h;
+    //     item.outerCross = item.cross + getMbpV(item.node.computedStyle);
+    //   }
+    //   const remaining = lineCross - item.outerCross;
+    //   if (align === AlignItems.FLEX_END) {
+    //     item.node.offsetXY(0, remaining);
+    //   }
+    //   else if (align === AlignItems.CENTER) {
+    //     item.node.offsetXY(0, remaining * 0.5);
+    //   }
+    //   else if (align === AlignItems.BASELINE) {
+    //     item.node.offsetXY(0, maxBaseline - item.baseline);
+    //   }
+    // }
+
+    // if (!fixedCross) {
+    //   res.h = lineCross;
+    // }
+    scs.cy = scs.oy + res.h;
+    // afterFlowBox(cs, this);
+    marginAuto(this, global);
+    if (marginCollapse) {
+      mc.append(computedStyle.marginBottom);
+    }
+    // offset = checkRelative(this, offset);
+    applyRelative(this, offset);
+    lbc.addBlock(this);
+    lbc.newLine(cs.cx, cs.cy);
+  }
+
+  // flex的每一行/列进行计算布局，前置已经按照flexWrap+假设主尺寸计算好换行了
+  private layFlexLine(cs: Constraints, global: Global, line: Node[], isRow: boolean, containerMain: number,
+                      growList: number[], shrinkList: number[], hypoList: number[]
+  ) {
+    const hypoSum = hypoList.reduce((a, b) => a + b, 0);
+    const free = containerMain - hypoSum;
+    const isGrow = free > 0;
+    console.log(hypoSum, containerMain, free, isGrow);
+    const active = line.slice(0);
+    while (active.length) {
+      if (isGrow) {
+        //
+      }
+      else {}
+      break;
+    }
+  }
+
+  // private clampFlexMainSize(node: Node, size: number) {
+  //   const computedStyle = node.computedStyle;
+  //   if (computedStyle.minWidth !== null && node.style.minWidth.u !== Unit.AUTO) {
+  //     size = Math.max(size, computedStyle.minWidth);
+  //   }
+  //   if (computedStyle.maxWidth !== null && node.style.maxWidth.u !== Unit.AUTO) {
+  //     size = Math.min(size, computedStyle.maxWidth);
+  //   }
+  //   return Math.max(0, size);
+  // }
+  //
+  // private resolveFlexMainSizes(items: FlexItem[], available: number) {
+  //   let active = items.slice();
+  //   while (active.length) {
+  //     let used = 0;
+  //     for (let i = 0, len = items.length; i < len; i++) {
+  //       const item = items[i];
+  //       used += item.size + getMbpH(item.node.computedStyle);
+  //     }
+  //     const free = available - used;
+  //     if (Math.abs(free) <= 1e-9) {
+  //       return;
+  //     }
+  //     const factors = active.map(item => free > 0
+  //       ? item.node.computedStyle.flexGrow
+  //       : item.node.computedStyle.flexShrink * item.basis);
+  //     const total = factors.reduce((sum, factor) => sum + factor, 0);
+  //     if (!total) {
+  //       return;
+  //     }
+  //     const next: FlexItem[] = [];
+  //     let clamped = false;
+  //     for (let i = 0, len = active.length; i < len; i++) {
+  //       const item = active[i];
+  //       const size = item.size + free * factors[i] / total;
+  //       const clampedSize = this.clampFlexMainSize(item.node, size);
+  //       item.size = clampedSize;
+  //       if (Math.abs(size - clampedSize) > 1e-9) {
+  //         clamped = true;
+  //       }
+  //       else {
+  //         next.push(item);
+  //       }
+  //     }
+  //     if (!clamped) {
+  //       return;
+  //     }
+  //     active = next;
+  //   }
+  // }
+  //
+  // private resolveFlexAutoMargins(items: FlexItem[], available: number) {
+  //   let used = 0;
+  //   let autoCount = 0;
+  //   for (let i = 0, len = items.length; i < len; i++) {
+  //     const item = items[i];
+  //     const style = item.node.style;
+  //     used += item.size + getMbpH(item.node.computedStyle);
+  //     if (style.marginLeft.u === Unit.AUTO) {
+  //       autoCount++;
+  //     }
+  //     if (style.marginRight.u === Unit.AUTO) {
+  //       autoCount++;
+  //     }
+  //   }
+  //   let free = available - used;
+  //   if (free > 0 && autoCount) {
+  //     const margin = free / autoCount;
+  //     for (let i = 0, len = items.length; i < len; i++) {
+  //       const item = items[i];
+  //       const { style, computedStyle } = item.node;
+  //       if (style.marginLeft.u === Unit.AUTO) {
+  //         computedStyle.marginLeft = margin;
+  //       }
+  //       if (style.marginRight.u === Unit.AUTO) {
+  //         computedStyle.marginRight = margin;
+  //       }
+  //     }
+  //     free = 0;
+  //   }
+  //   return free;
+  // }
+  //
+  // private resolveJustifyContent(count: number, free: number) {
+  //   const justifyContent = this.computedStyle.justifyContent;
+  //   if (justifyContent === JustifyContent.FLEX_END) {
+  //     return { offset: free, gap: 0 };
+  //   }
+  //   if (justifyContent === JustifyContent.CENTER) {
+  //     return { offset: free * 0.5, gap: 0 };
+  //   }
+  //   if (free > 0 && count > 1 && justifyContent === JustifyContent.SPACE_BETWEEN) {
+  //     return { offset: 0, gap: free / (count - 1) };
+  //   }
+  //   if (free > 0 && justifyContent === JustifyContent.SPACE_AROUND) {
+  //     const gap = free / count;
+  //     return { offset: gap * 0.5, gap };
+  //   }
+  //   if (free > 0 && justifyContent === JustifyContent.SPACE_EVENLY) {
+  //     const gap = free / (count + 1);
+  //     return { offset: gap, gap };
+  //   }
+  //   return { offset: 0, gap: 0 };
+  // }
+  //
+  // private getFlexAlign(node: Node) {
+  //   const alignSelf = node.computedStyle.alignSelf;
+  //   if (alignSelf === AlignSelf.FLEX_START) {
+  //     return AlignItems.FLEX_START;
+  //   }
+  //   if (alignSelf === AlignSelf.FLEX_END) {
+  //     return AlignItems.FLEX_END;
+  //   }
+  //   if (alignSelf === AlignSelf.CENTER) {
+  //     return AlignItems.CENTER;
+  //   }
+  //   if (alignSelf === AlignSelf.BASELINE) {
+  //     return AlignItems.BASELINE;
+  //   }
+  //   if (alignSelf === AlignSelf.STRETCH || alignSelf === AlignSelf.NORMAL) {
+  //     return AlignItems.STRETCH;
+  //   }
+  //   const alignItems = this.computedStyle.alignItems;
+  //   return alignItems === AlignItems.NORMAL ? AlignItems.STRETCH : alignItems;
+  // }
+  //
+  // private getFlexBaseline(node: Node) {
+  //   if (node.nodeType === NodeType.Element) {
+  //     return getInlineBlockBaseline(node as Element);
+  //   }
+  //   const res = node.result as Text;
+  //   return res.y + res.baseline - getMbpTop(node.computedStyle);
+  // }
+  //
+  // private isFlexCrossAuto(node: Node, cs: Constraints) {
+  //   return node.style.height.u === Unit.AUTO
+  //     || node.style.height.u === Unit.PERCENT && cs.pbh === null;
+  // }
+  //
+  // private getFlexCrossSize(node: Node, cs: Constraints, global: Global, stretch: number | null) {
+  //   if (stretch !== null) {
+  //     return stretch;
+  //   }
+  //   const style = node.style;
+  //   if (!this.isFlexCrossAuto(node, cs)) {
+  //     let size = calLength(style.height, cs.pbh || 0, global.rem, node.computedStyle.fontSize);
+  //     if (style.boxSizing === BoxSizing.BORDER_BOX) {
+  //       size -= node.computedStyle.borderTopWidth + node.computedStyle.borderBottomWidth
+  //         + node.computedStyle.paddingTop + node.computedStyle.paddingBottom;
+  //     }
+  //     return Math.max(0, size);
+  //   }
+  //   return null;
+  // }
+  //
+  // private layFlexItem(node: Node, x: number, y: number, width: number, height: number | null, absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset) {
+  //   if (node.nodeType === NodeType.Text) {
+  //     const lbc = new LineBoxContext(x, y);
+  //     const fcs: Constraints = { ox: x, oy: y, aw: width, ah: height || 0, pbw: width, pbh: height, cx: x, cy: y };
+  //     node.layFlow(fcs, absMap, global, new MarginContext(), lbc, offset);
+  //     return;
+  //   }
+  //   const computedStyle = node.computedStyle;
+  //   const res: Block = {
+  //     type: 'block',
+  //     frags: null,
+  //     x: x + getMbpLeft(computedStyle),
+  //     y: y + getMbpTop(computedStyle),
+  //     w: width,
+  //     h: height || 0,
+  //   };
+  //   const fcs: Constraints = {
+  //     ox: res.x,
+  //     oy: res.y,
+  //     aw: width,
+  //     ah: height || 0,
+  //     pbw: width,
+  //     pbh: height,
+  //     cx: res.x,
+  //     cy: res.y,
+  //   };
+  //   const element = node as Element;
+  //   element.result = res;
+  //   element.constraints = fcs;
+  //   const lbc = new LineBoxContext(fcs.cx, fcs.cy, element);
+  //   element.lineBoxContext = lbc;
+  //   const childMc = new MarginContext();
+  //   const itemOffset = checkRelative(element, offset);
+  //   const children = element.children;
+  //   for (let i = 0, len = children.length; i < len; i++) {
+  //     children[i].layFlow(fcs, absMap, global, childMc, lbc, itemOffset);
+  //   }
+  //   if (lbc.endLine()) {
+  //     const current = lbc.current;
+  //     fcs.cy = current.y + current.h;
+  //   }
+  //   if (height === null) {
+  //     res.h = Math.max(0, fcs.cy - fcs.oy + childMc.mergeTop());
+  //   }
+  //   else {
+  //     childMc.reset();
+  //   }
+  //   if (computedStyle.minHeight !== null && element.style.minHeight.u !== Unit.AUTO) {
+  //     res.h = Math.max(res.h, computedStyle.minHeight);
+  //   }
+  //   if (computedStyle.maxHeight !== null && element.style.maxHeight.u !== Unit.AUTO) {
+  //     res.h = Math.min(res.h, computedStyle.maxHeight);
+  //   }
+  //   element.checkAbs(absMap, global, itemOffset);
+  //   applyRelative(element, itemOffset);
+  // }
 
   private layBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     // block自身的约束、自身的lineBoxContext是新的
@@ -465,10 +965,10 @@ export class Element extends Node implements IElementNode {
      */
     const isAutoH = style.height.u === Unit.AUTO || style.height.u === Unit.PERCENT && cs.pbh === null;
     const isEmptyH = isAutoH || style.height.v <= 0;
-    let collapse = !htb && !hbb && !bfc && isEmptyH;
+    let selfCollapsing = !htb && !hbb && !bfc && isEmptyH;
     // text节点特殊，一般有内容，视为不被穿透
-    if (collapse && this.hasContent()) {
-      collapse = false;
+    if (selfCollapsing && this.hasContent()) {
+      selfCollapsing = false;
     }
     // 先序遍历，同时由于子节点先触发，计算子节点是否空块可以被穿透，父节点后面可以直接读取
     const children = this.children;
@@ -479,16 +979,16 @@ export class Element extends Node implements IElementNode {
       // 除了absolute，空的text也无视
       if (child.style.position !== Position.ABSOLUTE && (child.nodeType !== NodeType.Text || child.hasContent())) {
         flowChildrenCount++;
-        if (collapse && !child.collapse) {
-          collapse = false;
+        if (selfCollapsing && !child.selfCollapsing) {
+          selfCollapsing = false;
         }
       }
     }
-    this.collapse = collapse;
+    this.selfCollapsing = selfCollapsing;
     afterFlowBox(cs, this);
     marginAuto(this, global);
     // 如果可以穿透，说明上下合并，记录下来等后续判断
-    if (collapse) {
+    if (selfCollapsing) {
       mc.append(computedStyle.marginBottom);
     }
     // 不可以穿透，要分是有下隔断或BFC，还是非空高
@@ -862,8 +1362,6 @@ export class Element extends Node implements IElementNode {
     max += mbp;
     return { min, max, split, firstLine, lastLine: maxCount };
   }
-
-  calBasis(cs: Constraints, global: Global) {}
 
   // 将absolute节点记录下来，等到其包围块节点布局结束后有了确定的尺寸再布局，没有就是相对root
   private recordAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global) {
