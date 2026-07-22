@@ -102,15 +102,15 @@ type Abs = {
   cy: number;
 };
 
-type FlexItem = {
-  node: Node;
-  basis: number;
-  size: number;
-  cross: number;
-  outerCross: number;
-  x: number;
-  baseline: number;
-};
+// type FlexItem = {
+//   node: Node;
+//   basis: number;
+//   size: number;
+//   cross: number;
+//   outerCross: number;
+//   x: number;
+//   baseline: number;
+// };
 
 let id = 0;
 
@@ -284,7 +284,7 @@ export abstract class Node implements INode {
   }
 
   // flex与计算获取假设主尺寸，并且clamp(max, min)
-  calHypo(cs: Constraints, global: Global, isRow: boolean) {
+  calBasis(cs: Constraints, global: Global, isRow: boolean) {
     calComputedStyle(this, cs, global);
     const { style, computedStyle } = this;
     const { flexBasis, width, height, minWidth, maxWidth, minHeight, maxHeight } = style;
@@ -295,7 +295,7 @@ export abstract class Node implements INode {
     const pbw = isRow ? cs.pbw : cs.pbh;
     let basis = 0;
     // max/min有具体值则求得，否则为无穷/求shrink
-    let max = maxMain.u === Unit.AUTO ? Infinity : calLength(minMain, pbw || 0, global.rem, computedStyle.fontSize);
+    let max = maxMain.u === Unit.AUTO ? Infinity : calLength(maxMain, pbw || 0, global.rem, computedStyle.fontSize);
     let min = minMain.u === Unit.AUTO ? 0 : calLength(minMain, pbw || 0, global.rem, computedStyle.fontSize);
     // basis3种情况：auto、固定、content
     const isBasisAuto = flexBasis.u === Unit.AUTO;
@@ -318,7 +318,7 @@ export abstract class Node implements INode {
       if (isRow) {
         const o = this.shrink2Fit(cs, global);
         if (isBasisContent) {
-          basis = max = o.max;
+          basis = o.max;
         }
         if (minMain.u === Unit.AUTO) {
           min = o.min;
@@ -327,37 +327,12 @@ export abstract class Node implements INode {
       else {
       }
     }
-    // 记录max/min，后面flex收缩要用到
-    if (isRow) {
-      computedStyle.maxWidth = max;
-      computedStyle.minWidth = min;
-    }
-    else {
-      computedStyle.maxHeight = max;
-      computedStyle.minHeight = min;
-    }
     computedStyle.flexBasis = basis;
-    return Math.min(max, Math.max(basis, min));
-
-    // if (isFixed(style.flexBasis, true, cs.pbw)) {
-    //   basis = calLength(style.flexBasis, cs.pbw || 0, global.rem, computedStyle.fontSize);
-    //   if (style.boxSizing === BoxSizing.BORDER_BOX) {
-    //     basis -= computedStyle.borderLeftWidth + computedStyle.borderRightWidth
-    //       + computedStyle.paddingLeft + computedStyle.paddingRight;
-    //   }
-    // }
-    // else if (style.flexBasis.u === Unit.AUTO && isFixed(style.width, true, cs.pbw)) {
-    //   basis = calLength(style.width, cs.pbw || 0, global.rem, computedStyle.fontSize);
-    //   if (style.boxSizing === BoxSizing.BORDER_BOX) {
-    //     basis -= computedStyle.borderLeftWidth + computedStyle.borderRightWidth
-    //       + computedStyle.paddingLeft + computedStyle.paddingRight;
-    //   }
-    // }
-    // else {
-    //   basis = this.shrink2Fit(cs, global).max - getMbpH(computedStyle);
-    // }
-    // computedStyle.flexBasis = Math.max(0, basis);
-    // return { basis, min, max };
+    return {
+      basis,
+      max,
+      min,
+    };
   }
 
   get mixedResult() {
@@ -570,6 +545,8 @@ export class Element extends Node implements IElementNode {
     const growList: number[] = [];
     const shrinkList: number[] = [];
     const hypoList: number[] = [];
+    const maxList: number[] = [];
+    const minList: number[] = [];
     const isRow = [FlexDirection.ROW, FlexDirection.ROW_REVERSE].includes(style.flexDirection);
     const children = this.children;
     const flexChildren: Node[] = [];
@@ -579,14 +556,16 @@ export class Element extends Node implements IElementNode {
         continue;
       }
       flexChildren.push(child);
-      const hypo = child.calHypo(scs, global, isRow);
+      const bmm = child.calBasis(scs, global, isRow);
       const computedStyle = child.computedStyle;
       growList.push(computedStyle.flexGrow);
       shrinkList.push(computedStyle.flexShrink);
-      hypoList.push(hypo);
+      // min可能>max，所以这样写可以避免
+      hypoList.push(Math.max(bmm.min, Math.min(bmm.basis, bmm.max)));
+      maxList.push(bmm.max);
+      minList.push(bmm.min);
     }
     const isMultiLine = [FlexWrap.WRAP, FlexWrap.WRAP_REVERSE].includes(computedStyle.flexWrap);
-    console.log(growList, shrinkList, hypoList, isMultiLine);
     const flexLines: Node[][] = [];
     let line: Node[] = [];
     const containerMain = isRow ? cs.aw : cs.ah;
@@ -623,8 +602,8 @@ export class Element extends Node implements IElementNode {
     let count = 0;
     flexLines.forEach(line => {
       const end = count + line.length;
-      this.layFlexLine(scs, global, line, isRow, containerMain,
-        growList.slice(count, end), shrinkList.slice(count, end), hypoList.slice(count, end),
+      this.layFlexLine(scs, global, line, isRow, containerMain, growList.slice(count, end), shrinkList.slice(count, end),
+        hypoList.slice(count, end), maxList.slice(count, end), minList.slice(count, end),
       );
       count = end;
     });
@@ -698,22 +677,68 @@ export class Element extends Node implements IElementNode {
     lbc.newLine(cs.cx, cs.cy);
   }
 
-  // flex的每一行/列进行计算布局，前置已经按照flexWrap+假设主尺寸计算好换行了
+  /**
+   * flex的每一行/列进行计算布局，前置已经按照flexWrap+假设主尺寸计算好换行了
+   * https://www.w3.org/TR/css-flexbox-1/#layout-algorithm
+   * 随后按算法一步步来 https://zhuanlan.zhihu.com/p/354567655
+   */
   private layFlexLine(cs: Constraints, global: Global, line: Node[], isRow: boolean, containerMain: number,
-                      growList: number[], shrinkList: number[], hypoList: number[]
+                      growList: number[], shrinkList: number[], hypoList: number[], maxList: number[], minList: number[],
   ) {
+    const targetList = hypoList.slice(0);
+    const frozenList = line.map(() => false);
     const hypoSum = hypoList.reduce((a, b) => a + b, 0);
-    const free = containerMain - hypoSum;
-    const isGrow = free > 0;
-    console.log(hypoSum, containerMain, free, isGrow);
-    const active = line.slice(0);
-    while (active.length) {
-      if (isGrow) {
-        //
+    const isGrow = containerMain - hypoSum > 0;
+    const epsilon = 1e-9;
+    // 算法不停循环分配，查找违规冻结，知道所有未冻结节点不再违反max/min约束
+    while (true) {
+      const used = targetList.reduce((a, b) => a + b, 0);
+      const remaining = containerMain - used;
+      // 伸缩因子求和
+      let total = 0;
+      const factorList = line.map((item, i) => {
+        if (frozenList[i]) {
+          return 0;
+        }
+        const factor = isGrow
+          ? growList[i]
+          : shrinkList[i] * Math.max(0, item.computedStyle.flexBasis);
+        total += factor;
+        return factor;
+      });
+      if (!total) {
+        break;
       }
-      else {}
-      break;
+      let clamped = false;
+      for (let i = 0, len = line.length; i < len; i++) {
+        // 已冻结的忽略
+        if (frozenList[i]) {
+          continue;
+        }
+        const { computedStyle } = line[i];
+        // 未冻结的目标尺寸，根据伸缩和因子占比计算
+        const rawSize = targetList[i] + remaining * factorList[i] / total;
+        let size = rawSize;
+        // 是否有max/min违规约束
+        const max = maxList[i];
+        const min = minList[i];
+        size = Math.min(size, max);
+        if (min > 0) {
+          size = Math.max(size, min);
+        }
+        targetList[i] = size;
+        // 防止精度计算或者只有很小的空间的时候，没必要再继续算了
+        if (Math.abs(size - rawSize) > epsilon) {
+          frozenList[i] = true;
+          clamped = true;
+        }
+      }
+      // 没有违规约束了
+      if (!clamped) {
+        break;
+      }
     }
+    return targetList;
   }
 
   // private clampFlexMainSize(node: Node, size: number) {
