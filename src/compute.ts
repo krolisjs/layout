@@ -236,6 +236,10 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
         p = p.parent;
       }
     }
+    // 特殊的最大值无穷
+    else if (['maxWidth', 'maxHeight'].includes(k) && v.u === Unit.AUTO) {
+      computedStyle[k] = Infinity;
+    }
     else {
       computedStyle[k] = Math.max(0, calLength(style[k], pb || 0, global.rem, computedStyle.fontSize));
     }
