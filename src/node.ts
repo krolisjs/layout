@@ -1,15 +1,4 @@
-import {
-  AlignItems,
-  AlignSelf,
-  BoxSizing,
-  Display,
-  FlexDirection, FlexWrap,
-  JustifyContent,
-  NodeType,
-  Overflow,
-  Position,
-  Unit
-} from './constants';
+import { BoxSizing, Display, FlexDirection, FlexWrap, NodeType, Overflow, Position, Unit } from './constants';
 import type { ComputedStyle, JStyle, Style } from './style';
 import { getDefaultComputedStyle, getDefaultStyle } from './style';
 import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
@@ -32,11 +21,9 @@ import { LineBoxContext, MarginContext } from './context';
 import {
   calComputedStyle,
   calLength,
-  getInlineBlockBaseline,
   getMbpH,
   getMbpLeft,
   getMbpTop,
-  getMbpV,
   hasBottomBarrier,
   hasTopBarrier,
   isBFC,
@@ -101,6 +88,8 @@ type Abs = {
   cx: number;
   cy: number;
 };
+
+type AbsMap = WeakMap<Element, Abs[]>;
 
 // type FlexItem = {
 //   node: Node;
@@ -199,7 +188,7 @@ export abstract class Node implements INode {
       rem = 16;
     }
     // root入口处初始化，可能用不到，比如block会创建自己的lbc，为了方法参数一致性
-    const absMap: WeakMap<Element, Abs[]> = new WeakMap();
+    const absMap: AbsMap = new WeakMap();
     const cs = normalizeConstraints(ics);
     const mc = new MarginContext();
     const lbc = new LineBoxContext(cs.ox, cs.oy);
@@ -221,9 +210,9 @@ export abstract class Node implements INode {
     }
   };
 
-  abstract layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset): void;
+  abstract layFlow(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset): void;
 
-  abstract layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset): void;
+  abstract layAbs(cs: Constraints, absMap: AbsMap, global: Global, offset: Offset): void;
 
   abstract shrink2Fit(cs: Constraints, global: Global): { min: number, max: number };
 
@@ -413,7 +402,7 @@ export class Element extends Node implements IElementNode {
    * LineBoxContext情况和上面完全相同，遇到block产生新的传给子节点，inline复用同一个上下文；
    * MarginContext有点类似但比较复杂，仅block会用到，依旧是向下递归传递，但是在遇到阻断情况时（如BFC）会产生结算并重置，防止共享影响。
    */
-  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
+  layFlow(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const { position, display } = this.style;
     // absolute脱离文档流
     if (position === Position.ABSOLUTE) {
@@ -444,7 +433,7 @@ export class Element extends Node implements IElementNode {
     }
   }
 
-  private layInline(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
+  private layInline(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     this.constraints = cs;
     inline(this, cs, global, lbc);
     offset = checkRelative(this, offset);
@@ -458,7 +447,7 @@ export class Element extends Node implements IElementNode {
     lbc.popInline();
   }
 
-  private layInlineBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
+  private layInlineBlock(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const style = this.style;
     const computedStyle = this.computedStyle;
     // 固定不固定都需要用到一个临时的computedStyle，后面可以复用
@@ -515,7 +504,7 @@ export class Element extends Node implements IElementNode {
     lbc.addInlineBlock(this);
   }
 
-  private layFlex(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
+  private layFlex(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const scs = block(this, cs, global, lbc);
     this.constraints = scs;
     // flex的child没有inline，所以无需LineBoxContext
@@ -568,12 +557,12 @@ export class Element extends Node implements IElementNode {
     const isMultiLine = [FlexWrap.WRAP, FlexWrap.WRAP_REVERSE].includes(computedStyle.flexWrap);
     const flexLines: Node[][] = [];
     let line: Node[] = [];
-    const containerMain = isRow ? cs.aw : cs.ah;
+    const available = isRow ? scs.aw : scs.ah;
     let sum = 0;
     // 判断是否需要分行，根据flexWrap+假设主尺寸hypoList来统计尺寸和计算
     hypoList.forEach((hypo, i) => {
       if (isMultiLine) {
-        if (sum + hypo > containerMain) {
+        if (sum + hypo > available) {
           // 确保行内至少有一个
           if (line.length) {
             flexLines.push(line);
@@ -602,14 +591,14 @@ export class Element extends Node implements IElementNode {
     let count = 0;
     flexLines.forEach(line => {
       const end = count + line.length;
-      this.layFlexLine(scs, global, line, isRow, containerMain, growList.slice(count, end), shrinkList.slice(count, end),
-        hypoList.slice(count, end), maxList.slice(count, end), minList.slice(count, end),
+      const sizeList = this.resolveFlexMainSize(line, available,
+        growList.slice(count, end), shrinkList.slice(count, end), hypoList.slice(count, end),
+        maxList.slice(count, end), minList.slice(count, end),
       );
+      const free = this.resolveFlexAutoMargin(line, sizeList, available, isRow);
       count = end;
     });
 
-    // this.resolveFlexMainSizes(items, scs.aw);
-    // const free = this.resolveFlexAutoMargins(items, scs.aw);
     // const { offset: mainOffset, gap } = this.resolveJustifyContent(items.length, free);
     // let cursor = scs.ox + mainOffset;
     // for (let i = 0, len = items.length; i < len; i++) {
@@ -682,17 +671,15 @@ export class Element extends Node implements IElementNode {
    * https://www.w3.org/TR/css-flexbox-1/#layout-algorithm
    * 随后按算法一步步来 https://zhuanlan.zhihu.com/p/354567655
    */
-  private layFlexLine(cs: Constraints, global: Global, line: Node[], isRow: boolean, containerMain: number,
-                      growList: number[], shrinkList: number[], hypoList: number[], maxList: number[], minList: number[],
-  ) {
-    const targetList = hypoList.slice(0);
+  private resolveFlexMainSize(line: Node[], containerMain: number, growList: number[], shrinkList: number[], hypoList: number[], maxList: number[], minList: number[]) {
+    const sizeList = hypoList.slice(0);
     const frozenList = line.map(() => false);
     const hypoSum = hypoList.reduce((a, b) => a + b, 0);
     const isGrow = containerMain - hypoSum > 0;
     const epsilon = 1e-9;
     // 算法不停循环分配，查找违规冻结，知道所有未冻结节点不再违反max/min约束
     while (true) {
-      const used = targetList.reduce((a, b) => a + b, 0);
+      const used = sizeList.reduce((a, b) => a + b, 0);
       const remaining = containerMain - used;
       // 伸缩因子求和
       let total = 0;
@@ -715,9 +702,8 @@ export class Element extends Node implements IElementNode {
         if (frozenList[i]) {
           continue;
         }
-        const { computedStyle } = line[i];
         // 未冻结的目标尺寸，根据伸缩和因子占比计算
-        const rawSize = targetList[i] + remaining * factorList[i] / total;
+        const rawSize = sizeList[i] + remaining * factorList[i] / total;
         let size = rawSize;
         // 是否有max/min违规约束
         const max = maxList[i];
@@ -726,7 +712,7 @@ export class Element extends Node implements IElementNode {
         if (min > 0) {
           size = Math.max(size, min);
         }
-        targetList[i] = size;
+        sizeList[i] = size;
         // 防止精度计算或者只有很小的空间的时候，没必要再继续算了
         if (Math.abs(size - rawSize) > epsilon) {
           frozenList[i] = true;
@@ -738,92 +724,46 @@ export class Element extends Node implements IElementNode {
         break;
       }
     }
-    return targetList;
+    return sizeList;
   }
 
-  // private clampFlexMainSize(node: Node, size: number) {
-  //   const computedStyle = node.computedStyle;
-  //   if (computedStyle.minWidth !== null && node.style.minWidth.u !== Unit.AUTO) {
-  //     size = Math.max(size, computedStyle.minWidth);
-  //   }
-  //   if (computedStyle.maxWidth !== null && node.style.maxWidth.u !== Unit.AUTO) {
-  //     size = Math.min(size, computedStyle.maxWidth);
-  //   }
-  //   return Math.max(0, size);
-  // }
-  //
-  // private resolveFlexMainSizes(items: FlexItem[], available: number) {
-  //   let active = items.slice();
-  //   while (active.length) {
-  //     let used = 0;
-  //     for (let i = 0, len = items.length; i < len; i++) {
-  //       const item = items[i];
-  //       used += item.size + getMbpH(item.node.computedStyle);
-  //     }
-  //     const free = available - used;
-  //     if (Math.abs(free) <= 1e-9) {
-  //       return;
-  //     }
-  //     const factors = active.map(item => free > 0
-  //       ? item.node.computedStyle.flexGrow
-  //       : item.node.computedStyle.flexShrink * item.basis);
-  //     const total = factors.reduce((sum, factor) => sum + factor, 0);
-  //     if (!total) {
-  //       return;
-  //     }
-  //     const next: FlexItem[] = [];
-  //     let clamped = false;
-  //     for (let i = 0, len = active.length; i < len; i++) {
-  //       const item = active[i];
-  //       const size = item.size + free * factors[i] / total;
-  //       const clampedSize = this.clampFlexMainSize(item.node, size);
-  //       item.size = clampedSize;
-  //       if (Math.abs(size - clampedSize) > 1e-9) {
-  //         clamped = true;
-  //       }
-  //       else {
-  //         next.push(item);
-  //       }
-  //     }
-  //     if (!clamped) {
-  //       return;
-  //     }
-  //     active = next;
-  //   }
-  // }
-  //
-  // private resolveFlexAutoMargins(items: FlexItem[], available: number) {
-  //   let used = 0;
-  //   let autoCount = 0;
-  //   for (let i = 0, len = items.length; i < len; i++) {
-  //     const item = items[i];
-  //     const style = item.node.style;
-  //     used += item.size + getMbpH(item.node.computedStyle);
-  //     if (style.marginLeft.u === Unit.AUTO) {
-  //       autoCount++;
-  //     }
-  //     if (style.marginRight.u === Unit.AUTO) {
-  //       autoCount++;
-  //     }
-  //   }
-  //   let free = available - used;
-  //   if (free > 0 && autoCount) {
-  //     const margin = free / autoCount;
-  //     for (let i = 0, len = items.length; i < len; i++) {
-  //       const item = items[i];
-  //       const { style, computedStyle } = item.node;
-  //       if (style.marginLeft.u === Unit.AUTO) {
-  //         computedStyle.marginLeft = margin;
-  //       }
-  //       if (style.marginRight.u === Unit.AUTO) {
-  //         computedStyle.marginRight = margin;
-  //       }
-  //     }
-  //     free = 0;
-  //   }
-  //   return free;
-  // }
-  //
+  // 计算flex子项每个margin:auto时的情况
+  private resolveFlexAutoMargin(line: Node[], sizeList: number[], available: number, isRow: boolean) {
+    const sum = sizeList.reduce((a, b) => a + b, 0);
+    const free = available - sum;
+    let autoCount = 0;
+    line.forEach(item => {
+      const { marginLeft, marginRight } = item.style;
+      if (isRow) {
+        if (marginLeft.u === Unit.AUTO) {
+          autoCount++;
+        }
+        if (marginRight.u === Unit.AUTO) {
+          autoCount++;
+        }
+      }
+      else {}
+    });
+    if (free > 0 && autoCount) {
+      const margin = free / autoCount;
+      line.forEach(item => {
+        const { marginLeft, marginRight } = item.style;
+        const computedStyle = item.computedStyle;
+        if (isRow) {
+          if (marginLeft.u === Unit.AUTO) {
+            computedStyle.marginLeft = margin;
+          }
+          if (marginRight.u === Unit.AUTO) {
+            computedStyle.marginRight = margin;
+          }
+        }
+        else {}
+      });
+    }
+    return free;
+  }
+
+
   // private resolveJustifyContent(count: number, free: number) {
   //   const justifyContent = this.computedStyle.justifyContent;
   //   if (justifyContent === JustifyContent.FLEX_END) {
@@ -896,7 +836,7 @@ export class Element extends Node implements IElementNode {
   //   return null;
   // }
   //
-  // private layFlexItem(node: Node, x: number, y: number, width: number, height: number | null, absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset) {
+  // private layFlexItem(node: Node, x: number, y: number, width: number, height: number | null, absMap: AbsMap, global: Global, offset: Offset) {
   //   if (node.nodeType === NodeType.Text) {
   //     const lbc = new LineBoxContext(x, y);
   //     const fcs: Constraints = { ox: x, oy: y, aw: width, ah: height || 0, pbw: width, pbh: height, cx: x, cy: y };
@@ -953,7 +893,7 @@ export class Element extends Node implements IElementNode {
   //   applyRelative(element, itemOffset);
   // }
 
-  private layBlock(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
+  private layBlock(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     // block自身的约束、自身的lineBoxContext是新的
     const scs = block(this, cs, global, lbc);
     this.constraints = scs;
@@ -1043,7 +983,7 @@ export class Element extends Node implements IElementNode {
     lbc.newLine(cs.cx, cs.cy);
   }
 
-  layAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset) {
+  layAbs(cs: Constraints, absMap: AbsMap, global: Global, offset: Offset) {
     const style = this.style;
     // 根据trbl确定最终尺寸
     const {
@@ -1389,7 +1329,7 @@ export class Element extends Node implements IElementNode {
   }
 
   // 将absolute节点记录下来，等到其包围块节点布局结束后有了确定的尺寸再布局，没有就是相对root
-  private recordAbs(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global) {
+  private recordAbs(cs: Constraints, absMap: AbsMap, global: Global) {
     const n = this.getContainingNode() || { hook: global.root as Element, parent: undefined };
     let list: Abs[];
     if (absMap.has(n.hook)) {
@@ -1408,7 +1348,7 @@ export class Element extends Node implements IElementNode {
   }
 
   // 作为包围块节点结束后拥有了宽高，可以查看以自己为相对基础的所有absolute节点，进入定位流
-  private checkAbs(absMap: WeakMap<Element, Abs[]>, global: Global, offset: Offset) {
+  private checkAbs(absMap: AbsMap, global: Global, offset: Offset) {
     if (absMap.has(this)) {
       offset = checkRelative(this, offset);
       const list = absMap.get(this)!;
@@ -1484,7 +1424,7 @@ export class TextNode extends Node implements ITextNode {
     return !!this.content;
   }
 
-  layFlow(cs: Constraints, absMap: WeakMap<Element, Abs[]>, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
+  layFlow(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     const { position, display } = this.style;
     if (position === Position.ABSOLUTE || ![Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
       mc.mergeTop();
