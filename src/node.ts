@@ -1,4 +1,14 @@
-import { BoxSizing, Display, FlexDirection, FlexWrap, NodeType, Overflow, Position, Unit } from './constants';
+import {
+  BoxSizing,
+  Display,
+  FlexDirection,
+  FlexWrap,
+  JustifyContent,
+  NodeType,
+  Overflow,
+  Position,
+  Unit
+} from './constants';
 import type { ComputedStyle, JStyle, Style } from './style';
 import { getDefaultComputedStyle, getDefaultStyle } from './style';
 import type { Block, Constraints, Inline, InlineBlock, InputConstraints, Offset, Result, Text, } from './layout';
@@ -24,6 +34,7 @@ import {
   getMbpH,
   getMbpLeft,
   getMbpTop,
+  getMbpV,
   hasBottomBarrier,
   hasTopBarrier,
   isBFC,
@@ -596,17 +607,10 @@ export class Element extends Node implements IElementNode {
         maxList.slice(count, end), minList.slice(count, end),
       );
       const free = this.resolveFlexAutoMargin(line, sizeList, available, isRow);
+      const { offset, gap } = this.resolveJustifyContent(line.length, free);
       count = end;
     });
 
-    // const { offset: mainOffset, gap } = this.resolveJustifyContent(items.length, free);
-    // let cursor = scs.ox + mainOffset;
-    // for (let i = 0, len = items.length; i < len; i++) {
-    //   const item = items[i];
-    //   item.x = cursor;
-    //   cursor += item.size + getMbpH(item.node.computedStyle) + gap;
-    // }
-    //
     // const fixedCross = style.height.u !== Unit.AUTO && !(style.height.u === Unit.PERCENT && cs.pbh === null);
     // let lineCross = fixedCross ? res.h : 0;
     // for (let i = 0, len = items.length; i < len; i++) {
@@ -759,33 +763,34 @@ export class Element extends Node implements IElementNode {
         }
         else {}
       });
+      return 0;
     }
     return free;
   }
 
+  // 每行flexLine中根据个数和剩余空间算得整体偏移offset和相邻gap
+  private resolveJustifyContent(count: number, free: number) {
+    const justifyContent = this.computedStyle.justifyContent;
+    if (justifyContent === JustifyContent.FLEX_END) {
+      return { offset: free, gap: 0 };
+    }
+    if (justifyContent === JustifyContent.CENTER) {
+      return { offset: free * 0.5, gap: 0 };
+    }
+    if (free > 0 && count > 1 && justifyContent === JustifyContent.SPACE_BETWEEN) {
+      return { offset: 0, gap: free / (count - 1) };
+    }
+    if (free > 0 && justifyContent === JustifyContent.SPACE_AROUND) {
+      const gap = free / count;
+      return { offset: gap * 0.5, gap };
+    }
+    if (free > 0 && justifyContent === JustifyContent.SPACE_EVENLY) {
+      const gap = free / (count + 1);
+      return { offset: gap, gap };
+    }
+    return { offset: 0, gap: 0 };
+  }
 
-  // private resolveJustifyContent(count: number, free: number) {
-  //   const justifyContent = this.computedStyle.justifyContent;
-  //   if (justifyContent === JustifyContent.FLEX_END) {
-  //     return { offset: free, gap: 0 };
-  //   }
-  //   if (justifyContent === JustifyContent.CENTER) {
-  //     return { offset: free * 0.5, gap: 0 };
-  //   }
-  //   if (free > 0 && count > 1 && justifyContent === JustifyContent.SPACE_BETWEEN) {
-  //     return { offset: 0, gap: free / (count - 1) };
-  //   }
-  //   if (free > 0 && justifyContent === JustifyContent.SPACE_AROUND) {
-  //     const gap = free / count;
-  //     return { offset: gap * 0.5, gap };
-  //   }
-  //   if (free > 0 && justifyContent === JustifyContent.SPACE_EVENLY) {
-  //     const gap = free / (count + 1);
-  //     return { offset: gap, gap };
-  //   }
-  //   return { offset: 0, gap: 0 };
-  // }
-  //
   // private getFlexAlign(node: Node) {
   //   const alignSelf = node.computedStyle.alignSelf;
   //   if (alignSelf === AlignSelf.FLEX_START) {
