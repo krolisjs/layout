@@ -34,7 +34,6 @@ import {
   getMbpH,
   getMbpLeft,
   getMbpTop,
-  getMbpV,
   hasBottomBarrier,
   hasTopBarrier,
   isBFC,
@@ -414,14 +413,14 @@ export class Element extends Node implements IElementNode {
    * MarginContext有点类似但比较复杂，仅block会用到，依旧是向下递归传递，但是在遇到阻断情况时（如BFC）会产生结算并重置，防止共享影响。
    */
   layFlow(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
-    const { position, display } = this.style;
+    calComputedStyle(this, cs, global);
+    const { position, display } = this.computedStyle;
     // absolute脱离文档流
     if (position === Position.ABSOLUTE) {
       this.recordAbs(cs, absMap, global);
     }
     // 普通文档流
     else {
-      calComputedStyle(this, cs, global);
       if (display === Display.INLINE) {
         this.layInline(cs, absMap, global, mc, lbc, offset);
       }
@@ -522,6 +521,7 @@ export class Element extends Node implements IElementNode {
     const style = this.style;
     const computedStyle = this.computedStyle;
     const res = this.result!;
+    offset = checkRelative(this, offset);
     // 必须在非flex下，即不是flexItem，和普通block类似时才发生margin合并
     const parent = this.parent;
     let marginCollapse = false;
@@ -599,29 +599,50 @@ export class Element extends Node implements IElementNode {
       flexLines.push(line);
     }
     // 遍历每一行flex进行处理
-    let count = 0;
+    let start = 0;
+    let crossCursor = scs.oy;
     flexLines.forEach(line => {
-      const end = count + line.length;
+      // 多行的话用start/end计算children的起止索引范围，对应上grow/shrink/basis/max/min/hypo的索引
+      const end = start + line.length;
       const sizeList = this.resolveFlexMainSize(line, available,
-        growList.slice(count, end), shrinkList.slice(count, end), hypoList.slice(count, end),
-        maxList.slice(count, end), minList.slice(count, end),
+        growList.slice(start, end), shrinkList.slice(start, end), hypoList.slice(start, end),
+        maxList.slice(start, end), minList.slice(start, end),
       );
+      // 提前处理好可能的margin:auto造成剩余空间，没有为0；再计算主轴justifyContent影响的偏移offset和间隙gap
       const free = this.resolveFlexAutoMargin(line, sizeList, available, isRow);
-      const { offset, gap } = this.resolveJustifyContent(line.length, free);
-      count = end;
+      const { offset: mainOffset, gap } = this.resolveJustifyContent(line.length, free);
+      let mainCursor = (isRow ? scs.ox : scs.oy) + mainOffset;
+      // 循环每个item子项，用计算好的坐标位置作为主轴起始+限制进行普通布局，结束后得到副轴尺寸给到下一行
+      let cross = 0;
+      for (let i = 0, len = line.length; i < len; i++) {
+        const item = line[i];
+        const computedStyle = item.computedStyle;
+        // flex子项强制匿名block
+        if (computedStyle.display === Display.INLINE) {
+          computedStyle.display = Display.BLOCK;
+        }
+        if (isRow) {
+          const scs: Constraints = Object.assign({}, cs, {
+            ox: mainCursor,
+            oy: crossCursor,
+            aw: sizeList[i],
+            pbw: sizeList[i],
+            pbh: null,
+            cx: mainCursor,
+            cy: crossCursor,
+          });
+          const slbc = new LineBoxContext(scs.cx, scs.cy, this);
+          item.layFlow(scs, absMap, global, new MarginContext(), slbc, offset);
+          mainCursor += sizeList[i] + gap;
+          cross = Math.max(cross, item.result!.h);
+        }
+        else {
+        }
+      }
+      crossCursor += cross;
+      start = end;
     });
 
-    // const fixedCross = style.height.u !== Unit.AUTO && !(style.height.u === Unit.PERCENT && cs.pbh === null);
-    // let lineCross = fixedCross ? res.h : 0;
-    // for (let i = 0, len = items.length; i < len; i++) {
-    //   const item = items[i];
-    //   const cross = this.getFlexCrossSize(item.node, scs, global, null);
-    //   this.layFlexItem(item.node, item.x, scs.oy, item.size, cross, absMap, global, offset);
-    //   item.cross = item.node.result!.h;
-    //   item.outerCross = item.cross + getMbpV(item.node.computedStyle);
-    //   lineCross = Math.max(lineCross, item.outerCross);
-    // }
-    //
     // let maxBaseline = 0;
     // let maxBaselineBelow = 0;
     // for (let i = 0, len = items.length; i < len; i++) {
@@ -658,13 +679,12 @@ export class Element extends Node implements IElementNode {
     // if (!fixedCross) {
     //   res.h = lineCross;
     // }
-    scs.cy = scs.oy + res.h;
-    // afterFlowBox(cs, this);
+    scs.cy = crossCursor;
+    afterFlowBox(cs, this);
     marginAuto(this, global);
     if (marginCollapse) {
       mc.append(computedStyle.marginBottom);
     }
-    // offset = checkRelative(this, offset);
     applyRelative(this, offset);
     lbc.addBlock(this);
     lbc.newLine(cs.cx, cs.cy);
@@ -841,62 +861,6 @@ export class Element extends Node implements IElementNode {
   //   return null;
   // }
   //
-  // private layFlexItem(node: Node, x: number, y: number, width: number, height: number | null, absMap: AbsMap, global: Global, offset: Offset) {
-  //   if (node.nodeType === NodeType.Text) {
-  //     const lbc = new LineBoxContext(x, y);
-  //     const fcs: Constraints = { ox: x, oy: y, aw: width, ah: height || 0, pbw: width, pbh: height, cx: x, cy: y };
-  //     node.layFlow(fcs, absMap, global, new MarginContext(), lbc, offset);
-  //     return;
-  //   }
-  //   const computedStyle = node.computedStyle;
-  //   const res: Block = {
-  //     type: 'block',
-  //     frags: null,
-  //     x: x + getMbpLeft(computedStyle),
-  //     y: y + getMbpTop(computedStyle),
-  //     w: width,
-  //     h: height || 0,
-  //   };
-  //   const fcs: Constraints = {
-  //     ox: res.x,
-  //     oy: res.y,
-  //     aw: width,
-  //     ah: height || 0,
-  //     pbw: width,
-  //     pbh: height,
-  //     cx: res.x,
-  //     cy: res.y,
-  //   };
-  //   const element = node as Element;
-  //   element.result = res;
-  //   element.constraints = fcs;
-  //   const lbc = new LineBoxContext(fcs.cx, fcs.cy, element);
-  //   element.lineBoxContext = lbc;
-  //   const childMc = new MarginContext();
-  //   const itemOffset = checkRelative(element, offset);
-  //   const children = element.children;
-  //   for (let i = 0, len = children.length; i < len; i++) {
-  //     children[i].layFlow(fcs, absMap, global, childMc, lbc, itemOffset);
-  //   }
-  //   if (lbc.endLine()) {
-  //     const current = lbc.current;
-  //     fcs.cy = current.y + current.h;
-  //   }
-  //   if (height === null) {
-  //     res.h = Math.max(0, fcs.cy - fcs.oy + childMc.mergeTop());
-  //   }
-  //   else {
-  //     childMc.reset();
-  //   }
-  //   if (computedStyle.minHeight !== null && element.style.minHeight.u !== Unit.AUTO) {
-  //     res.h = Math.max(res.h, computedStyle.minHeight);
-  //   }
-  //   if (computedStyle.maxHeight !== null && element.style.maxHeight.u !== Unit.AUTO) {
-  //     res.h = Math.min(res.h, computedStyle.maxHeight);
-  //   }
-  //   element.checkAbs(absMap, global, itemOffset);
-  //   applyRelative(element, itemOffset);
-  // }
 
   private layBlock(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
     // block自身的约束、自身的lineBoxContext是新的
@@ -1133,15 +1097,15 @@ export class Element extends Node implements IElementNode {
     const children = this.children;
     for (let i = 0, len = children.length; i < len; i++) {
       const child = children[i];
-      const style = child.style;
+      const { position, display } = child.computedStyle;
       // 所有情况递归absolute都无效不影响
-      if (style.position === Position.ABSOLUTE) {
+      if (position === Position.ABSOLUTE) {
         continue;
       }
       const o = child.shrink2FitItem(cs, global);
       min = Math.max(min, o.min);
       // 作为入口，本身是inlineBlock/abs的block，直接子节点是inline，注意其可能被子block切割的情况
-      if (style.display === Display.INLINE) {
+      if (display === Display.INLINE) {
         // 有切割
         if (o.split) {
           minCount += o.firstLine;
@@ -1159,7 +1123,7 @@ export class Element extends Node implements IElementNode {
           maxCount += o.max;
         }
       }
-      else if (style.display === Display.INLINE_BLOCK) {
+      else if (display === Display.INLINE_BLOCK) {
         minCount += o.min;
         maxCount += o.max;
       }
@@ -1430,13 +1394,13 @@ export class TextNode extends Node implements ITextNode {
   }
 
   layFlow(cs: Constraints, absMap: AbsMap, global: Global, mc: MarginContext, lbc: LineBoxContext, offset: Offset) {
-    const { position, display } = this.style;
+    calComputedStyle(this, cs, global);
+    const { position, display } = this.computedStyle;
     if (position === Position.ABSOLUTE || ![Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
       mc.mergeTop();
       mc.reset();
     }
-    calComputedStyle(this, cs, global);
-    if (position === Position.ABSOLUTE || [Display.BLOCK, Display.FLEX, Display.GRID].includes(display)) {
+    if (position === Position.ABSOLUTE) {
     }
     else if (display === Display.INLINE) {
       text(this, cs, global, lbc);

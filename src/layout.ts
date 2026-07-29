@@ -197,7 +197,7 @@ function bib(node: IElementNode, cs: Constraints, res: Block | InlineBlock) {
   return scs;
 }
 
-// 广义的block（flex/grid也是）开始，处理行结束换行，因为可能prev是inline
+// 广义的block（flex/grid也是）开始，处理prev遗留的行结束换行，因为可能prev是inline
 export function beforeFlowBox(cs: Constraints, lbc: LineBoxContext) {
   if (lbc.endLine()) {
     const current = lbc.current;
@@ -206,11 +206,12 @@ export function beforeFlowBox(cs: Constraints, lbc: LineBoxContext) {
   }
 }
 
-// 同上，但flex/grid不需要
+// 同上，结束时的换行，以及自动高度和margin
 export function afterFlowBox(cs: Constraints, node: IElementNode) {
   const scs = node.constraints!;
-  const lbc = node.lineBoxContext!;
-  if (lbc.endLine()) {
+  const lbc = node.lineBoxContext;
+  // flex容器没有lbc，block有
+  if (lbc && lbc.endLine()) {
     const current = lbc.current;
     scs.cx = scs.ox;
     scs.cy = current.y + current.h;
