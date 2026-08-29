@@ -100,7 +100,7 @@ import { parse } from '@krolis/opentype';
 ```shell
 npm run dev
 ```
-It is recommended to use Node.js v22.18+
+It is recommended to use Node.js v22+
 
 建议使用Node.js v22.18+
 

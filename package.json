@@ -19,13 +19,12 @@
   "dependencies": {},
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^25.0.10",
-    "expect": "^30.2.0",
-    "mocha": "^10.4.0",
-    "tsdown": "^0.22.12",
-    "tsx": "^4.23.1",
-    "typescript": "^7.0.2",
-    "webstorm-disable-index": "^1.2.0"
+    "@types/node": "^26.4.0",
+    "expect": "^30.5.0",
+    "mocha": "^11.8.0",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
   },
   "type": "module",
   "main": "dist/index.iife.js",
