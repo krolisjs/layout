@@ -401,6 +401,12 @@ export function calCssLength(v: CssLength, number2Px = false): Length {
       u: Unit.REM,
     };
   }
+  else if (/px$/.test(v as string)) {
+    return {
+      v: n,
+      u: Unit.PX,
+    };
+  }
   else {
     return {
       v: n,
