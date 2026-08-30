@@ -62,9 +62,64 @@
   }
 
   const node = genNode({
-    style: { letterSpacing: 20 },
+    style: {
+      fontSize: 50,
+    },
     children: [
-      { content: 'abc' }
+      {
+        style: {
+          display: 'inlineBlock',
+          lineHeight: '200px',
+        },
+        children: [
+          {
+            style: {
+              display: 'inline',
+            },
+            children: [
+              {
+                content: '1234567890',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        style: {
+          display: 'inlineBlock',
+          lineHeight: '30px',
+        },
+        children: [
+          {
+            style: {
+              display: 'inline',
+            },
+            children: [
+              {
+                content: '1234567890',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        style: {
+          display: 'inlineBlock',
+          lineHeight: 'normal',
+        },
+        children: [
+          {
+            style: {
+              display: 'inline',
+            },
+            children: [
+              {
+                content: '1234567890',
+              },
+            ],
+          },
+        ],
+      },
     ],
   });
   node.lay({ aw: 500, ah: 500 });
@@ -85,6 +140,7 @@
         span.style.width = frag.w + 'px';
         span.style.height = frag.h + 'px';
         span.style.background = color;
+        span.style.fontSize = `${mixedResult.fontSize}px`;
         span.innerText = frag.content;
         $res.appendChild(span);
       });
