@@ -9,7 +9,7 @@ describe('visudet', () => {
     inputConstraints = createTestInputConstraints();
   });
 
-  it.skip('content-height-001', () => {
+  it('content-height-001', () => {
     const node = genNode({
       style: {
         fontSize: 50,
@@ -27,7 +27,7 @@ describe('visudet', () => {
               },
               children: [
                 {
-                  content: '1234567890',
+                  content: 'aa',
                 },
               ],
             },
@@ -45,7 +45,7 @@ describe('visudet', () => {
               },
               children: [
                 {
-                  content: '1234567890',
+                  content: 'aa',
                 },
               ],
             },
@@ -63,7 +63,7 @@ describe('visudet', () => {
               },
               children: [
                 {
-                  content: '1234567890',
+                  content: 'aa',
                 },
               ],
             },
@@ -75,8 +75,38 @@ describe('visudet', () => {
     expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 0,
-      w: 0,
-      h: 0,
+      w: 100,
+      h: 200,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 65.625,
+      w: 100,
+      h: 68.75,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 100,
+      y: 85,
+      w: 100,
+      h: 30,
+    });
+    expect(node.children[1].children[0].mixedResult).toMatchObject({
+      x: 100,
+      y: 65.625,
+      w: 100,
+      h: 68.75,
+    });
+    expect(node.children[2].mixedResult).toMatchObject({
+      x: 200,
+      y: 62.5,
+      w: 100,
+      h: 75,
+    });
+    expect(node.children[2].children[0].mixedResult).toMatchObject({
+      x: 200,
+      y: 65.625,
+      w: 100,
+      h: 68.75,
     });
   });
 });
