@@ -1,4 +1,6 @@
 import {
+  AlignItems,
+  AlignSelf,
   BoxSizing,
   Display,
   FlexDirection,
@@ -7,7 +9,7 @@ import {
   NodeType,
   Overflow,
   Position,
-  Unit
+  Unit,
 } from './constants';
 import type { ComputedStyle, JStyle, Style } from './style';
 import { getDefaultComputedStyle, getDefaultStyle } from './style';
@@ -34,6 +36,7 @@ import {
   getMbpH,
   getMbpLeft,
   getMbpTop,
+  getMbpV,
   hasBottomBarrier,
   hasTopBarrier,
   isBFC,
@@ -566,6 +569,7 @@ export class Element extends Node implements IElementNode {
       minList.push(bmm.min);
     }
     const isMultiLine = [FlexWrap.WRAP, FlexWrap.WRAP_REVERSE].includes(computedStyle.flexWrap);
+    const singleLineCrossSize = isRow && !isMultiLine ? scs.ah : null;
     const flexLines: Node[][] = [];
     let line: Node[] = [];
     const available = isRow ? scs.aw : scs.ah;
@@ -633,6 +637,16 @@ export class Element extends Node implements IElementNode {
           });
           const slbc = new LineBoxContext(scs.cx, scs.cy, this);
           item.layFlow(scs, absMap, global, new MarginContext(), slbc, offset);
+          item.result!.w = sizeList[i];
+          const align = computedStyle.alignSelf === AlignSelf.AUTO
+            ? this.computedStyle.alignItems
+            : computedStyle.alignSelf;
+          if (singleLineCrossSize !== null
+            && (align === AlignItems.NORMAL || align === AlignItems.STRETCH)
+            && item.style.height.u === Unit.AUTO
+          ) {
+            item.result!.h = Math.max(0, singleLineCrossSize - getMbpV(computedStyle));
+          }
           mainCursor += sizeList[i] + gap;
           cross = Math.max(cross, item.result!.h);
         }
@@ -811,27 +825,27 @@ export class Element extends Node implements IElementNode {
     return { offset: 0, gap: 0 };
   }
 
-  // private getFlexAlign(node: Node) {
-  //   const alignSelf = node.computedStyle.alignSelf;
-  //   if (alignSelf === AlignSelf.FLEX_START) {
-  //     return AlignItems.FLEX_START;
-  //   }
-  //   if (alignSelf === AlignSelf.FLEX_END) {
-  //     return AlignItems.FLEX_END;
-  //   }
-  //   if (alignSelf === AlignSelf.CENTER) {
-  //     return AlignItems.CENTER;
-  //   }
-  //   if (alignSelf === AlignSelf.BASELINE) {
-  //     return AlignItems.BASELINE;
-  //   }
-  //   if (alignSelf === AlignSelf.STRETCH || alignSelf === AlignSelf.NORMAL) {
-  //     return AlignItems.STRETCH;
-  //   }
-  //   const alignItems = this.computedStyle.alignItems;
-  //   return alignItems === AlignItems.NORMAL ? AlignItems.STRETCH : alignItems;
-  // }
-  //
+  private getFlexAlign(node: Node) {
+    const alignSelf = node.computedStyle.alignSelf;
+    if (alignSelf === AlignSelf.FLEX_START) {
+      return AlignItems.FLEX_START;
+    }
+    if (alignSelf === AlignSelf.FLEX_END) {
+      return AlignItems.FLEX_END;
+    }
+    if (alignSelf === AlignSelf.CENTER) {
+      return AlignItems.CENTER;
+    }
+    if (alignSelf === AlignSelf.BASELINE) {
+      return AlignItems.BASELINE;
+    }
+    if (alignSelf === AlignSelf.STRETCH || alignSelf === AlignSelf.NORMAL) {
+      return AlignItems.STRETCH;
+    }
+    const alignItems = this.computedStyle.alignItems;
+    return alignItems === AlignItems.NORMAL ? AlignItems.STRETCH : alignItems;
+  }
+
   // private getFlexBaseline(node: Node) {
   //   if (node.nodeType === NodeType.Element) {
   //     return getInlineBlockBaseline(node as Element);

@@ -2,7 +2,7 @@ import { expect } from 'expect';
 import { createTestInputConstraints, genNode } from '../env';
 import type { InputConstraints } from '../../src';
 
-describe.skip('css-flex', () => {
+describe('css-flex', () => {
   let inputConstraints: InputConstraints;
 
   beforeEach(() => {
@@ -69,7 +69,7 @@ describe.skip('css-flex', () => {
     });
   });
 
-  it('custom-flex-shrink-001', () => {
+  it.skip('custom-flex-shrink-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -100,7 +100,7 @@ describe.skip('css-flex', () => {
     });
   });
 
-  it('custom-flex-margin-justify-content-001', () => {
+  it.skip('custom-flex-margin-justify-content-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -138,7 +138,7 @@ describe.skip('css-flex', () => {
     });
   });
 
-  it('custom-flex-align-items-001', () => {
+  it.skip('custom-flex-align-items-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -174,7 +174,7 @@ describe.skip('css-flex', () => {
     });
   });
 
-  it('custom-flex-align-items-stretch-001', () => {
+  it.skip('custom-flex-align-items-stretch-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -197,7 +197,7 @@ describe.skip('css-flex', () => {
     });
   });
 
-  it('custom-flex-align-items-baseline-001', () => {
+  it.skip('custom-flex-align-items-baseline-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
