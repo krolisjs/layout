@@ -37,6 +37,7 @@ import {
   getMbpLeft,
   getMbpTop,
   getMbpV,
+  getInlineBlockBaseline,
   hasBottomBarrier,
   hasTopBarrier,
   isBFC,
@@ -569,7 +570,7 @@ export class Element extends Node implements IElementNode {
       minList.push(bmm.min);
     }
     const isMultiLine = [FlexWrap.WRAP, FlexWrap.WRAP_REVERSE].includes(computedStyle.flexWrap);
-    const singleLineCrossSize = isRow && !isMultiLine ? scs.ah : null;
+    const singleLineCrossSize = isRow && !isMultiLine && style.height.u !== Unit.AUTO ? res.h : null;
     const flexLines: Node[][] = [];
     let line: Node[] = [];
     const available = isRow ? scs.aw : scs.ah;
@@ -618,6 +619,7 @@ export class Element extends Node implements IElementNode {
       let mainCursor = (isRow ? scs.ox : scs.oy) + mainOffset;
       // 循环每个item子项，用计算好的坐标位置作为主轴起始+限制进行普通布局，结束后得到副轴尺寸给到下一行
       let cross = 0;
+      const baselineList: number[] = [];
       for (let i = 0, len = line.length; i < len; i++) {
         const item = line[i];
         const computedStyle = item.computedStyle;
@@ -647,6 +649,7 @@ export class Element extends Node implements IElementNode {
           ) {
             item.result!.h = Math.max(0, singleLineCrossSize - getMbpV(computedStyle));
           }
+          baselineList[i] = getInlineBlockBaseline(item as unknown as IElementNode);
           if (singleLineCrossSize !== null) {
             const flexAlign = this.getFlexAlign(item);
             const remaining = singleLineCrossSize - item.result!.h - getMbpV(computedStyle);
@@ -661,6 +664,17 @@ export class Element extends Node implements IElementNode {
           cross = Math.max(cross, item.result!.h);
         }
         else {
+        }
+      }
+      if (isRow && singleLineCrossSize === null) {
+        const maxBaseline = Math.max(...baselineList);
+        for (let i = 0, len = line.length; i < len; i++) {
+          const align = line[i].computedStyle.alignSelf === AlignSelf.AUTO
+            ? this.computedStyle.alignItems
+            : line[i].computedStyle.alignSelf;
+          if (align === AlignItems.BASELINE || align === AlignSelf.BASELINE) {
+            line[i].offsetXY(0, maxBaseline - baselineList[i]);
+          }
         }
       }
       crossCursor += cross;

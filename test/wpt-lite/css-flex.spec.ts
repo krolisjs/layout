@@ -197,7 +197,7 @@ describe('css-flex', () => {
     });
   });
 
-  it.skip('custom-flex-align-items-baseline-001', () => {
+  it('custom-flex-align-items-baseline-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
