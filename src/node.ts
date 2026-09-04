@@ -647,6 +647,16 @@ export class Element extends Node implements IElementNode {
           ) {
             item.result!.h = Math.max(0, singleLineCrossSize - getMbpV(computedStyle));
           }
+          if (singleLineCrossSize !== null) {
+            const flexAlign = this.getFlexAlign(item);
+            const remaining = singleLineCrossSize - item.result!.h - getMbpV(computedStyle);
+            if (flexAlign === AlignItems.FLEX_END) {
+              item.offsetXY(0, remaining);
+            }
+            else if (flexAlign === AlignItems.CENTER) {
+              item.offsetXY(0, remaining * 0.5);
+            }
+          }
           mainCursor += sizeList[i] + computedStyle.marginLeft + computedStyle.marginRight + gap;
           cross = Math.max(cross, item.result!.h);
         }

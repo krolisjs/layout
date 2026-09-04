@@ -69,7 +69,7 @@ describe('css-flex', () => {
     });
   });
 
-  it.skip('custom-flex-shrink-001', () => {
+  it('custom-flex-shrink-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -138,7 +138,7 @@ describe('css-flex', () => {
     });
   });
 
-  it.skip('custom-flex-align-items-001', () => {
+  it('custom-flex-align-items-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -174,7 +174,7 @@ describe('css-flex', () => {
     });
   });
 
-  it.skip('custom-flex-align-items-stretch-001', () => {
+  it('custom-flex-align-items-stretch-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
