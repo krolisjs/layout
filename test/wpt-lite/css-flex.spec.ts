@@ -100,7 +100,7 @@ describe('css-flex', () => {
     });
   });
 
-  it.skip('custom-flex-margin-justify-content-001', () => {
+  it('custom-flex-margin-justify-content-001', () => {
     const node = genNode({
       style: {
         display: 'flex',

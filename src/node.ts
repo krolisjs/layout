@@ -647,7 +647,7 @@ export class Element extends Node implements IElementNode {
           ) {
             item.result!.h = Math.max(0, singleLineCrossSize - getMbpV(computedStyle));
           }
-          mainCursor += sizeList[i] + gap;
+          mainCursor += sizeList[i] + computedStyle.marginLeft + computedStyle.marginRight + gap;
           cross = Math.max(cross, item.result!.h);
         }
         else {
@@ -767,7 +767,10 @@ export class Element extends Node implements IElementNode {
 
   // 计算flex子项每个margin:auto时的情况
   private resolveFlexAutoMargin(line: Node[], sizeList: number[], available: number, isRow: boolean) {
-    const sum = sizeList.reduce((a, b) => a + b, 0);
+    const sum = sizeList.reduce((total, size, i) => {
+      const computedStyle = line[i].computedStyle;
+      return total + size + computedStyle.marginLeft + computedStyle.marginRight;
+    }, 0);
     const free = available - sum;
     let autoCount = 0;
     line.forEach(item => {
