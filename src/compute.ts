@@ -265,7 +265,7 @@ export function calComputedStyle(node: INode, cs: Constraints, global: Global) {
           const ps = p.style;
           if (ps.lineHeight.u !== Unit.INHERIT) {
             if (ps.lineHeight.u === Unit.NUMBER) {
-              computedStyle[k] = Math.max(0, v * computedStyle.fontSize);
+              computedStyle[k] = Math.max(0, ps.lineHeight.v * computedStyle.fontSize);
             }
             else if (ps.lineHeight.u === Unit.PX) {
               computedStyle[k] = p.computedStyle.lineHeight;
