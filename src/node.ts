@@ -1033,7 +1033,8 @@ export class Element extends Node implements IElementNode {
     }
     if (height.u !== Unit.AUTO) {}
     else if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO) {
-      res.h = cs.pbh! - computedStyle.top - computedStyle.bottom - computedStyle.marginTop - computedStyle.marginBottom;
+      res.h = Math.max(0, cs.pbh! - computedStyle.top - computedStyle.bottom
+        - computedStyle.marginTop - computedStyle.marginBottom);
     }
     else {}
     // 边距平分

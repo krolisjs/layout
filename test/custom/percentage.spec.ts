@@ -182,7 +182,7 @@ describe('percentage-height', () => {
       y: 50,
       h: 50,
     });
-  })
+  });
 
   it('abs-abs-child%', () => {
     const node = genNode({
@@ -221,4 +221,36 @@ describe('percentage-height', () => {
       h: 50,
     });
   });
+
+  it('abs-percent-height-auto-containing-block', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+        width: 200,
+      },
+      children: [{
+        style: {
+          position: 'absolute',
+          width: 150,
+          height: '50%',
+        },
+        children: [{
+          style: {
+            width: 100,
+            height: 40,
+          },
+        }],
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      y: 0,
+      h: 0,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      y: 0,
+      h: 40,
+    });
+  });
+
 });
