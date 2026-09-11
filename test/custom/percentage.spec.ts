@@ -253,4 +253,35 @@ describe('percentage-height', () => {
     });
   });
 
+  it('abs-%-child-auto-containing-block', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+        width: 200,
+      },
+      children: [{
+        style: {
+          position: 'absolute',
+          width: 150,
+          height: '50%',
+        },
+        children: [{
+          style: {
+            width: 100,
+            height: '50%',
+          },
+        }],
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      y: 0,
+      h: 0,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      y: 0,
+      h: 0,
+    });
+  });
+
 });

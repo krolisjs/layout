@@ -442,7 +442,7 @@ export class Element extends Node implements IElementNode {
       if (this === global.root && display === Display.INLINE) {
         lbc.endLine();
       }
-      // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局 TODO 检查this是否包含块
+      // 包含块节点end时检查是否有absolute节点，每个absolute继续递归普通模式布局
       this.checkAbs(absMap, global, offset);
     }
   }
@@ -1059,12 +1059,19 @@ export class Element extends Node implements IElementNode {
       }
     }
     if (top.u !== Unit.AUTO && bottom.u !== Unit.AUTO && height.u !== Unit.AUTO) {
-      const residual = cs.ah - (computedStyle.top + computedStyle.bottom + res.h);
+      const residual = Math.max(0, cs.ah - (computedStyle.top + computedStyle.bottom + res.h));
       if (marginTop.u === Unit.AUTO && marginBottom.u === Unit.AUTO) {
         const half = residual * 0.5;
         res.y += half;
         computedStyle.marginTop = half;
         computedStyle.marginBottom = half;
+      }
+      else if (marginTop.u === Unit.AUTO) {
+        res.y += residual;
+        computedStyle.marginTop = residual;
+      }
+      else if (marginBottom.u === Unit.AUTO) {
+        computedStyle.marginBottom = residual;
       }
     }
     // 超额约束修正
