@@ -2,7 +2,7 @@ import { expect } from 'expect';
 import { createTestInputConstraints, genNode } from '../env';
 import type { InputConstraints } from '../../src/';
 
-describe('percentage-width', () => {
+describe('line-height', () => {
   let inputConstraints: InputConstraints;
   
   beforeEach(() => {
