@@ -123,4 +123,102 @@ describe('percentage-height', () => {
   beforeEach(() => {
     inputConstraints = createTestInputConstraints();
   });
+
+  it('abs-%', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+        width: 200,
+        height: 200,
+      },
+      children: [{
+        style: {
+          position: 'absolute',
+          width: 200,
+          height: '50%',
+        },
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      y: 0,
+      h: 100,
+    });
+  });
+
+  it('abs-child-%', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+        width: 200,
+        height: 200,
+      },
+      children: [{
+        style: {
+          position: 'absolute',
+          width: 150,
+          height: 100,
+        },
+        children: [{
+          style: {
+            width: 100,
+            height: '50%',
+          },
+        }, {
+          style: {
+            position: 'absolute',
+            width: 50,
+            height: '50%',
+          },
+        }],
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      y: 0,
+      h: 50,
+    });
+    expect(node.children[0].children[1].mixedResult).toMatchObject({
+      y: 50,
+      h: 50,
+    });
+  })
+
+  it('abs-abs-child%', () => {
+    const node = genNode({
+      style: {
+        position: 'relative',
+        width: 200,
+        height: 200,
+      },
+      children: [{
+        style: {
+          position: 'absolute',
+          width: 150,
+          height: '50%',
+        },
+        children: [{
+          style: {
+            width: 100,
+            height: '50%',
+          },
+        }, {
+          style: {
+            position: 'absolute',
+            width: 50,
+            height: '50%',
+          },
+        }],
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      y: 0,
+      h: 50,
+    });
+    expect(node.children[0].children[1].mixedResult).toMatchObject({
+      y: 50,
+      h: 50,
+    });
+  });
 });

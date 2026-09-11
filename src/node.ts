@@ -1091,13 +1091,15 @@ export class Element extends Node implements IElementNode {
     }
     res.y = cs.oy + computedStyle.top + getMbpTop(computedStyle);
     // 特殊处理自己，不能复用begin，因为自己是absolute，会死循环进入预测量
+    const definiteHeight = height.u !== Unit.AUTO
+      || top.u !== Unit.AUTO && bottom.u !== Unit.AUTO;
     const scs: Constraints = {
       ox: res.x,
       oy: res.y,
       aw: res.w,
-      ah: cs.ah,
+      ah: definiteHeight ? res.h : cs.ah,
       pbw: res.w,
-      pbh: cs.ah,
+      pbh: definiteHeight ? res.h : null,
       cx: res.x,
       cy: res.y,
     };
