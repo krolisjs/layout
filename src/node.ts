@@ -328,6 +328,10 @@ export abstract class Node implements INode {
         }
       }
       else {
+        if (isBasisContent) {
+          basis = 0;
+        }
+        min = 0;
       }
     }
     computedStyle.flexBasis = basis;
@@ -573,7 +577,7 @@ export class Element extends Node implements IElementNode {
     const singleLineCrossSize = isRow && !isMultiLine && style.height.u !== Unit.AUTO ? res.h : null;
     const flexLines: Node[][] = [];
     let line: Node[] = [];
-    const available = isRow ? scs.aw : scs.ah;
+    const available = isRow ? res.w : res.h;
     let sum = 0;
     // 判断是否需要分行，根据flexWrap+假设主尺寸hypoList来统计尺寸和计算
     hypoList.forEach((hypo, i) => {
@@ -664,6 +668,42 @@ export class Element extends Node implements IElementNode {
           cross = Math.max(cross, item.result!.h);
         }
         else {
+          const itemStyle = computedStyle;
+          const itemConstraints: Constraints = Object.assign({}, cs, {
+            ox: scs.ox,
+            oy: mainCursor + itemStyle.marginTop,
+            aw: res.w,
+            ah: sizeList[i],
+            pbw: scs.aw,
+            pbh: sizeList[i],
+            cx: scs.ox,
+            cy: mainCursor + itemStyle.marginTop,
+          });
+          const itemLbc = new LineBoxContext(itemConstraints.cx, itemConstraints.cy, this);
+          item.layFlow(itemConstraints, absMap, global, new MarginContext(), itemLbc, offset);
+          item.result!.h = sizeList[i];
+          const align = this.getFlexAlign(item);
+          const itemWidth = item.style.width.u === Unit.AUTO
+            ? item.result!.w
+            : calLength(item.style.width, scs.aw, global.rem, itemStyle.fontSize);
+          const outerWidth = itemWidth + itemStyle.marginLeft + itemStyle.marginRight;
+          const remaining = res.w - outerWidth;
+          let crossOffset = 0;
+          if (align === AlignItems.FLEX_END) {
+            crossOffset = remaining;
+          }
+          else if (align === AlignItems.CENTER) {
+            crossOffset = remaining * 0.5;
+          }
+          if (align === AlignItems.STRETCH && item.style.width.u === Unit.AUTO) {
+            item.result!.w = Math.max(0, res.w - itemStyle.marginLeft - itemStyle.marginRight);
+          }
+          else {
+            item.result!.w = itemWidth;
+          }
+          item.offsetXY(crossOffset, 0);
+          mainCursor += sizeList[i] + itemStyle.marginTop + itemStyle.marginBottom + gap;
+          cross = Math.max(cross, outerWidth);
         }
       }
       if (isRow && singleLineCrossSize === null) {
@@ -677,7 +717,9 @@ export class Element extends Node implements IElementNode {
           }
         }
       }
-      crossCursor += cross;
+      if (isRow) {
+        crossCursor += cross;
+      }
       start = end;
     });
 
