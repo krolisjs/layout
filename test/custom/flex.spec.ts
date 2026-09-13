@@ -9,7 +9,7 @@ describe('flex', () => {
     inputConstraints = createTestInputConstraints();
   });
 
-  it('custom-flex-grow-001', () => {
+  it('flex-row-grow-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -39,7 +39,7 @@ describe('flex', () => {
     });
   });
 
-  it('custom-flex-basis-001', () => {
+  it('flex-row-basis-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -69,7 +69,7 @@ describe('flex', () => {
     });
   });
 
-  it('custom-flex-shrink-001', () => {
+  it('flex-row-shrink-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -100,7 +100,7 @@ describe('flex', () => {
     });
   });
 
-  it('custom-flex-margin-justify-content-001', () => {
+  it('flex-row-margin-justify-content-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -138,7 +138,7 @@ describe('flex', () => {
     });
   });
 
-  it('custom-flex-align-items-001', () => {
+  it('flex-row-align-items-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -174,7 +174,7 @@ describe('flex', () => {
     });
   });
 
-  it('custom-flex-align-items-stretch-001', () => {
+  it('flex-row-align-items-stretch-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -197,7 +197,7 @@ describe('flex', () => {
     });
   });
 
-  it('custom-flex-align-items-baseline-001', () => {
+  it('flex-row-align-items-baseline-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -232,7 +232,7 @@ describe('flex', () => {
     });
   });
 
-  it('custom-flex-column-001', () => {
+  it('flex-column-001', () => {
     const node = genNode({
       style: {
         display: 'flex',
@@ -244,16 +244,39 @@ describe('flex', () => {
     });
     node.lay(inputConstraints);
     expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 50 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 0, w: 40, h: 50 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 50, w: 40, h: 50 });
   });
 
-  it('custom-flex-column-stretch-001', () => {
+  it('flex-column-stretch-001', () => {
     const node = genNode({
       style: { display: 'flex', flexDirection: 'column', width: 100, height: 100 },
       children: [{ style: { width: 20, height: 20 } }],
     });
     node.lay(inputConstraints);
     expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
+  });
+
+  it('flex-row-reverse-001', () => {
+    const node = genNode({
+      style: { display: 'flex', flexDirection: 'rowReverse', width: 100, height: 20 },
+      children: [{ style: { width: 20, height: 10 } }, { style: { width: 30, height: 10 } }],
+    });
+    node.lay({ ...inputConstraints, aw: 1000 });
+    expect(node.children[0].mixedResult).toMatchObject({ x: 80, y: 0, w: 20, h: 10 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 50, y: 0, w: 30, h: 10 });
+  });
+
+  it('flex-wrap-001', () => {
+    const node = genNode({
+      style: { display: 'flex', flexWrap: 'wrap', width: 100 },
+      children: [
+        { style: { width: 60, height: 10 } },
+        { style: { width: 60, height: 20 } },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 60, h: 10 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 10, w: 60, h: 20 });
   });
 
 });

@@ -620,7 +620,9 @@ export class Element extends Node implements IElementNode {
       // 提前处理好可能的margin:auto造成剩余空间，没有为0；再计算主轴justifyContent影响的偏移offset和间隙gap
       const free = this.resolveFlexAutoMargin(line, sizeList, available, isRow);
       const { offset: mainOffset, gap } = this.resolveJustifyContent(line.length, free);
-      let mainCursor = (isRow ? scs.ox : scs.oy) + mainOffset;
+      let mainCursor = isRow && style.flexDirection === FlexDirection.ROW_REVERSE
+        ? scs.ox + res.w - mainOffset
+        : (isRow ? scs.ox : scs.oy) + mainOffset;
       // 循环每个item子项，用计算好的坐标位置作为主轴起始+限制进行普通布局，结束后得到副轴尺寸给到下一行
       let cross = 0;
       const baselineList: number[] = [];
@@ -632,6 +634,9 @@ export class Element extends Node implements IElementNode {
           computedStyle.display = Display.BLOCK;
         }
         if (isRow) {
+          if (style.flexDirection === FlexDirection.ROW_REVERSE) {
+            mainCursor -= sizeList[i] + computedStyle.marginRight;
+          }
           const scs: Constraints = Object.assign({}, cs, {
             ox: mainCursor,
             oy: crossCursor,
@@ -664,7 +669,12 @@ export class Element extends Node implements IElementNode {
               item.offsetXY(0, remaining * 0.5);
             }
           }
-          mainCursor += sizeList[i] + computedStyle.marginLeft + computedStyle.marginRight + gap;
+          if (style.flexDirection === FlexDirection.ROW_REVERSE) {
+            mainCursor -= computedStyle.marginLeft + gap;
+          }
+          else {
+            mainCursor += sizeList[i] + computedStyle.marginLeft + computedStyle.marginRight + gap;
+          }
           cross = Math.max(cross, item.result!.h);
         }
         else {

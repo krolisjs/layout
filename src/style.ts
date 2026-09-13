@@ -559,8 +559,42 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
       res.flexBasis = calCssLength(style.flexBasis, true);
     }
   }
+  if (style.flexWrap !== undefined) {
+    if (typeof style.flexWrap === 'number') {
+      res.flexWrap = style.flexWrap;
+    }
+    else if (style.flexWrap === 'wrap') {
+      res.flexWrap = FlexWrap.WRAP;
+    }
+    else if (style.flexWrap === 'wrapReverse') {
+      res.flexWrap = FlexWrap.WRAP_REVERSE;
+    }
+    else {
+      res.flexWrap = FlexWrap.NOWRAP;
+    }
+  }
+  if (style.flexDirection !== undefined) {
+    if (typeof style.flexDirection === 'number') {
+      res.flexDirection = style.flexDirection;
+    }
+    else if (style.flexDirection === 'column') {
+      res.flexDirection = FlexDirection.COLUMN;
+    }
+    else if (style.flexDirection === 'columnReverse') {
+      res.flexDirection = FlexDirection.COLUMN_REVERSE;
+    }
+    else if (style.flexDirection === 'rowReverse') {
+      res.flexDirection = FlexDirection.ROW_REVERSE;
+    }
+    else {
+      res.flexDirection = FlexDirection.ROW;
+    }
+  }
   if (style.alignItems !== undefined) {
-    if (style.alignItems === 'stretch') {
+    if (typeof style.alignItems === 'number') {
+      res.alignItems = style.alignItems;
+    }
+    else if (style.alignItems === 'stretch') {
       res.alignItems = AlignItems.STRETCH;
     }
     else if (style.alignItems === 'flexStart') {
@@ -580,7 +614,10 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
     }
   }
   if (style.alignSelf !== undefined) {
-    if (style.alignSelf === 'stretch') {
+    if (typeof style.alignSelf === 'number') {
+      res.alignSelf = style.alignSelf;
+    }
+    else if (style.alignSelf === 'stretch') {
       res.alignSelf = AlignSelf.STRETCH;
     }
     else if (style.alignSelf === 'flexStart') {
@@ -603,7 +640,10 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
     }
   }
   if (style.alignContent !== undefined) {
-    if (style.alignContent === 'stretch') {
+    if (typeof style.alignContent === 'number') {
+      res.alignContent = style.alignContent;
+    }
+    else if (style.alignContent === 'stretch') {
       res.alignContent = AlignContent.STRETCH;
     }
     else if (style.alignContent === 'flexStart') {
@@ -629,7 +669,10 @@ export const normalizeStyle = (st: Partial<JStyle | Style> = {}) => {
     }
   }
   if (style.justifyContent !== undefined) {
-    if (style.justifyContent === 'stretch') {
+    if (typeof style.justifyContent === 'number') {
+      res.justifyContent = style.justifyContent;
+    }
+    else if (style.justifyContent === 'stretch') {
       res.justifyContent = JustifyContent.STRETCH;
     }
     else if (style.justifyContent === 'flexStart') {
