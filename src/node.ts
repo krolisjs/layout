@@ -620,8 +620,9 @@ export class Element extends Node implements IElementNode {
       // 提前处理好可能的margin:auto造成剩余空间，没有为0；再计算主轴justifyContent影响的偏移offset和间隙gap
       const free = this.resolveFlexAutoMargin(line, sizeList, available, isRow);
       const { offset: mainOffset, gap } = this.resolveJustifyContent(line.length, free);
-      let mainCursor = isRow && style.flexDirection === FlexDirection.ROW_REVERSE
-        ? scs.ox + res.w - mainOffset
+      const isMainReverse = style.flexDirection === (isRow ? FlexDirection.ROW_REVERSE : FlexDirection.COLUMN_REVERSE);
+      let mainCursor = isMainReverse
+        ? (isRow ? scs.ox + res.w : scs.oy + res.h) - mainOffset
         : (isRow ? scs.ox : scs.oy) + mainOffset;
       // 循环每个item子项，用计算好的坐标位置作为主轴起始+限制进行普通布局，结束后得到副轴尺寸给到下一行
       let cross = 0;
@@ -634,7 +635,7 @@ export class Element extends Node implements IElementNode {
           computedStyle.display = Display.BLOCK;
         }
         if (isRow) {
-          if (style.flexDirection === FlexDirection.ROW_REVERSE) {
+          if (isMainReverse) {
             mainCursor -= sizeList[i] + computedStyle.marginRight;
           }
           const scs: Constraints = Object.assign({}, cs, {
@@ -669,7 +670,7 @@ export class Element extends Node implements IElementNode {
               item.offsetXY(0, remaining * 0.5);
             }
           }
-          if (style.flexDirection === FlexDirection.ROW_REVERSE) {
+          if (isMainReverse) {
             mainCursor -= computedStyle.marginLeft + gap;
           }
           else {
@@ -679,15 +680,20 @@ export class Element extends Node implements IElementNode {
         }
         else {
           const itemStyle = computedStyle;
+          const itemStartMargin = item.style.marginTop.u === Unit.AUTO ? 0 : itemStyle.marginTop;
+          if (isMainReverse) {
+            const itemEndMargin = item.style.marginBottom.u === Unit.AUTO ? 0 : itemStyle.marginBottom;
+            mainCursor -= sizeList[i] + itemEndMargin;
+          }
           const itemConstraints: Constraints = Object.assign({}, cs, {
             ox: scs.ox,
-            oy: mainCursor + itemStyle.marginTop,
+            oy: mainCursor + itemStartMargin,
             aw: res.w,
             ah: sizeList[i],
             pbw: scs.aw,
             pbh: sizeList[i],
             cx: scs.ox,
-            cy: mainCursor + itemStyle.marginTop,
+            cy: mainCursor + itemStartMargin,
           });
           const itemLbc = new LineBoxContext(itemConstraints.cx, itemConstraints.cy, this);
           item.layFlow(itemConstraints, absMap, global, new MarginContext(), itemLbc, offset);
@@ -712,7 +718,12 @@ export class Element extends Node implements IElementNode {
             item.result!.w = itemWidth;
           }
           item.offsetXY(crossOffset, 0);
-          mainCursor += sizeList[i] + itemStyle.marginTop + itemStyle.marginBottom + gap;
+          if (isMainReverse) {
+            mainCursor -= itemStyle.marginTop + gap;
+          }
+          else {
+            mainCursor += sizeList[i] + itemStyle.marginTop + itemStyle.marginBottom + gap;
+          }
           cross = Math.max(cross, outerWidth);
         }
       }
@@ -851,30 +862,24 @@ export class Element extends Node implements IElementNode {
     let autoCount = 0;
     line.forEach(item => {
       const { marginLeft, marginRight } = item.style;
-      if (isRow) {
-        if (marginLeft.u === Unit.AUTO) {
-          autoCount++;
-        }
-        if (marginRight.u === Unit.AUTO) {
-          autoCount++;
-        }
-      }
-      else {}
+      const startMargin = isRow ? marginLeft : item.style.marginTop;
+      const endMargin = isRow ? marginRight : item.style.marginBottom;
+      if (startMargin.u === Unit.AUTO) autoCount++;
+      if (endMargin.u === Unit.AUTO) autoCount++;
     });
     if (free > 0 && autoCount) {
       const margin = free / autoCount;
       line.forEach(item => {
-        const { marginLeft, marginRight } = item.style;
+        const { marginLeft, marginRight, marginTop, marginBottom } = item.style;
         const computedStyle = item.computedStyle;
         if (isRow) {
-          if (marginLeft.u === Unit.AUTO) {
-            computedStyle.marginLeft = margin;
-          }
-          if (marginRight.u === Unit.AUTO) {
-            computedStyle.marginRight = margin;
-          }
+          if (marginLeft.u === Unit.AUTO) computedStyle.marginLeft = margin;
+          if (marginRight.u === Unit.AUTO) computedStyle.marginRight = margin;
         }
-        else {}
+        else {
+          if (marginTop.u === Unit.AUTO) computedStyle.marginTop = margin;
+          if (marginBottom.u === Unit.AUTO) computedStyle.marginBottom = margin;
+        }
       });
       return 0;
     }

@@ -279,4 +279,36 @@ describe('flex', () => {
     expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 10, w: 60, h: 20 });
   });
 
+  it('flex-column-reverse-001', () => {
+    const node = genNode({
+      style: {
+        display: 'flex',
+        flexDirection: 'columnReverse',
+        width: 100,
+        height: 100,
+      },
+      children: [
+        { style: { width: 20, height: 20 } },
+        { style: { width: 30, height: 30 } },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 80, w: 20, h: 20 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 50, w: 30, h: 30 });
+  });
+
+  it('flex-column-auto-margin-001', () => {
+    const node = genNode({
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        width: 100,
+        height: 100,
+      },
+      children: [{ style: { width: 20, height: 20, marginTop: 'auto', marginBottom: 'auto' } }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 40, w: 20, h: 20 });
+  });
+
 });
