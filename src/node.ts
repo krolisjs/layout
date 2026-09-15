@@ -581,13 +581,18 @@ export class Element extends Node implements IElementNode {
     let sum = 0;
     // 判断是否需要分行，根据flexWrap+假设主尺寸hypoList来统计尺寸和计算
     hypoList.forEach((hypo, i) => {
+      const itemStyle = flexChildren[i].computedStyle;
+      const mainMargin = isRow
+        ? itemStyle.marginLeft + itemStyle.marginRight
+        : itemStyle.marginTop + itemStyle.marginBottom;
+      const outerHypo = hypo + mainMargin;
       if (isMultiLine) {
-        if (sum + hypo > available) {
+        if (sum + outerHypo > available) {
           // 确保行内至少有一个
           if (line.length) {
             flexLines.push(line);
             line = [flexChildren[i]];
-            sum = hypo;
+            sum = outerHypo;
           }
           else {
             flexLines.push([flexChildren[i]]);
@@ -596,7 +601,7 @@ export class Element extends Node implements IElementNode {
         }
         else {
           line.push(flexChildren[i]);
-          sum += hypo;
+          sum += outerHypo;
         }
       }
       else {
