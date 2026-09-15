@@ -676,7 +676,7 @@ export class Element extends Node implements IElementNode {
           else {
             mainCursor += sizeList[i] + computedStyle.marginLeft + computedStyle.marginRight + gap;
           }
-          cross = Math.max(cross, item.result!.h);
+          cross = Math.max(cross, item.result!.h + getMbpV(computedStyle));
         }
         else {
           const itemStyle = computedStyle;

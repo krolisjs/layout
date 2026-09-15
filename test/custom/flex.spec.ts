@@ -311,4 +311,17 @@ describe('flex', () => {
     expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 40, w: 20, h: 20 });
   });
 
+  it('flex-row-wrap-cross-margin-001', () => {
+    const node = genNode({
+      style: { display: 'flex', flexWrap: 'wrap', width: 100 },
+      children: [
+        { style: { width: 100, height: 10, marginBottom: 10 } },
+        { style: { width: 100, height: 10 } },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 100, h: 10 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 20, w: 100, h: 10 });
+  });
+
 });
