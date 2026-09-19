@@ -337,4 +337,51 @@ describe('flex', () => {
     expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 10, w: 50, h: 10 });
   });
 
+  it('flex-row-auto-height-align-center-001', () => {
+    const node = genNode({
+      style: { display: 'flex', alignItems: 'center', width: 100 },
+      children: [{ style: { width: 20, height: 20 } }, { style: { width: 20, height: 10 } }],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({ h: 20 });
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 5, w: 20, h: 10 });
+  });
+
+  it('flex-row-auto-height-align-stretch-001', () => {
+    const node = genNode({
+      style: { display: 'flex', alignItems: 'stretch', width: 100 },
+      children: [{ style: { width: 20, height: 20 } }, { style: { width: 20 } }],
+    });
+    node.lay(inputConstraints);
+    expect(node.mixedResult).toMatchObject({ h: 20 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 0, w: 20, h: 20 });
+  });
+
+  it('flex-row-wrap-reverse-001', () => {
+    const node = genNode({
+      style: { display: 'flex', flexWrap: 'wrapReverse', width: 100, height: 40 },
+      children: [
+        { style: { width: 60, height: 10 } },
+        { style: { width: 60, height: 10 } },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 30, w: 60, h: 10 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 10, w: 60, h: 10 });
+  });
+
+  it('flex-row-wrap-reverse-align-content-start-001', () => {
+    const node = genNode({
+      style: { display: 'flex', flexWrap: 'wrapReverse', alignContent: 'flexStart', width: 100, height: 40 },
+      children: [
+        { style: { width: 60, height: 10 } },
+        { style: { width: 60, height: 10 } },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 30, w: 60, h: 10 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 20, w: 60, h: 10 });
+  });
+
 });

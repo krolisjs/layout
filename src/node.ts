@@ -1,4 +1,5 @@
 import {
+  AlignContent,
   AlignItems,
   AlignSelf,
   BoxSizing,
@@ -574,7 +575,8 @@ export class Element extends Node implements IElementNode {
       minList.push(bmm.min);
     }
     const isMultiLine = [FlexWrap.WRAP, FlexWrap.WRAP_REVERSE].includes(computedStyle.flexWrap);
-    const singleLineCrossSize = isRow && !isMultiLine && style.height.u !== Unit.AUTO ? res.h : null;
+    const definiteCrossSize = isRow && isFixed(style.height, true, cs.pbh) ? res.h : null;
+    const singleLineCrossSize = !isMultiLine ? definiteCrossSize : null;
     const flexLines: Node[][] = [];
     let line: Node[] = [];
     const available = isRow ? res.w : res.h;
@@ -615,6 +617,7 @@ export class Element extends Node implements IElementNode {
     // 遍历每一行flex进行处理
     let start = 0;
     let crossCursor = scs.oy;
+    const rowMetrics: { cross: number; origin: number; baselines: number[] }[] = [];
     flexLines.forEach(line => {
       // 多行的话用start/end计算children的起止索引范围，对应上grow/shrink/basis/max/min/hypo的索引
       const end = start + line.length;
@@ -655,26 +658,7 @@ export class Element extends Node implements IElementNode {
           const slbc = new LineBoxContext(scs.cx, scs.cy, this);
           item.layFlow(scs, absMap, global, new MarginContext(), slbc, offset);
           item.result!.w = sizeList[i];
-          const align = computedStyle.alignSelf === AlignSelf.AUTO
-            ? this.computedStyle.alignItems
-            : computedStyle.alignSelf;
-          if (singleLineCrossSize !== null
-            && (align === AlignItems.NORMAL || align === AlignItems.STRETCH)
-            && item.style.height.u === Unit.AUTO
-          ) {
-            item.result!.h = Math.max(0, singleLineCrossSize - getMbpV(computedStyle));
-          }
           baselineList[i] = getInlineBlockBaseline(item as unknown as IElementNode);
-          if (singleLineCrossSize !== null) {
-            const flexAlign = this.getFlexAlign(item);
-            const remaining = singleLineCrossSize - item.result!.h - getMbpV(computedStyle);
-            if (flexAlign === AlignItems.FLEX_END) {
-              item.offsetXY(0, remaining);
-            }
-            else if (flexAlign === AlignItems.CENTER) {
-              item.offsetXY(0, remaining * 0.5);
-            }
-          }
           if (isMainReverse) {
             mainCursor -= computedStyle.marginLeft + gap;
           }
@@ -732,22 +716,77 @@ export class Element extends Node implements IElementNode {
           cross = Math.max(cross, outerWidth);
         }
       }
-      if (isRow && singleLineCrossSize === null) {
-        const maxBaseline = Math.max(...baselineList);
-        for (let i = 0, len = line.length; i < len; i++) {
-          const align = line[i].computedStyle.alignSelf === AlignSelf.AUTO
-            ? this.computedStyle.alignItems
-            : line[i].computedStyle.alignSelf;
-          if (align === AlignItems.BASELINE || align === AlignSelf.BASELINE) {
-            line[i].offsetXY(0, maxBaseline - baselineList[i]);
-          }
-        }
-      }
       if (isRow) {
+        const baselineItems = line.filter(item => this.getFlexAlign(item) === AlignItems.BASELINE);
+        if (baselineItems.length) {
+          const maxBaseline = Math.max(...line.map((item, index) =>
+            this.getFlexAlign(item) === AlignItems.BASELINE ? baselineList[index] : 0));
+          line.forEach((item, index) => {
+            if (this.getFlexAlign(item) === AlignItems.BASELINE) {
+              cross = Math.max(cross, maxBaseline - baselineList[index] + item.result!.h + getMbpV(item.computedStyle));
+            }
+          });
+        }
+        cross = singleLineCrossSize ?? cross;
+        rowMetrics.push({ cross, origin: crossCursor, baselines: baselineList });
         crossCursor += cross;
       }
       start = end;
     });
+
+    if (isRow && rowMetrics.length) {
+      const totalCross = crossCursor - scs.oy;
+      const containerCross = definiteCrossSize ?? totalCross;
+      const freeCross = containerCross - totalCross;
+      const alignContent = computedStyle.alignContent;
+      let lineOffset = 0;
+      let lineGap = 0;
+      if (isMultiLine) {
+        if ((alignContent === AlignContent.NORMAL || alignContent === AlignContent.STRETCH) && freeCross > 0) {
+          rowMetrics.forEach(metric => { metric.cross += freeCross / rowMetrics.length; });
+        }
+        else if (alignContent === AlignContent.FLEX_END) {
+          lineOffset = freeCross;
+        }
+        else if (alignContent === AlignContent.CENTER) {
+          lineOffset = freeCross * 0.5;
+        }
+        else if (alignContent === AlignContent.SPACE_BETWEEN && rowMetrics.length > 1) {
+          lineGap = Math.max(0, freeCross) / (rowMetrics.length - 1);
+        }
+        else if (alignContent === AlignContent.SPACE_AROUND || alignContent === AlignContent.SPACE_EVENLY) {
+          lineGap = Math.max(0, freeCross) / (rowMetrics.length + (alignContent === AlignContent.SPACE_EVENLY ? 1 : 0));
+          lineOffset = freeCross < 0 ? freeCross * 0.5 : lineGap * (alignContent === AlignContent.SPACE_EVENLY ? 1 : 0.5);
+        }
+      }
+      const crossReverse = computedStyle.flexWrap === FlexWrap.WRAP_REVERSE;
+      flexLines.forEach((line, lineIndex) => {
+        const metric = rowMetrics[lineIndex];
+        const lineOrigin = scs.oy + (crossReverse ? containerCross - lineOffset - metric.cross : lineOffset);
+        const maxBaseline = Math.max(...line.map((item, index) =>
+          this.getFlexAlign(item) === AlignItems.BASELINE ? metric.baselines[index] : 0));
+        line.forEach((item, index) => {
+          const align = this.getFlexAlign(item);
+          const itemStyle = item.computedStyle;
+          if (align === AlignItems.STRETCH && item.style.height.u === Unit.AUTO) {
+            item.result!.h = Math.max(0, metric.cross - getMbpV(itemStyle));
+          }
+          const remaining = metric.cross - item.result!.h - getMbpV(itemStyle);
+          let itemOffset = 0;
+          if (align === AlignItems.CENTER) {
+            itemOffset = remaining * 0.5;
+          }
+          else if (align === AlignItems.BASELINE) {
+            itemOffset = maxBaseline - metric.baselines[index];
+          }
+          else if ((align === AlignItems.FLEX_END) !== crossReverse) {
+            itemOffset = remaining;
+          }
+          item.offsetXY(0, lineOrigin - metric.origin + itemOffset);
+        });
+        lineOffset += metric.cross + lineGap;
+      });
+    }
 
     // let maxBaseline = 0;
     // let maxBaselineBelow = 0;
