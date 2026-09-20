@@ -17,9 +17,13 @@ describe('flex', () => {
         height: 40,
       },
       children: [{
-        style: { flex: 1 },
+        style: {
+          flex: 1,
+        },
       }, {
-        style: { flex: 1 },
+        style: {
+          flex: 1,
+        },
       }],
     });
     node.lay(inputConstraints);
@@ -219,7 +223,9 @@ describe('flex', () => {
       }],
     });
     node.lay(inputConstraints);
-    expect(node.mixedResult).toMatchObject({ h: 48 });
+    expect(node.mixedResult).toMatchObject({
+      h: 48,
+    });
     expect(node.children[0].mixedResult).toMatchObject({
       x: 0,
       y: 15,
@@ -240,43 +246,127 @@ describe('flex', () => {
         width: 100,
         height: 100,
       },
-      children: [{ style: { width: 20, height: 50 } }, { style: { width: 40, height: 50 } }],
+      children: [{
+        style: {
+          width: 20,
+          height: 50,
+        },
+      }, {
+        style: {
+          width: 40,
+          height: 50,
+        },
+      }],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 50 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 50, w: 40, h: 50 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 20,
+      h: 50,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 50,
+      w: 40,
+      h: 50,
+    });
   });
 
   it('flex-column-stretch-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexDirection: 'column', width: 100, height: 100 },
-      children: [{ style: { width: 20, height: 20 } }],
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        width: 100,
+        height: 100,
+      },
+      children: [{
+        style: {
+          width: 20,
+          height: 20,
+        },
+      }],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 20,
+      h: 20,
+    });
   });
 
   it('flex-row-reverse-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexDirection: 'rowReverse', width: 100, height: 20 },
-      children: [{ style: { width: 20, height: 10 } }, { style: { width: 30, height: 10 } }],
+      style: {
+        display: 'flex',
+        flexDirection: 'rowReverse',
+        width: 100,
+        height: 20,
+      },
+      children: [{
+        style: {
+          width: 20,
+          height: 10,
+        },
+      }, {
+        style: {
+          width: 30,
+          height: 10,
+        },
+      }],
     });
     node.lay({ ...inputConstraints, aw: 1000 });
-    expect(node.children[0].mixedResult).toMatchObject({ x: 80, y: 0, w: 20, h: 10 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 50, y: 0, w: 30, h: 10 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 80,
+      y: 0,
+      w: 20,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 50,
+      y: 0,
+      w: 30,
+      h: 10,
+    });
   });
 
   it('flex-wrap-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexWrap: 'wrap', width: 100 },
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        width: 100,
+      },
       children: [
-        { style: { width: 60, height: 10 } },
-        { style: { width: 60, height: 20 } },
+        {
+          style: {
+            width: 60,
+            height: 10,
+          },
+        },
+        {
+          style: {
+            width: 60,
+            height: 20,
+          },
+        },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 60, h: 10 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 10, w: 60, h: 20 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 60,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 10,
+      w: 60,
+      h: 20,
+    });
   });
 
   it('flex-column-reverse-001', () => {
@@ -288,13 +378,33 @@ describe('flex', () => {
         height: 100,
       },
       children: [
-        { style: { width: 20, height: 20 } },
-        { style: { width: 30, height: 30 } },
+        {
+          style: {
+            width: 20,
+            height: 20,
+          },
+        },
+        {
+          style: {
+            width: 30,
+            height: 30,
+          },
+        },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 80, w: 20, h: 20 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 50, w: 30, h: 30 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 80,
+      w: 20,
+      h: 20,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 50,
+      w: 30,
+      h: 30,
+    });
   });
 
   it('flex-column-auto-margin-001', () => {
@@ -305,109 +415,314 @@ describe('flex', () => {
         width: 100,
         height: 100,
       },
-      children: [{ style: { width: 20, height: 20, marginTop: 'auto', marginBottom: 'auto' } }],
+      children: [{
+        style: {
+          width: 20,
+          height: 20,
+          marginTop: 'auto',
+          marginBottom: 'auto',
+        },
+      }],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 40, w: 20, h: 20 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 40,
+      w: 20,
+      h: 20,
+    });
   });
 
   it('flex-row-wrap-cross-margin-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexWrap: 'wrap', width: 100 },
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        width: 100,
+      },
       children: [
-        { style: { width: 100, height: 10, marginBottom: 10 } },
-        { style: { width: 100, height: 10 } },
+        {
+          style: {
+            width: 100,
+            height: 10,
+            marginBottom: 10,
+          },
+        },
+        {
+          style: {
+            width: 100,
+            height: 10,
+          },
+        },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 100, h: 10 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 20, w: 100, h: 10 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 20,
+      w: 100,
+      h: 10,
+    });
   });
 
   it('flex-row-wrap-main-margin-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexWrap: 'wrap', width: 100 },
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        width: 100,
+      },
       children: [
-        { style: { width: 50, height: 10, marginRight: 50 } },
-        { style: { width: 50, height: 10 } },
+        {
+          style: {
+            width: 50,
+            height: 10,
+            marginRight: 50,
+          },
+        },
+        {
+          style: {
+            width: 50,
+            height: 10,
+          },
+        },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 50, h: 10 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 10, w: 50, h: 10 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 50,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 10,
+      w: 50,
+      h: 10,
+    });
   });
 
   it('flex-row-auto-height-align-center-001', () => {
     const node = genNode({
-      style: { display: 'flex', alignItems: 'center', width: 100 },
-      children: [{ style: { width: 20, height: 20 } }, { style: { width: 20, height: 10 } }],
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        width: 100,
+      },
+      children: [{
+        style: {
+          width: 20,
+          height: 20,
+        },
+      }, {
+        style: {
+          width: 20,
+          height: 10,
+        },
+      }],
     });
     node.lay(inputConstraints);
-    expect(node.mixedResult).toMatchObject({ h: 20 });
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 5, w: 20, h: 10 });
+    expect(node.mixedResult).toMatchObject({
+      h: 20,
+    });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 20,
+      h: 20,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 20,
+      y: 5,
+      w: 20,
+      h: 10,
+    });
   });
 
   it('flex-row-auto-height-align-stretch-001', () => {
     const node = genNode({
-      style: { display: 'flex', alignItems: 'stretch', width: 100 },
-      children: [{ style: { width: 20, height: 20 } }, { style: { width: 20 } }],
+      style: {
+        display: 'flex',
+        alignItems: 'stretch',
+        width: 100,
+      },
+      children: [{
+        style: {
+          width: 20,
+          height: 20,
+        },
+      }, {
+        style: {
+          width: 20,
+        },
+      }],
     });
     node.lay(inputConstraints);
-    expect(node.mixedResult).toMatchObject({ h: 20 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 0, w: 20, h: 20 });
+    expect(node.mixedResult).toMatchObject({
+      h: 20,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 20,
+      y: 0,
+      w: 20,
+      h: 20,
+    });
   });
 
   it('flex-row-stretch-resolves-descendant-percent-height-001', () => {
     const node = genNode({
-      style: { display: 'flex', alignItems: 'stretch', width: 100, height: 20 },
+      style: {
+        display: 'flex',
+        alignItems: 'stretch',
+        width: 100,
+        height: 20,
+      },
       children: [{
-        style: { width: 20 },
-        children: [{ style: { height: '50%' } }],
+        style: {
+          width: 20,
+        },
+        children: [{
+          style: {
+            height: '50%',
+          },
+        }],
       }],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
-    expect(node.children[0].children[0].mixedResult).toMatchObject({ x: 0, y: 0, h: 10 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 20,
+      h: 20,
+    });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      h: 10,
+    });
   });
 
   it('flex-column-wrap-places-lines-on-cross-axis-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexDirection: 'column', flexWrap: 'wrap', width: 40, height: 100 },
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        flexWrap: 'wrap',
+        width: 40,
+        height: 100,
+      },
       children: [
-        { style: { width: 10, height: 60 } },
-        { style: { width: 10, height: 60 } },
+        {
+          style: {
+            width: 10,
+            height: 60,
+          },
+        },
+        {
+          style: {
+            width: 10,
+            height: 60,
+          },
+        },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 10, h: 60 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 0, w: 10, h: 60 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 60,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 20,
+      y: 0,
+      w: 10,
+      h: 60,
+    });
   });
 
   it('flex-row-wrap-reverse-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexWrap: 'wrapReverse', width: 100, height: 40 },
+      style: {
+        display: 'flex',
+        flexWrap: 'wrapReverse',
+        width: 100,
+        height: 40,
+      },
       children: [
-        { style: { width: 60, height: 10 } },
-        { style: { width: 60, height: 10 } },
+        {
+          style: {
+            width: 60,
+            height: 10,
+          },
+        },
+        {
+          style: {
+            width: 60,
+            height: 10,
+          },
+        },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 30, w: 60, h: 10 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 10, w: 60, h: 10 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 30,
+      w: 60,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 10,
+      w: 60,
+      h: 10,
+    });
   });
 
   it('flex-row-wrap-reverse-align-content-start-001', () => {
     const node = genNode({
-      style: { display: 'flex', flexWrap: 'wrapReverse', alignContent: 'flexStart', width: 100, height: 40 },
+      style: {
+        display: 'flex',
+        flexWrap: 'wrapReverse',
+        alignContent: 'flexStart',
+        width: 100,
+        height: 40,
+      },
       children: [
-        { style: { width: 60, height: 10 } },
-        { style: { width: 60, height: 10 } },
+        {
+          style: {
+            width: 60,
+            height: 10,
+          },
+        },
+        {
+          style: {
+            width: 60,
+            height: 10,
+          },
+        },
       ],
     });
     node.lay(inputConstraints);
-    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 30, w: 60, h: 10 });
-    expect(node.children[1].mixedResult).toMatchObject({ x: 0, y: 20, w: 60, h: 10 });
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 0,
+      y: 30,
+      w: 60,
+      h: 10,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 0,
+      y: 20,
+      w: 60,
+      h: 10,
+    });
   });
 
 });
