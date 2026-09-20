@@ -575,7 +575,11 @@ export class Element extends Node implements IElementNode {
       minList.push(bmm.min);
     }
     const isMultiLine = [FlexWrap.WRAP, FlexWrap.WRAP_REVERSE].includes(computedStyle.flexWrap);
-    const definiteCrossSize = isRow && isFixed(style.height, true, cs.pbh) ? res.h : null;
+    const crossStyle = isRow ? style.height : style.width;
+    const crossContainingBlock = isRow ? cs.pbh : cs.pbw;
+    const definiteCrossSize = isFixed(crossStyle, true, crossContainingBlock)
+      ? (isRow ? res.h : res.w)
+      : null;
     const singleLineCrossSize = !isMultiLine ? definiteCrossSize : null;
     const flexLines: Node[][] = [];
     let line: Node[] = [];
@@ -728,13 +732,17 @@ export class Element extends Node implements IElementNode {
           });
         }
         cross = singleLineCrossSize ?? cross;
-        rowMetrics.push({ cross, origin: crossCursor, baselines: baselineList });
-        crossCursor += cross;
       }
+      rowMetrics.push({
+        cross: isRow ? singleLineCrossSize ?? cross : cross,
+        origin: isRow ? crossCursor : scs.ox,
+        baselines: baselineList,
+      });
+      crossCursor += isRow ? singleLineCrossSize ?? cross : cross;
       start = end;
     });
 
-    if (isRow && rowMetrics.length) {
+    if (rowMetrics.length) {
       const totalCross = crossCursor - scs.oy;
       const containerCross = definiteCrossSize ?? totalCross;
       const freeCross = containerCross - totalCross;
@@ -762,16 +770,48 @@ export class Element extends Node implements IElementNode {
       const crossReverse = computedStyle.flexWrap === FlexWrap.WRAP_REVERSE;
       flexLines.forEach((line, lineIndex) => {
         const metric = rowMetrics[lineIndex];
-        const lineOrigin = scs.oy + (crossReverse ? containerCross - lineOffset - metric.cross : lineOffset);
+        const lineOrigin = (isRow ? scs.oy : scs.ox) + (crossReverse ? containerCross - lineOffset - metric.cross : lineOffset);
         const maxBaseline = Math.max(...line.map((item, index) =>
           this.getFlexAlign(item) === AlignItems.BASELINE ? metric.baselines[index] : 0));
         line.forEach((item, index) => {
           const align = this.getFlexAlign(item);
           const itemStyle = item.computedStyle;
-          if (align === AlignItems.STRETCH && item.style.height.u === Unit.AUTO) {
-            item.result!.h = Math.max(0, metric.cross - getMbpV(itemStyle));
+          const crossAuto = isRow ? item.style.height.u === Unit.AUTO : item.style.width.u === Unit.AUTO;
+          const crossMbp = isRow ? getMbpV(itemStyle) : itemStyle.marginLeft + itemStyle.marginRight;
+          const crossSize = Math.max(0, metric.cross - crossMbp);
+          if (align === AlignItems.STRETCH && crossAuto && item.nodeType === NodeType.Element) {
+            const itemResult = item.result!;
+            if (isRow) {
+              itemResult.h = crossSize;
+            }
+            else {
+              itemResult.w = crossSize;
+            }
+            const childConstraints: Constraints = Object.assign({}, cs, {
+              ox: itemResult.x + itemStyle.paddingLeft + itemStyle.borderLeftWidth,
+              oy: itemResult.y + itemStyle.paddingTop + itemStyle.borderTopWidth,
+              aw: itemResult.w,
+              ah: itemResult.h,
+              pbw: itemResult.w,
+              pbh: itemResult.h,
+              cx: itemResult.x + itemStyle.paddingLeft + itemStyle.borderLeftWidth,
+              cy: itemResult.y + itemStyle.paddingTop + itemStyle.borderTopWidth,
+            });
+            const itemLbc = new LineBoxContext(childConstraints.cx, childConstraints.cy, this);
+            for (const child of item.children) {
+              child.layFlow(childConstraints, absMap, global, new MarginContext(), itemLbc, offset);
+            }
           }
-          const remaining = metric.cross - item.result!.h - getMbpV(itemStyle);
+          if (align === AlignItems.STRETCH && crossAuto) {
+            if (isRow) {
+              item.result!.h = crossSize;
+            }
+            else {
+              item.result!.w = crossSize;
+            }
+          }
+          const itemCrossSize = isRow ? item.result!.h : item.result!.w;
+          const remaining = metric.cross - itemCrossSize - crossMbp;
           let itemOffset = 0;
           if (align === AlignItems.CENTER) {
             itemOffset = remaining * 0.5;
@@ -782,7 +822,12 @@ export class Element extends Node implements IElementNode {
           else if ((align === AlignItems.FLEX_END) !== crossReverse) {
             itemOffset = remaining;
           }
-          item.offsetXY(0, lineOrigin - metric.origin + itemOffset);
+          if (isRow) {
+            item.offsetXY(0, lineOrigin - metric.origin + itemOffset);
+          }
+          else {
+            item.offsetXY(lineOrigin - metric.origin + itemOffset, 0);
+          }
         });
         lineOffset += metric.cross + lineGap;
       });

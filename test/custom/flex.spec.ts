@@ -358,6 +358,32 @@ describe('flex', () => {
     expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 0, w: 20, h: 20 });
   });
 
+  it('flex-row-stretch-resolves-descendant-percent-height-001', () => {
+    const node = genNode({
+      style: { display: 'flex', alignItems: 'stretch', width: 100, height: 20 },
+      children: [{
+        style: { width: 20 },
+        children: [{ style: { height: '50%' } }],
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
+    expect(node.children[0].children[0].mixedResult).toMatchObject({ x: 0, y: 0, h: 10 });
+  });
+
+  it('flex-column-wrap-places-lines-on-cross-axis-001', () => {
+    const node = genNode({
+      style: { display: 'flex', flexDirection: 'column', flexWrap: 'wrap', width: 40, height: 100 },
+      children: [
+        { style: { width: 10, height: 60 } },
+        { style: { width: 10, height: 60 } },
+      ],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({ x: 0, y: 0, w: 10, h: 60 });
+    expect(node.children[1].mixedResult).toMatchObject({ x: 20, y: 0, w: 10, h: 60 });
+  });
+
   it('flex-row-wrap-reverse-001', () => {
     const node = genNode({
       style: { display: 'flex', flexWrap: 'wrapReverse', width: 100, height: 40 },
