@@ -73,6 +73,40 @@ describe('flex', () => {
     });
   });
 
+  it('flex-row-border-box-main-size-001', () => {
+    const node = genNode({
+      style: {
+        display: 'flex',
+        width: 300,
+      },
+      children: [{
+        style: {
+          boxSizing: 'borderBox',
+          width: 100,
+          paddingLeft: 10,
+          paddingRight: 10,
+          flexGrow: 1,
+        },
+      }, {
+        style: {
+          width: 100,
+          flexGrow: 1,
+        },
+      }],
+    });
+    node.lay(inputConstraints);
+    expect(node.children[0].mixedResult).toMatchObject({
+      x: 10,
+      w: 130,
+      flexBasis: 80,
+    });
+    expect(node.children[1].mixedResult).toMatchObject({
+      x: 150,
+      w: 150,
+      flexBasis: 100,
+    });
+  });
+
   it('flex-row-shrink-001', () => {
     const node = genNode({
       style: {

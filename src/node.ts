@@ -297,21 +297,27 @@ export abstract class Node implements INode {
     const minMain = isRow ? minWidth : minHeight;
     const maxMain = isRow ? maxWidth : maxHeight;
     const pbw = isRow ? cs.pbw : cs.pbh;
+    const mainBox = isRow
+      ? computedStyle.borderLeftWidth + computedStyle.borderRightWidth + computedStyle.paddingLeft + computedStyle.paddingRight
+      : computedStyle.borderTopWidth + computedStyle.borderBottomWidth + computedStyle.paddingTop + computedStyle.paddingBottom;
+    const toContentBox = (value: number) => style.boxSizing === BoxSizing.BORDER_BOX
+      ? Math.max(0, value - mainBox)
+      : value;
     let basis = 0;
     // max/min有具体值则求得，否则为无穷/求shrink
-    let max = maxMain.u === Unit.AUTO ? Infinity : calLength(maxMain, pbw || 0, global.rem, computedStyle.fontSize);
-    let min = minMain.u === Unit.AUTO ? 0 : calLength(minMain, pbw || 0, global.rem, computedStyle.fontSize);
+    let max = maxMain.u === Unit.AUTO ? Infinity : toContentBox(calLength(maxMain, pbw || 0, global.rem, computedStyle.fontSize));
+    let min = minMain.u === Unit.AUTO ? 0 : toContentBox(calLength(minMain, pbw || 0, global.rem, computedStyle.fontSize));
     // basis3种情况：auto、固定、content
     const isBasisAuto = flexBasis.u === Unit.AUTO;
     const isBasisFixed = isFixed(flexBasis, true, pbw);
     let isBasisContent = flexBasis.u === Unit.CONTENT;
     // flex的item固定basis计算
     if (isBasisFixed) {
-      basis = calLength(flexBasis, pbw || 0, global.rem, computedStyle.fontSize);
+      basis = toContentBox(calLength(flexBasis, pbw || 0, global.rem, computedStyle.fontSize));
     }
     // 已声明主轴尺寸的，当basis是auto时为主轴的值
     else if (isBasisAuto && isFixed(main, true, pbw)) {
-      basis = calLength(main, pbw || 0, global.rem, computedStyle.fontSize);
+      basis = toContentBox(calLength(main, pbw || 0, global.rem, computedStyle.fontSize));
     }
     // 非固定尺寸的basis为auto时降级为content
     else if (isBasisAuto) {
@@ -589,8 +595,8 @@ export class Element extends Node implements IElementNode {
     hypoList.forEach((hypo, i) => {
       const itemStyle = flexChildren[i].computedStyle;
       const mainMargin = isRow
-        ? itemStyle.marginLeft + itemStyle.marginRight
-        : itemStyle.marginTop + itemStyle.marginBottom;
+        ? getMbpH(itemStyle)
+        : getMbpV(itemStyle);
       const outerHypo = hypo + mainMargin;
       if (isMultiLine) {
         if (sum + outerHypo > available) {
@@ -625,7 +631,7 @@ export class Element extends Node implements IElementNode {
     flexLines.forEach(line => {
       // 多行的话用start/end计算children的起止索引范围，对应上grow/shrink/basis/max/min/hypo的索引
       const end = start + line.length;
-      const sizeList = this.resolveFlexMainSize(line, available,
+      const sizeList = this.resolveFlexMainSize(line, available, isRow,
         growList.slice(start, end), shrinkList.slice(start, end), hypoList.slice(start, end),
         maxList.slice(start, end), minList.slice(start, end),
       );
@@ -667,7 +673,7 @@ export class Element extends Node implements IElementNode {
             mainCursor -= computedStyle.marginLeft + gap;
           }
           else {
-            mainCursor += sizeList[i] + computedStyle.marginLeft + computedStyle.marginRight + gap;
+            mainCursor += sizeList[i] + getMbpH(computedStyle) + gap;
           }
           cross = Math.max(cross, item.result!.h + getMbpV(computedStyle));
         }
@@ -715,7 +721,7 @@ export class Element extends Node implements IElementNode {
             mainCursor -= itemStyle.marginTop + gap;
           }
           else {
-            mainCursor += sizeList[i] + itemStyle.marginTop + itemStyle.marginBottom + gap;
+            mainCursor += sizeList[i] + getMbpV(itemStyle) + gap;
           }
           cross = Math.max(cross, outerWidth);
         }
@@ -885,15 +891,16 @@ export class Element extends Node implements IElementNode {
    * https://www.w3.org/TR/css-flexbox-1/#layout-algorithm
    * 随后按算法一步步来 https://zhuanlan.zhihu.com/p/354567655
    */
-  private resolveFlexMainSize(line: Node[], containerMain: number, growList: number[], shrinkList: number[], hypoList: number[], maxList: number[], minList: number[]) {
+  private resolveFlexMainSize(line: Node[], containerMain: number, isRow: boolean, growList: number[], shrinkList: number[], hypoList: number[], maxList: number[], minList: number[]) {
     const sizeList = hypoList.slice(0);
     const frozenList = line.map(() => false);
-    const hypoSum = hypoList.reduce((a, b) => a + b, 0);
+    const mainMbp = line.map(item => isRow ? getMbpH(item.computedStyle) : getMbpV(item.computedStyle));
+    const hypoSum = hypoList.reduce((total, size, index) => total + size + mainMbp[index], 0);
     const isGrow = containerMain - hypoSum > 0;
     const epsilon = 1e-9;
     // 算法不停循环分配，查找违规冻结，知道所有未冻结节点不再违反max/min约束
     while (true) {
-      const used = sizeList.reduce((a, b) => a + b, 0);
+      const used = sizeList.reduce((total, size, index) => total + size + mainMbp[index], 0);
       const remaining = containerMain - used;
       // 伸缩因子求和
       let total = 0;
@@ -945,7 +952,7 @@ export class Element extends Node implements IElementNode {
   private resolveFlexAutoMargin(line: Node[], sizeList: number[], available: number, isRow: boolean) {
     const sum = sizeList.reduce((total, size, i) => {
       const computedStyle = line[i].computedStyle;
-      return total + size + computedStyle.marginLeft + computedStyle.marginRight;
+      return total + size + (isRow ? getMbpH(computedStyle) : getMbpV(computedStyle));
     }, 0);
     const free = available - sum;
     let autoCount = 0;
